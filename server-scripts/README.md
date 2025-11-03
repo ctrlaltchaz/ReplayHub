@@ -13,7 +13,36 @@ chmod +x *.sh
 
 ## Available Scripts
 
-### 📊 `status.sh` - Check Service Status
+### �️ `setup-database.sh` / `setup-database.ps1` - Database Setup
+Complete database initialization:
+1. Test database connection
+2. Create PostgreSQL extensions
+3. Run Prisma migrations
+4. Generate Prisma client
+5. Apply Row-Level Security policies
+6. Seed initial permissions
+
+**Linux/macOS:**
+```bash
+./setup-database.sh
+```
+
+**Windows:**
+```powershell
+.\setup-database.ps1
+```
+
+**Prerequisites:**
+- PostgreSQL installed and running
+- `DATABASE_URL` configured in `.env` file
+- `psql` command-line tool in PATH
+
+After database setup, create a global admin user:
+```bash
+node scripts/create-admin-user.js
+```
+
+### �📊 `status.sh` - Check Service Status
 View the status of all services, including PM2 processes, PostgreSQL, Nginx, and system resources.
 
 ```bash
