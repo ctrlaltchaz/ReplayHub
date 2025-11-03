@@ -27,13 +27,13 @@ const app = express();
 
 // Serve static files from .next/static
 app.use('/_next/static', express.static(staticDir, {
-  maxAge: '365d',
-  immutable: true
+    maxAge: '365d',
+    immutable: true
 }));
 
 // Serve public files
 app.use(express.static(publicDir, {
-  maxAge: '1d'
+    maxAge: '1d'
 }));
 
 // Load and start Next.js server
@@ -41,14 +41,14 @@ const nextServer = require(path.join(standaloneDir, 'apps', 'web', 'server.js'))
 
 // If Next.js exports a handler, use it
 if (typeof nextServer === 'function') {
-  app.use(nextServer);
+    app.use(nextServer);
 } else if (nextServer && typeof nextServer.default === 'function') {
-  app.use(nextServer.default);
+    app.use(nextServer.default);
 }
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`✓ Server listening on port ${port}`);
+    console.log(`✓ Server listening on port ${port}`);
 });
 
 module.exports = app;
