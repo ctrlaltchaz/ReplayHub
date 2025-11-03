@@ -7,19 +7,16 @@
 
 const path = require('path');
 
-// Set working directory to the standalone server location
-const webDir = path.join(__dirname, '..', 'apps', 'web');
-const standaloneDir = path.join(webDir, '.next', 'standalone');
+// Set the working directory to standalone output
+const projectRoot = path.join(__dirname, '..');
+const standaloneDir = path.join(projectRoot, 'apps', 'web', '.next', 'standalone');
 
-// Important: Set the working directory so Next.js can find its files
+console.log('Starting Next.js standalone server...');
+console.log('Project root:', projectRoot);
+console.log('Standalone directory:', standaloneDir);
+
+// Change to standalone directory so Next.js finds its files
 process.chdir(standaloneDir);
-
-// Tell Next.js where to find static files
-process.env.__NEXT_PRIVATE_STANDALONE_CONFIG = JSON.stringify({
-    basePath: '',
-    i18n: null,
-    compress: true,
-});
 
 // Start the Next.js server
 require(path.join(standaloneDir, 'apps', 'web', 'server.js'));
