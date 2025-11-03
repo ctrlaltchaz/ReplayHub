@@ -15,8 +15,18 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'api.replayhub.app',
+        pathname: '/uploads/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'cdn.discordapp.com',
         pathname: '/avatars/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'assets.mckeonwebsolutions.com',
+        pathname: '/**',
       },
     ],
   },
