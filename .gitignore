@@ -16,6 +16,11 @@ out/
 .vercel
 .turbo
 
+# Archives and compressed files
+*.zip
+*.tar.gz
+*.rar
+
 # Environment variables
 .env
 .env*.local
