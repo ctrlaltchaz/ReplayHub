@@ -70,11 +70,11 @@ async function main() {
       process.exit(0);
     }
     
-    // Create the organization
+    // Create the organization (only required fields)
     const orgId = createId();
     await client.query(`
-      INSERT INTO organisations (id, name, slug, owner_id, branding, features, quick_links_json, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, '{}', '{}', '[]', NOW(), NOW())
+      INSERT INTO organisations (id, name, slug, owner_id, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, NOW(), NOW())
     `, [orgId, orgName, orgSlug, admin.id]);
     
     console.log(`\n✅ Created organization: ${orgName}`);
