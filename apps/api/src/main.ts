@@ -69,6 +69,10 @@ function dumpRoutes(app: INestApplication) {
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Trust proxy - Plesk/nginx terminates SSL
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', 1);
+
   // Serve static files from data directory (where uploads are stored)
   const express = require('express');
   const path = require('path');
