@@ -16,9 +16,9 @@ process.chdir(standaloneDir);
 
 // Tell Next.js where to find static files
 process.env.__NEXT_PRIVATE_STANDALONE_CONFIG = JSON.stringify({
-  basePath: '',
-  i18n: null,
-  compress: true,
+    basePath: '',
+    i18n: null,
+    compress: true,
 });
 
 // Start the Next.js server
