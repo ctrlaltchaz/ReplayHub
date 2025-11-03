@@ -18,5 +18,12 @@ console.log('Standalone directory:', standaloneDir);
 // Change to standalone directory so Next.js finds its files
 process.chdir(standaloneDir);
 
-// Start the Next.js server
-require(path.join(standaloneDir, 'apps', 'web', 'server.js'));
+// Start the Next.js server and export it
+const app = require(path.join(standaloneDir, 'apps', 'web', 'server.js'));
+
+// Passenger needs this export
+if (typeof PhusionPassenger !== 'undefined') {
+    PhusionPassenger.configure({ autoInstall: false });
+}
+
+module.exports = app;
