@@ -1,0 +1,1060 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  INVITE
+  ACCEPT_INVITE
+  REVOKE_INVITE
+}
+
+enum InviteMethod {
+  EMAIL
+  LINK
+}
+
+enum AuditEntityType {
+  GLOBAL_USER
+  ORGANISATION
+  ORG_USER
+  ORG_USER_ROLE
+  ROLE
+  PERMISSION
+  ORG_INVITE
+}
+
+enum FeedbackType {
+  BUG
+  SUGGESTION
+}
+
+enum FeedbackStatus {
+  PENDING
+  REVIEWING
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+enum FeedbackPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model GlobalUser {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  avatar        String?
+  passwordHash  String    @map("password_hash")
+  totpSecret    String?   @map("totp_secret")
+  isTotpEnabled Boolean   @default(false) @map("is_totp_enabled")
+  isGlobalAdmin Boolean   @default(false) @map("is_global_admin")
+  isActive      Boolean   @default(true) @map("is_active")
+  lastLoginAt   DateTime? @map("last_login_at")
+  
+  // Profile fields
+  bio          String?
+  location     String?
+  timezone     String?
+  socialLinks  Json?     @map("social_links")
+  
+  // Email change verification
+  pendingEmail            String?   @map("pending_email")
+  emailVerificationCode   String?   @map("email_verification_code")
+  emailVerificationExpiry DateTime? @map("email_verification_expiry")
+  
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  organisations       Organisation[]
+  organisationAdmins  OrganisationAdmin[]
+  orgUsers            OrgUser[]            @relation("OrgUserToGlobalUser")
+  auditLogs           AuditLog[]
+  inventoryMovements  InventoryMovement[]  @relation("MovementsByUser")
+  discordLinks        UserDiscordLink[]    @relation("UserDiscordLinks")
+  feedbackSubmissions FeedbackSubmission[]
+  feedbackComments    FeedbackComment[]
+
+  @@map("global_users")
+}
+
+model Organisation {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  branding       Json?    @default("{}")
+  features       Json?    @default("{}")
+  quickLinksJson Json?    @default("[]") @map("quick_links_json") // Custom quick links for sidebar
+  ownerId        String   @map("owner_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  owner    GlobalUser          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  admins   OrganisationAdmin[]
+  invites  OrgInvite[]
+
+  @@map("organisations")
+}
+
+model OrganisationAdmin {
+  id             String   @id @default(cuid())
+  organisationId String   @map("organisation_id")
+  globalUserId   String   @map("global_user_id")
+  role           String   @default("owner")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  globalUser   GlobalUser   @relation(fields: [globalUserId], references: [id], onDelete: Cascade)
+
+  @@unique([organisationId, globalUserId])
+  @@map("organisation_admins")
+}
+
+// Demo model for testing tenant isolation with RLS
+model Note {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  title     String
+  body      String?
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@map("notes")
+}
+
+// Org-scoped user system (Phase 3)
+model OrgUser {
+  id            String   @id @default(cuid())
+  tenantId      String   @map("tenant_id")
+  globalUserId  String?  @map("global_user_id") // Optional link to GlobalUser
+  email         String
+  passwordHash  String   @map("password_hash")
+  displayName   String   @map("display_name")
+  isActive      Boolean  @default(true) @map("is_active")
+  totpSecret    String?  @map("totp_secret")
+  isTotpEnabled Boolean  @default(false) @map("is_totp_enabled")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  globalUser        GlobalUser?  @relation("OrgUserToGlobalUser", fields: [globalUserId], references: [id], onDelete: SetNull)
+  roles             OrgUserRole[]
+  auditLogs         AuditLog[]
+  coachedTeams      Team[] // Teams where this user is coach
+  playerProfile     Player[] // Player profile linked to this user
+  createdMatches    Match[] // Matches created by this user
+  playerStats       PlayerStat[] // Player stats linked to this user
+  createdEvents     Event[] // Events created by this user
+  producedEvents    Event[] @relation("EventProductionLead") // Events where this user is production lead
+  ownedIncidents    Incident[] @relation("IncidentOwner") // Incidents assigned to this user
+  createdIncidents  Incident[] @relation("IncidentCreator") // Incidents created by this user
+  attendanceRecords Attendance[] @relation("AttendanceUser") // Attendance records for this user
+  createdAttendance Attendance[] @relation("AttendanceCreator") // Attendance records created by this user
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("org_users")
+}
+
+model Role {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  name      String
+  desc      String?  @map("description")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  permissions RolePermission[]
+  users       OrgUserRole[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+model Permission {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  key       String // e.g. "calendar.view", "runsheet.edit"
+  group     String? // e.g. "calendar", "runsheet"
+  desc      String?  @map("description")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  roles RolePermission[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String   @id @default(cuid())
+  tenantId     String   @map("tenant_id")
+  roleId       String   @map("role_id")
+  permissionId String   @map("permission_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, roleId, permissionId])
+  @@index([tenantId, roleId])
+  @@map("role_permissions")
+}
+
+model OrgUserRole {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  orgUserId String   @map("org_user_id")
+  roleId    String   @map("role_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  orgUser OrgUser @relation(fields: [orgUserId], references: [id], onDelete: Cascade)
+  role    Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, orgUserId, roleId])
+  @@index([tenantId, orgUserId])
+  @@map("org_user_roles")
+}
+
+model OrgInvite {
+  id           String          @id @default(cuid())
+  tenantId     String          @map("tenant_id")
+  email        String?         // Optional for LINK method
+  inviteMethod InviteMethod    @default(EMAIL) @map("invite_method")
+  invitedById  String          @map("invited_by_id") // OrgUser ID who sent invite
+  rolesJson    Json            @default("[]") @map("roles_json")
+  token        String          @unique // Plain token for URL (unique, not hashed)
+  tokenHash    String          @map("token_hash") // Hashed version for validation
+  expiresAt    DateTime        @map("expires_at")
+  acceptedAt   DateTime?       @map("accepted_at")
+  acceptedById String?         @map("accepted_by_id") // GlobalUser ID who accepted
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  // Relations
+  organisation Organisation @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([tokenHash])
+  @@index([token])
+  @@map("org_invites")
+}
+
+model AuditLog {
+  id         String          @id @default(cuid())
+  tenantId   String          @map("tenant_id")
+  action     AuditAction
+  entityType AuditEntityType @map("entity_type")
+  entityId   String          @map("entity_id")
+  userId     String?         @map("user_id") // Global user ID (if applicable)
+  orgUserId  String?         @map("org_user_id") // Org user ID (if applicable)
+  details    String? // JSON string for additional data
+  ipAddress  String?         @map("ip_address")
+  userAgent  String?         @map("user_agent")
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  // Relations
+  user    GlobalUser? @relation(fields: [userId], references: [id])
+  orgUser OrgUser?    @relation(fields: [orgUserId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, entityType])
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, orgUserId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ===== ROSTER MANAGEMENT MODELS =====
+
+model Team {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  name      String
+  game      String // e.g., "VALORANT", "LoL", "OW2", "RL"
+  season    String? // e.g., "2025-S1"
+  coachId   String?  @map("coach_id") // OrgUser.id
+  captainId String?  @map("captain_id") // Player.id
+  status    String   @default("active") // active | archived
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  coach        OrgUser?      @relation(fields: [coachId], references: [id])
+  captain      Player?       @relation("TeamCaptain", fields: [captainId], references: [id])
+  members      TeamMember[]
+  lineups      Lineup[]
+  achievements Achievement[]
+  matches      Match[]
+  events       Event[]
+
+  @@unique([tenantId, name, season])
+  @@index([tenantId])
+  @@map("teams")
+}
+
+model Player {
+  id          String   @id @default(cuid())
+  tenantId    String   @map("tenant_id")
+  orgUserId   String?  @map("org_user_id") // optional link to OrgUser (login user)
+  gamerTag    String   @map("gamer_tag")
+  realName    String?  @map("real_name") // player's real name
+  avatar      String?  // profile picture URL
+  role        String? // e.g., IGL, Flex, Support, etc.
+  rank        String? // optional, per game
+  mainsJson   Json?    @default("[]") @map("mains_json") // agents/heroes/champs
+  bio         String?
+  socialsJson Json?    @default("{}") @map("socials_json")
+  eligibility String? // e.g., "eligible", "probation", "ineligible"
+  consentJson Json?    @default("{}") @map("consent_json") // signed forms summary (non-sensitive)
+  isActive    Boolean  @default(true) @map("is_active")
+  statsVisible Boolean @default(true) @map("stats_visible") // control visibility of game statistics
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  orgUser      OrgUser?       @relation(fields: [orgUserId], references: [id])
+  teams        TeamMember[]
+  captainOf    Team[]         @relation("TeamCaptain")
+  availability Availability[]
+  lineupSlots  LineupSlot[]
+  achievements Achievement[]
+  playerStats  PlayerStat[]
+
+  @@unique([tenantId, gamerTag])
+  @@index([tenantId])
+  @@map("players")
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  teamId    String   @map("team_id")
+  playerId  String   @map("player_id")
+  isStarter Boolean  @default(false) @map("is_starter")
+  position  String? // lane/role slot, e.g., "Duelist", "Top"
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, teamId, playerId])
+  @@index([tenantId, teamId])
+  @@map("team_members")
+}
+
+model Availability {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  playerId  String   @map("player_id")
+  date      DateTime
+  status    String // available | unsure | unavailable
+  note      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, playerId, date])
+  @@index([tenantId, date])
+  @@map("availability")
+}
+
+model Lineup {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  eventId   String   @map("event_id") // links to Events table (already planned)
+  teamId    String   @map("team_id")
+  title     String? // e.g., "Week 3 vs College X"
+  published Boolean  @default(false) // immutable after publish
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  team        Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  slots       LineupSlot[]
+  matches     Match[]
+  playerStats PlayerStat[]
+  events      Event[]
+
+  @@unique([tenantId, eventId])
+  @@index([tenantId, teamId])
+  @@map("lineups")
+}
+
+model LineupSlot {
+  id       String  @id @default(cuid())
+  tenantId String  @map("tenant_id")
+  lineupId String  @map("lineup_id")
+  playerId String  @map("player_id")
+  role     String? // map role/agent slot
+  isSub    Boolean @default(false) @map("is_sub")
+  notes    String?
+  idx      Int     @default(0) // ordering
+
+  // Relations
+  lineup Lineup @relation(fields: [lineupId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, lineupId, playerId])
+  @@index([tenantId, lineupId])
+  @@map("lineup_slots")
+}
+
+model Achievement {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  teamId    String?  @map("team_id")
+  playerId  String?  @map("player_id")
+  title     String // e.g., "NESL Week 2 Win", "MVP"
+  eventRef  String?  @map("event_ref") // free text or event id
+  date      DateTime
+  details   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  team   Team?   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player Player? @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, date])
+  @@map("achievements")
+}
+
+model Runsheet {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  eventId   String?  @map("event_id")
+  title     String
+  status    String   @default("draft") // draft|approved|locked
+  revision  Int      @default(1)
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  items RunsheetItem[]
+
+  @@index([tenantId])
+  @@index([tenantId, eventId])
+  @@map("runsheets")
+}
+
+model RunsheetItem {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  runsheetId      String   @map("runsheet_id")
+  idx             Int
+  title           String
+  type            String?  // 'segment', 'break', 'setup', 'commercial', 'performance', etc.
+  ownerId         String?  @map("owner_id") // OrgUser.id
+  durationMs      Int      @default(0) @map("duration_ms")
+  location        String?  // Physical location or stage name
+  equipment       String?  // Required equipment/resources
+  priority        String?  @default("normal") // 'low', 'normal', 'high', 'critical'
+  notes           String?
+  attachmentsJson Json?    @default("[]") @map("attachments_json")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relations
+  runsheet Runsheet @relation(fields: [runsheetId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, runsheetId, idx])
+  @@index([tenantId, runsheetId])
+  @@map("runsheet_items")
+}
+
+model RunsheetTemplate {
+  id          String                       @id @default(cuid())
+  tenantId    String                       @map("tenant_id")
+  name        String
+  description String?
+  items       RunsheetTemplateItem[]
+  createdBy   String                       @map("created_by")
+  createdAt   DateTime                     @default(now()) @map("created_at")
+  updatedAt   DateTime                     @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("runsheet_templates")
+}
+
+model RunsheetTemplateItem {
+  id         String            @id @default(cuid())
+  templateId String            @map("template_id")
+  template   RunsheetTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  idx        Int
+  title      String
+  type       String?
+  ownerId    String?           @map("owner_id")
+  durationMs Int               @default(0) @map("duration_ms")
+  location   String?
+  equipment  String?
+  priority   String?           @default("normal")
+  notes      String?
+
+  @@index([templateId])
+  @@map("runsheet_template_items")
+}
+
+model ChecklistTemplate {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  title     String
+  scope     String // 'event'|'room'|'kit'|'general'
+  version   Int      @default(1)
+  itemsJson Json     @map("items_json") // [{text,required,evidence,category?,assignedTo?,priority?,estimatedMinutes?}]
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  checklists Checklist[]
+
+  @@index([tenantId])
+  @@index([tenantId, scope])
+  @@map("checklist_templates")
+}
+
+model Checklist {
+  id             String    @id @default(cuid())
+  tenantId       String    @map("tenant_id")
+  templateId     String?   @map("template_id") // Optional - null for standalone checklists
+  title          String?   // For standalone checklists without template
+  scope          String?   // For standalone checklists without template
+  itemsJson      Json?     @map("items_json") // For standalone checklists without template
+  scopeRef       String?   @map("scope_ref") // eventId|roomId|kitId|free text
+  dueAt          DateTime? @map("due_at")
+  assigneeId     String?   @map("assignee_id")
+  status         String    @default("pending") // pending|in_progress|done|failed
+  completedItems Json      @default("[]") @map("completed_items") // [{idx:number,completedAt:string,completedBy:string,notes?:string}]
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  template ChecklistTemplate? @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  runs     ChecklistRun[]
+
+  @@index([tenantId, templateId])
+  @@index([tenantId, status])
+  @@index([tenantId, assigneeId])
+  @@map("checklists")
+}
+
+model ChecklistRun {
+  id          String   @id @default(cuid())
+  tenantId    String   @map("tenant_id")
+  checklistId String   @map("checklist_id")
+  runnerId    String   @map("runner_id")
+  runAt       DateTime @default(now()) @map("run_at")
+  resultJson  Json     @map("result_json") // [{idx:number,pass:boolean,notes?:string,evidence?:string[]}]
+
+  // Relations
+  checklist Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, checklistId])
+  @@index([tenantId, runnerId])
+  @@index([tenantId, checklistId, runAt])
+  @@map("checklist_runs")
+}
+
+// INVENTORY & ASSETS MODELS
+
+model InventoryItem {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  tag       String
+  name      String
+  type      String
+  serial    String?
+  condition String   @default("good") // good|repair|lost
+  location  String?
+  status    String   @default("available") // available|booked|out|maintenance
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  kitItems  InventoryKitItem[]
+  movements InventoryMovement[]
+
+  @@unique([tenantId, tag])
+  @@index([tenantId, type, status])
+  @@map("inventory_items")
+}
+
+model InventoryKit {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  items InventoryKitItem[]
+
+  @@unique([tenantId, name])
+  @@map("inventory_kits")
+}
+
+model InventoryKitItem {
+  id       String @id @default(cuid())
+  tenantId String @map("tenant_id")
+  kitId    String @map("kit_id")
+  itemId   String @map("item_id")
+
+  // Relations
+  kit  InventoryKit  @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  item InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, kitId, itemId])
+  @@map("inventory_kit_items")
+}
+
+model InventoryMovement {
+  id       String   @id @default(cuid())
+  tenantId String   @map("tenant_id")
+  itemId   String   @map("item_id")
+  fromLoc  String?  @map("from_loc")
+  toLoc    String?  @map("to_loc")
+  byUserId String?  @map("by_user_id")
+  at       DateTime @default(now())
+  note     String?
+
+  // Relations
+  item   InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  byUser GlobalUser?   @relation("MovementsByUser", fields: [byUserId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, itemId, at])
+  @@map("inventory_movements")
+}
+
+model Asset {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  path      String // /data/<tenantId>/assets/yyyy/mm/...
+  name      String
+  mime      String
+  size      Int
+  version   Int      @default(1)
+  status    String   @default("active") // active|archived|pending
+  tags      String?
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  versions AssetVersion[]
+
+  @@index([tenantId, status])
+  @@map("assets")
+}
+
+model AssetVersion {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  assetId   String   @map("asset_id")
+  path      String
+  size      Int
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, assetId])
+  @@map("asset_versions")
+}
+
+// ===== GAME LOGGING MODELS =====
+
+model Match {
+  id         String    @id @default(cuid())
+  tenantId   String    @map("tenant_id")
+  eventId    String?   @map("event_id") // optional link to Events
+  teamId     String    @map("team_id") // our team
+  lineupId   String?   @map("lineup_id") // lineup used for this match
+  opponent   String // free text or lookup later
+  tournament String? // free text
+  stage      String? // e.g., "Groups", "Playoffs"
+  bestOf     Int       @default(1)
+  startedAt  DateTime?
+  endedAt    DateTime?
+  status     String    @default("draft") // draft|submitted|approved
+  result     String? // win|loss|draw|forfeit
+  score      String? // e.g., "2-1", "1-1"
+  vodUrl     String?   @map("vod_url")
+  notes      String?
+  createdBy  String    @map("created_by")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  team          Team         @relation(fields: [teamId], references: [id])
+  lineup        Lineup?      @relation(fields: [lineupId], references: [id])
+  createdByUser OrgUser      @relation(fields: [createdBy], references: [id])
+  maps          MapGame[]
+  playerStats   PlayerStat[]
+
+  @@index([tenantId, teamId, startedAt])
+  @@map("matches")
+}
+
+model MapGame {
+  id          String   @id @default(cuid())
+  tenantId    String   @map("tenant_id")
+  matchId     String   @map("match_id")
+  title       String // e.g., "VALORANT", "LoL", "OW2", "RL"
+  mapName     String? // "Ascent", "Summoner's Rift", etc.
+  gameIdx     Int // 1-based order
+  ourScore    Int      @default(0) @map("our_score")
+  theirScore  Int      @default(0) @map("their_score")
+  durationSec Int?     @map("duration_sec") // optional
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  match       Match        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  playerStats PlayerStat[]
+
+  @@unique([tenantId, matchId, gameIdx])
+  @@index([tenantId, matchId])
+  @@map("map_games")
+}
+
+model PlayerStat {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  matchId   String   @map("match_id")
+  mapGameId String?  @map("map_game_id")
+  playerId  String   @map("player_id") // links Player.id
+  orgUserId String?  @map("org_user_id") // helpful for joins
+  lineupId  String?  @map("lineup_id") // tie to the lineup used
+  role      String? // role during the game (e.g., "Duelist", "Support")
+  statsJson Json     @map("stats_json") // flexible, title-specific fields
+  rating    Float? // computed composite
+  isMvp     Boolean  @default(false) @map("is_mvp")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  match   Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  mapGame MapGame? @relation(fields: [mapGameId], references: [id], onDelete: Cascade)
+  player  Player   @relation(fields: [playerId], references: [id])
+  orgUser OrgUser? @relation(fields: [orgUserId], references: [id])
+  lineup  Lineup?  @relation(fields: [lineupId], references: [id])
+
+  @@unique([tenantId, matchId, playerId, mapGameId])
+  @@index([tenantId, matchId])
+  @@map("player_stats")
+}
+
+// ============================================================================
+// SCHEDULING MODELS
+// ============================================================================
+
+model Event {
+  id               String   @id @default(cuid())
+  tenantId         String   @map("tenant_id")
+  title            String
+  eventType        String   @default("Other") @map("event_type") // Broadcast|Tournament|Showmatch|Rehearsal|Other
+  gameTitle        String?  @map("game_title") // Valorant, Overwatch 2, etc.
+  productionLead   String?  @map("production_lead") // orgUserId of assigned producer
+  broadcastChannel String?  @map("broadcast_channel") // Twitch, YouTube, TikTok, etc.
+  startAt          DateTime @map("start_at") // Broadcast start time
+  callTime         DateTime? @map("call_time") // Crew call-in time
+  endAt            DateTime @map("end_at")
+  duration         Int?     // Expected duration in minutes
+  location         String?
+  teamId           String?  @map("team_id")
+  lineupId         String?  @map("lineup_id")
+  
+  // Tournament-specific fields
+  opponent         String?  // Name of opposing team (for tournaments/showmatches)
+  tournamentName   String?  @map("tournament_name") // Name of tournament
+  tournamentStage  String?  @map("tournament_stage") // e.g., "Groups", "Quarterfinals", "Finals"
+  bestOf           Int?     @default(1) @map("best_of") // Best of X games
+  
+  graphicsPackage  String?  @map("graphics_package") // Graphics/overlay set identifier
+  checklistId      String?  @map("checklist_id") // Linked operational checklist
+  rosterId         String?  @map("roster_id") // Linked team roster
+  notes            String?  @db.Text // Extra broadcast notes
+  status           String   @default("scheduled") // scheduled|cancelled|completed
+  createdBy        String   @map("created_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  team              Team?       @relation(fields: [teamId], references: [id])
+  lineup            Lineup?     @relation(fields: [lineupId], references: [id])
+  createdByUser     OrgUser     @relation(fields: [createdBy], references: [id])
+  productionLeadUser OrgUser?   @relation("EventProductionLead", fields: [productionLead], references: [id])
+  bookings          Booking[]
+  incidents         Incident[]  // Incidents related to this event
+  attendance        Attendance[] // Attendance records for this event
+
+  @@index([tenantId, startAt, endAt])
+  @@index([tenantId, eventType])
+  @@index([tenantId, gameTitle])
+  @@index([tenantId, productionLead])
+  @@map("events")
+}
+
+model Resource {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  kind      String // room|kit
+  name      String
+  refId     String?  @map("ref_id") // link to InventoryKit.id when kind='kit'
+  location  String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  bookings Booking[]
+
+  @@unique([tenantId, kind, name])
+  @@index([tenantId, kind])
+  @@map("resources")
+}
+
+model Booking {
+  id         String   @id @default(cuid())
+  tenantId   String   @map("tenant_id")
+  eventId    String   @map("event_id")
+  resourceId String   @map("resource_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, eventId, resourceId])
+  @@index([tenantId, resourceId])
+  @@map("bookings")
+}
+
+// ============================================================================
+// INCIDENTS & REPORTS MODELS
+// ============================================================================
+
+model Incident {
+  id          String   @id @default(cuid())
+  tenantId    String   @map("tenant_id")
+  eventId     String?  @map("event_id")
+  category    String   // tech|comms|people|safety|other
+  severity    String   // low|medium|high|critical
+  title       String
+  description String?
+  ownerId     String?  @map("owner_id") // OrgUser.id
+  status      String   @default("open") // open|in_progress|resolved|dismissed
+  tags        String?  // comma or JSON
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  rcaJson     Json?    @map("rca_json") // root cause / corrective actions
+
+  // Relations
+  event         Event?  @relation(fields: [eventId], references: [id])
+  owner         OrgUser? @relation("IncidentOwner", fields: [ownerId], references: [id])
+  createdByUser OrgUser  @relation("IncidentCreator", fields: [createdBy], references: [id])
+
+  @@index([tenantId, category, severity, status, createdAt])
+  @@map("incidents")
+}
+
+model Attendance {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  eventId   String   @map("event_id")
+  orgUserId String   @map("org_user_id")
+  role      String?  // e.g., "player","producer"
+  status    String   @default("present") // present|late|no_show|remote
+  note      String?
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  event         Event   @relation(fields: [eventId], references: [id])
+  orgUser       OrgUser @relation("AttendanceUser", fields: [orgUserId], references: [id])
+  createdByUser OrgUser @relation("AttendanceCreator", fields: [createdBy], references: [id])
+
+  @@unique([tenantId, eventId, orgUserId])
+  @@index([tenantId, eventId])
+  @@map("attendance")
+}
+
+// ============================================================================
+// DISCORD INTEGRATION MODELS
+// ============================================================================
+
+model OrganizationDiscord {
+  id        String   @id @default(cuid())
+  tenantId  String   @unique @map("tenant_id")
+  
+  // Bot configuration
+  botToken  String?  @map("bot_token") // Encrypted bot token for DMs
+  guildId   String?  @map("guild_id") // Discord server ID
+  guildName String?  @map("guild_name") // Discord server name
+  
+  // Channel IDs for bot notifications (replaced webhooks)
+  channelEvents    String? @map("channel_events") // Events channel ID
+  channelMatches   String? @map("channel_matches") // Match results channel ID
+  channelRoster    String? @map("channel_roster") // Roster updates channel ID
+  channelIncidents String? @map("channel_incidents") // Incidents channel ID
+  channelGeneral   String? @map("channel_general") // General announcements channel ID
+  
+  // Feature flags
+  enableChannelNotifications Boolean @default(true) @map("enable_channel_notifications")
+  enableUserDMs              Boolean @default(false) @map("enable_user_dms")
+  enableEventNotifications   Boolean @default(true) @map("enable_event_notifications")
+  enableMatchNotifications   Boolean @default(true) @map("enable_match_notifications")
+  enableRosterNotifications  Boolean @default(true) @map("enable_roster_notifications")
+  enableIncidentNotifications Boolean @default(false) @map("enable_incident_notifications")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("organization_discord")
+}
+
+model UserDiscordLink {
+  id           String   @id @default(cuid())
+  globalUserId String   @map("global_user_id")
+  discordId    String   @unique @map("discord_id") // Discord user ID
+  username     String // Discord username
+  discriminator String? // Discord discriminator (legacy)
+  avatar       String? // Discord avatar hash
+  
+  // OAuth2 tokens (encrypted)
+  accessToken  String? @map("access_token") // For making API calls on behalf of user
+  refreshToken String? @map("refresh_token") // For refreshing access token
+  tokenExpiry  DateTime? @map("token_expiry") // When access token expires
+  
+  // DM Preferences - Control which notifications user receives via DM
+  enableDMs              Boolean  @default(true) @map("enable_dms") // Master toggle
+  dmEvents               Boolean  @default(false) @map("dm_events") // Event notifications
+  dmMatches              Boolean  @default(false) @map("dm_matches") // Match notifications
+  dmRoster               Boolean  @default(false) @map("dm_roster") // Roster change notifications
+  dmIncidents            Boolean  @default(false) @map("dm_incidents") // Incident notifications
+  dmPersonalOnly         Boolean  @default(true) @map("dm_personal_only") // Only send DMs for direct mentions/assignments
+  
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  globalUser GlobalUser @relation("UserDiscordLinks", fields: [globalUserId], references: [id], onDelete: Cascade)
+
+  @@unique([globalUserId])
+  @@index([discordId])
+  @@map("user_discord_links")
+}
+
+model DiscordNotificationLog {
+  id             String   @id @default(cuid())
+  tenantId       String   @map("tenant_id")
+  notificationType String @map("notification_type") // event|match|roster|incident
+  deliveryMethod String   @map("delivery_method") // webhook|bot_dm
+  recipientId    String?  @map("recipient_id") // Discord user ID for DMs
+  channelId      String?  @map("channel_id") // Discord channel ID
+  messageId      String?  @map("message_id") // Discord message ID
+  status         String   @default("pending") // pending|sent|failed
+  errorMessage   String?  @map("error_message")
+  payload        Json?    // Original notification data
+  createdAt      DateTime @default(now()) @map("created_at")
+  
+  @@index([tenantId, notificationType, status])
+  @@index([createdAt])
+  @@map("discord_notification_logs")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  email     String
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([token])
+  @@index([email])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+// ============================================================================
+// FEEDBACK & BUG REPORTS (Global, not tenant-scoped)
+// ============================================================================
+
+model FeedbackSubmission {
+  id               String           @id @default(cuid())
+  type             FeedbackType     @default(SUGGESTION)
+  title            String
+  description      String           @db.Text
+  status           FeedbackStatus   @default(PENDING)
+  priority         FeedbackPriority @default(MEDIUM)
+  userId           String           @map("user_id")
+  organizationId   String?          @map("organization_id") // Context: which org was user in when submitting
+  organizationName String?          @map("organization_name") // Snapshot of org name
+  category         String?          // e.g., "UI", "Performance", "Feature Request"
+  metadata         Json?            // Browser info, OS, screen resolution, URL, module
+  attachments      String[]         // Array of file URLs/paths
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  user     GlobalUser        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments FeedbackComment[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@map("feedback_submissions")
+}
+
+model FeedbackComment {
+  id           String   @id @default(cuid())
+  submissionId String   @map("submission_id")
+  adminId      String   @map("admin_id")
+  content      String   @db.Text
+  isInternal   Boolean  @default(false) @map("is_internal") // Internal admin notes vs user-visible
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  submission FeedbackSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  admin      GlobalUser         @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+  @@index([adminId])
+  @@map("feedback_comments")
+}

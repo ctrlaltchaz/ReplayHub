@@ -1,0 +1,122 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+*.lcov
+.nyc_output
+
+# Production builds
+dist/
+build/
+.next/
+out/
+.vercel
+.turbo
+
+# Environment variables
+.env
+.env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Prisma
+apps/api/prisma/migrations/**/migration.sql
+
+# Documentation & Scripts (not needed for deployment)
+docs/
+scripts/
+*.md
+!README.md
+!package.json
+
+# SQL scripts and test files
+*.sql
+*.ps1
+*.sh
+add-*.js
+check-*.js
+test-*.js
+setup-*.js
+db-*.js
+fix-*.js
+seed_*.sql
+create_*.sql
+manual-*.js
+quick-*.js
+shadow-*.json
+*.gamelog-manifest.json
+route-manifest.json
+
+# Build artifacts
+*.tsbuildinfo
+
+# PM2
+.pm2
+pids/
+*.pid
+*.seed
+
+# Yarn
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# TypeScript
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Backup files
+*.backup
+*.bak
+
+# Uploads and user content (if stored locally)
+uploads/
+public/uploads/
+
+# Redis dump
+dump.rdb

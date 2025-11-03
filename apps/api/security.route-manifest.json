@@ -1,0 +1,182 @@
+[
+  {
+    "method": "POST",
+    "path": "/org/:slug/inventory/items",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "inventory.update"
+  },
+  {
+    "method": "GET",
+    "path": "/org/:slug/inventory/items",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "inventory.view"
+  },
+  {
+    "method": "GET",
+    "path": "/org/:slug/inventory/items/:id",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "inventory.view"
+  },
+  {
+    "method": "PUT",
+    "path": "/org/:slug/inventory/items/:id",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "inventory.update"
+  },
+  {
+    "method": "POST",
+    "path": "/org/:slug/inventory/items/:id/move",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "inventory.update"
+  },
+  {
+    "method": "POST",
+    "path": "/org/:slug/inventory/items/:id/book",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "inventory.book"
+  },
+  {
+    "method": "POST",
+    "path": "/org/:slug/inventory/kits",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "inventory.update"
+  },
+  {
+    "method": "GET",
+    "path": "/org/:slug/inventory/kits",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "inventory.view"
+  },
+  {
+    "method": "GET",
+    "path": "/org/:slug/inventory/kits/:id",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "inventory.view"
+  },
+  {
+    "method": "POST",
+    "path": "/org/:slug/inventory/kits/:id/items",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "inventory.update"
+  },
+  {
+    "method": "GET",
+    "path": "/org/:slug/inventory/movements",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "inventory.view"
+  },
+  {
+    "method": "POST",
+    "path": "/org/:slug/assets/upload",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "assets.upload"
+  },
+  {
+    "method": "GET",
+    "path": "/org/:slug/assets",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "assets.upload"
+  },
+  {
+    "method": "GET",
+    "path": "/org/:slug/assets/:id",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "assets.upload"
+  },
+  {
+    "method": "PUT",
+    "path": "/org/:slug/assets/:id",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "assets.manage"
+  },
+  {
+    "method": "GET",
+    "path": "/org/:slug/assets/:id/download",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "assets.upload"
+  },
+  {
+    "method": "GET",
+    "path": "/org/:slug/assets/:id/versions",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "assets.upload"
+  },
+  {
+    "method": "GET",
+    "path": "/org/:slug/assets/:id/versions/:versionId/download",
+    "guards": [
+      "TenantGuard",
+      "OrgAuthGuard",
+      "PermissionGuard"
+    ],
+    "permission": "assets.upload"
+  }
+]
