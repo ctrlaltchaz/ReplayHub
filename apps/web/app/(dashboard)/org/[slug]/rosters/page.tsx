@@ -476,42 +476,56 @@ export default function RostersPage() {
                                                 return player.teams?.some(tm => tm.teamId === teamFilter);
                                             })
                                             .map((player) => (
-                                            <Link
-                                                key={player.id}
-                                                href={`/org/${slug}/rosters/players/${player.id}`}
-                                                className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors block"
-                                            >
-                                                <div className="flex items-center gap-4">
-                                                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-                                                        {player.avatar ? (
-                                                            <img
-                                                                src={`${process.env.NEXT_PUBLIC_API_URL?.replace(/\/api$/, '') || 'http://localhost:3001'}${player.avatar}`}
-                                                                alt={player.gamerTag}
-                                                                className="h-full w-full object-cover"
-                                                            />
-                                                        ) : (
-                                                            <span className="text-sm font-semibold">
-                                                                {player.gamerTag.charAt(0).toUpperCase()}
-                                                            </span>
-                                                        )}
+                                                <Link
+                                                    key={player.id}
+                                                    href={`/org/${slug}/rosters/players/${player.id}`}
+                                                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors block"
+                                                >
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                                                            {player.avatar ? (
+                                                                <img
+                                                                    src={`${process.env.NEXT_PUBLIC_API_URL?.replace(/\/api$/, '') || 'http://localhost:3001'}${player.avatar}`}
+                                                                    alt={player.gamerTag}
+                                                                    className="h-full w-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                <span className="text-sm font-semibold">
+                                                                    {player.gamerTag.charAt(0).toUpperCase()}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <h3 className="font-semibold font-montserrat text-sm">{player.gamerTag}</h3>
+                                                            {player.realName && (
+                                                                <p className="text-sm text-muted-foreground">{player.realName}</p>
+                                                            )}
+                                                            <p className="text-sm text-muted-foreground">
+                                                                {player.role || "No role"}
+                                                                {player.rank && ` • ${player.rank}`}
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <h3 className="font-semibold font-montserrat text-sm">{player.gamerTag}</h3>
-                                                        {player.realName && (
-                                                            <p className="text-sm text-muted-foreground">{player.realName}</p>
-                                                        )}
-                                                        <p className="text-sm text-muted-foreground">
-                                                            {player.role || "No role"}
-                                                            {player.rank && ` • ${player.rank}`}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`text-xs px-2 py-1 rounded ${player.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'}`}>
-                                                        {player.isActive ? 'Active' : 'Inactive'}
-                                                    </span>
-                                                    <PermissionGuard required={PERMISSIONS.PLAYER_UPDATE} fallback={
-                                                        player.orgUserId === orgUser?.id ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-xs px-2 py-1 rounded ${player.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'}`}>
+                                                            {player.isActive ? 'Active' : 'Inactive'}
+                                                        </span>
+                                                        <PermissionGuard required={PERMISSIONS.PLAYER_UPDATE} fallback={
+                                                            player.orgUserId === orgUser?.id ? (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        setSelectedPlayer(player);
+                                                                        setShowPlayerEditDialog(true);
+                                                                    }}
+                                                                >
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Button>
+                                                            ) : null
+                                                        }>
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
@@ -524,39 +538,25 @@ export default function RostersPage() {
                                                             >
                                                                 <Edit className="h-4 w-4" />
                                                             </Button>
-                                                        ) : null
-                                                    }>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                setSelectedPlayer(player);
-                                                                setShowPlayerEditDialog(true);
-                                                            }}
-                                                        >
-                                                            <Edit className="h-4 w-4" />
-                                                        </Button>
-                                                    </PermissionGuard>
-                                                    <PermissionGuard required={PERMISSIONS.PLAYER_DELETE}>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                handleDeletePlayer(player.id, player.gamerTag);
-                                                            }}
-                                                            disabled={deletingId === player.id}
-                                                            className="text-destructive hover:text-destructive"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </PermissionGuard>
-                                                </div>
-                                            </Link>
-                                        ))}
+                                                        </PermissionGuard>
+                                                        <PermissionGuard required={PERMISSIONS.PLAYER_DELETE}>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    handleDeletePlayer(player.id, player.gamerTag);
+                                                                }}
+                                                                disabled={deletingId === player.id}
+                                                                className="text-destructive hover:text-destructive"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </PermissionGuard>
+                                                    </div>
+                                                </Link>
+                                            ))}
                                     </div>
                                 )}
                             </CardContent>

@@ -93,14 +93,14 @@ export default function PlayerStatsPage() {
         new Set(
             playersWithStats.flatMap(p => p.teams?.map(t => t.team.game) || [])
         )
-    ).sort();
+    ).filter(game => game && game.trim() !== '').sort();
 
     // Get unique teams
     const availableTeams = Array.from(
         new Set(
             playersWithStats.flatMap(p => p.teams?.map(t => JSON.stringify({ id: t.team.name, name: t.team.name })) || [])
         )
-    ).map(t => JSON.parse(t)).sort((a, b) => a.name.localeCompare(b.name));
+    ).map(t => JSON.parse(t)).filter(team => team.name && team.name.trim() !== '').sort((a, b) => a.name.localeCompare(b.name));
 
     // Filter players
     const filteredPlayers = playersWithStats.filter(player => {
