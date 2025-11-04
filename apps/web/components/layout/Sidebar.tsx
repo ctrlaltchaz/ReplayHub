@@ -296,17 +296,18 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                         /* Organization Navigation */
                         <>
                             {ORG_NAV.filter(item => item.key !== 'settings').map((item) => {
-                                // While loading org user, show all items
+                                // While loading org user, show all items to avoid flickering
+                                // Once loaded, check permissions (empty permissions array means user has no perms)
                                 const hasAccess = isLoadingOrg ? true : checkPermission(item.required);
 
                                 // Debug logging
-                                if (['runsheets', 'checklists', 'inventory', 'assets'].includes(item.key)) {
+                                if (['runsheets', 'checklists', 'inventory', 'assets', 'overview', 'events', 'rosters'].includes(item.key)) {
                                     console.log(`[Sidebar] ${item.key}:`, {
                                         required: item.required,
                                         hasAccess,
                                         isLoadingOrg,
                                         permissionsLength: permissions.length,
-                                        userPermissions: permissions
+                                        firstFewPermissions: permissions.slice(0, 3)
                                     });
                                 }
 
