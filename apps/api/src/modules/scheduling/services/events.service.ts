@@ -13,87 +13,92 @@ export class EventsService {
     ) { }
 
     async createEvent(tenantId: string, createdBy: string, data: CreateEventDto) {
-        try {
-            console.log('📝 Creating event with tenantId:', tenantId);
-            console.log('📝 Event data:', data);
+        return await this.prisma.$transaction(async (tx) => {
+            try {
+                // Set tenant context for RLS
+                await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-            // Create the event using Prisma client
-            const event = await this.prisma.event.create({
-                data: {
-                    tenantId,
-                    title: data.title,
-                    eventType: data.eventType || 'Other',
-                    gameTitle: data.gameTitle || null,
-                    productionLead: data.productionLead || null,
-                    broadcastChannel: data.broadcastChannel || null,
-                    startAt: new Date(data.startAt),
-                    endAt: new Date(data.endAt),
-                    callTime: data.callTime ? new Date(data.callTime) : null,
-                    duration: data.duration || null,
-                    location: data.location || null,
-                    teamId: data.teamId || null,
-                    lineupId: data.lineupId || null,
-                    // Tournament fields
-                    opponent: data.opponent || null,
-                    tournamentName: data.tournamentName || null,
-                    tournamentStage: data.tournamentStage || null,
-                    bestOf: data.bestOf || null,
-                    graphicsPackage: data.graphicsPackage || null,
-                    checklistId: data.checklistId || null,
-                    rosterId: data.rosterId || null,
-                    notes: data.notes || null,
-                    createdBy,
-                    status: data.status || 'scheduled',
-                },
-                include: {
-                    team: {
-                        select: {
-                            name: true,
+                console.log('📝 Creating event with tenantId:', tenantId);
+                console.log('📝 Event data:', data);
+
+                // Create the event using Prisma client
+                const event = await tx.event.create({
+                    data: {
+                        tenantId,
+                        title: data.title,
+                        eventType: data.eventType || 'Other',
+                        gameTitle: data.gameTitle || null,
+                        productionLead: data.productionLead || null,
+                        broadcastChannel: data.broadcastChannel || null,
+                        startAt: new Date(data.startAt),
+                        endAt: new Date(data.endAt),
+                        callTime: data.callTime ? new Date(data.callTime) : null,
+                        duration: data.duration || null,
+                        location: data.location || null,
+                        teamId: data.teamId || null,
+                        lineupId: data.lineupId || null,
+                        // Tournament fields
+                        opponent: data.opponent || null,
+                        tournamentName: data.tournamentName || null,
+                        tournamentStage: data.tournamentStage || null,
+                        bestOf: data.bestOf || null,
+                        graphicsPackage: data.graphicsPackage || null,
+                        checklistId: data.checklistId || null,
+                        rosterId: data.rosterId || null,
+                        notes: data.notes || null,
+                        createdBy,
+                        status: data.status || 'scheduled',
+                    },
+                    include: {
+                        team: {
+                            select: {
+                                name: true,
+                            },
                         },
                     },
-                },
-            });
+                });
 
-            console.log('✅ Event created successfully:', event);
+                console.log('✅ Event created successfully:', event);
 
-            // Send Discord notification
-            try {
-                // Collect assigned user IDs
-                const assignedUserIds: string[] = [];
-                if (event.productionLead) {
-                    assignedUserIds.push(event.productionLead);
+                // Send Discord notification
+                try {
+                    // Collect assigned user IDs
+                    const assignedUserIds: string[] = [];
+                    if (event.productionLead) {
+                        assignedUserIds.push(event.productionLead);
+                    }
+                    if (event.createdBy) {
+                        assignedUserIds.push(event.createdBy);
+                    }
+
+                    await this.discordService.notifyEvent(
+                        tenantId,
+                        {
+                            name: event.title,
+                            date: event.startAt,
+                            location: event.location || undefined,
+                            description: `${event.eventType}${event.gameTitle ? ` - ${event.gameTitle}` : ''}`,
+                            // Tournament fields
+                            opponent: event.opponent || undefined,
+                            tournamentName: event.tournamentName || undefined,
+                            tournamentStage: event.tournamentStage || undefined,
+                            bestOf: event.bestOf || undefined,
+                            teamName: event.team?.name || undefined,
+                        },
+                        'created',
+                        assignedUserIds.length > 0 ? assignedUserIds : undefined,
+                    );
+                } catch (discordError) {
+                    console.error('Failed to send Discord notification:', discordError);
+                    // Don't fail the event creation if Discord fails
                 }
-                if (event.createdBy) {
-                    assignedUserIds.push(event.createdBy);
-                }
 
-                await this.discordService.notifyEvent(
-                    tenantId,
-                    {
-                        name: event.title,
-                        date: event.startAt,
-                        location: event.location || undefined,
-                        description: `${event.eventType}${event.gameTitle ? ` - ${event.gameTitle}` : ''}`,
-                        // Tournament fields
-                        opponent: event.opponent || undefined,
-                        tournamentName: event.tournamentName || undefined,
-                        tournamentStage: event.tournamentStage || undefined,
-                        bestOf: event.bestOf || undefined,
-                        teamName: event.team?.name || undefined,
-                    },
-                    'created',
-                    assignedUserIds.length > 0 ? assignedUserIds : undefined,
-                );
-            } catch (discordError) {
-                console.error('Failed to send Discord notification:', discordError);
-                // Don't fail the event creation if Discord fails
+                return { message: 'Event created successfully', event };
+            } catch (error) {
+                console.error('❌ Event creation error:', error);
+                throw new ConflictException('Failed to create event');
             }
-
-            return { message: 'Event created successfully', event };
-        } catch (error) {
-            console.error('❌ Event creation error:', error);
-            throw new ConflictException('Failed to create event');
-        }
+        });
     }
 
     async findEvents(tenantId: string, filters?: EventFiltersDto) {
