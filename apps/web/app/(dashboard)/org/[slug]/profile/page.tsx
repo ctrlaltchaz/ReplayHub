@@ -93,6 +93,15 @@ export default function ProfilePage() {
 
             setPlayerLoading(true);
             try {
+                // First fetch debug info
+                const debugResponse = await fetch(`${getServerUrl()}/api/org/${slug}/players/debug-link`, {
+                    credentials: 'include'
+                });
+                if (debugResponse.ok) {
+                    const debugData = await debugResponse.json();
+                    console.log('[Profile] 🔍 DEBUG INFO:', debugData);
+                }
+
                 const response = await fetch(`${getServerUrl()}/api/org/${slug}/players/me`, {
                     credentials: 'include'
                 });
