@@ -96,7 +96,10 @@ export class EventsService {
                 return { message: 'Event created successfully', event };
             } catch (error) {
                 console.error('❌ Event creation error:', error);
-                throw new ConflictException('Failed to create event');
+                // Return detailed error for debugging
+                const errorMessage = error?.message || 'Unknown error';
+                const errorCode = error?.code || 'N/A';
+                throw new ConflictException(`Failed to create event: ${errorMessage} (code: ${errorCode})`);
             }
         });
     }
