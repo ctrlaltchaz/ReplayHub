@@ -1,6 +1,7 @@
 "use client";
 
 import { AuthProvider } from "@/context/AuthContext";
+import { ThemeProvider as CustomThemeProvider } from "@/context/ThemeContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { usePathname } from "next/navigation";
@@ -35,7 +36,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         >
             <QueryClientProvider client={qc}>
                 <AuthProvider orgSlug={orgSlug}>
-                    {children}
+                    <CustomThemeProvider organizationSlug={orgSlug}>
+                        {children}
+                    </CustomThemeProvider>
                 </AuthProvider>
             </QueryClientProvider>
         </ThemeProvider>
