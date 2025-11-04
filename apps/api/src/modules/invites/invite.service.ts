@@ -2,10 +2,10 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
+import { EmailService } from '../email/email.service';
 import { AcceptInviteDto, CreateInviteDto, InviteListDto } from './dto';
 import { InviteMethod } from './dto/create-invite.dto';
 import { RegisterFromInviteDto } from './dto/register-from-invite.dto';
-import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class InviteService {

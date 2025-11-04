@@ -26,8 +26,8 @@ export class EmailService {
                 pass: process.env.SMTP_PASSWORD,
             },
             tls: {
-                // Don't fail on invalid certificates (for development/self-signed certs)
-                rejectUnauthorized: process.env.NODE_ENV === 'production',
+                // Accept self-signed/expired certificates for mail server
+                rejectUnauthorized: false,
             },
         };
 
@@ -682,10 +682,10 @@ The ReplayHub Team
     <div class="container">
         <div class="header">
             <div class="logo">
-                ${options.organizationLogo 
-                    ? `<img src="${options.organizationLogo}" alt="${options.organizationName} Logo">` 
-                    : `<img src="https://assets.mckeonwebsolutions.com/replayhub/replayicon.png" alt="ReplayHub Logo">`
-                }
+                ${options.organizationLogo
+                ? `<img src="${options.organizationLogo}" alt="${options.organizationName} Logo">`
+                : `<img src="https://assets.mckeonwebsolutions.com/replayhub/replayicon.png" alt="ReplayHub Logo">`
+            }
             </div>
             <h1>${options.organizationName}</h1>
         </div>
