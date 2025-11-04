@@ -1135,6 +1135,58 @@ export class DiscordService {
 
             this.logger.log(`Discord account linked for user ${globalUserId}: ${discordUser.username}`);
 
+            // Send welcome DM to the user (try to send via any connected org bot)
+            try {
+                // Get user's org users to find an org with Discord bot
+                const orgUsers = await this.prisma.orgUser.findMany({
+                    where: { globalUserId },
+                    select: { tenantId: true }
+                });
+
+                // Find first org with Discord bot configured
+                let botTenantId: string | null = null;
+                for (const orgUser of orgUsers) {
+                    const discordConfig = await this.prisma.organizationDiscord.findUnique({
+                        where: { tenantId: orgUser.tenantId },
+                        select: { botToken: true }
+                    });
+                    if (discordConfig?.botToken) {
+                        botTenantId = orgUser.tenantId;
+                        break;
+                    }
+                }
+
+                if (botTenantId) {
+                    await this.botService.sendDirectMessage(
+                        botTenantId,
+                        discordUser.id,
+                        {
+                            title: '🎉 Discord Account Linked!',
+                            description: 'Your Discord account has been successfully linked to your ReplayHub account.',
+                            color: 0x5865F2,
+                            fields: [
+                                {
+                                    name: '✅ What this means',
+                                    value: 'You can now receive direct message notifications for:\n• Event updates and reminders\n• Match schedules\n• Team roster changes\n• Important announcements',
+                                    inline: false
+                                },
+                                {
+                                    name: '⚙️ Manage Notifications',
+                                    value: 'You can customize your notification preferences in your profile settings at any time.',
+                                    inline: false
+                                }
+                            ]
+                        }
+                    );
+                    this.logger.log(`Welcome DM sent to Discord user ${discordUser.username}`);
+                } else {
+                    this.logger.log(`No Discord bot available to send welcome DM to ${discordUser.username}`);
+                }
+            } catch (dmError) {
+                this.logger.warn(`Could not send welcome DM to ${discordUser.username}: ${dmError.message}`);
+                // Don't fail the linking process if DM fails
+            }
+
             return {
                 success: true,
                 discordUser: {
