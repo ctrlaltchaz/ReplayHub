@@ -1,8 +1,10 @@
 "use client";
 
 import { EventDetailsDrawer } from "@/components/events/EventDetailsDrawer";
+import { useAuth } from "@/context/AuthContext";
 import { Event } from "@/hooks/events";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
+import { hasPermission, PERMISSIONS } from "@/lib/permissions/utils";
 import { startOfWeek } from "date-fns";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -15,9 +17,10 @@ export default function CalendarWeekPage() {
 
     const params = useParams();
     const slug = params?.slug as string;
+    const { permissions } = useAuth();
 
-    // Permissions - assume granted if user can access this route
-    const canManageEvents = true; // TODO: Add proper permission check
+    // Check if user can create events
+    const canManageEvents = hasPermission(permissions, PERMISSIONS.EVENTS_CREATE);
 
     // Week navigation state - start from Monday of current week
     const [currentStartDate, setCurrentStartDate] = useState(() =>

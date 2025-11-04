@@ -1,5 +1,6 @@
 'use client';
 
+import { PermissionGuard } from '@/components/permissions/PermissionGuard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
+import { PERMISSIONS } from '@/lib/permissions/utils';
 import type { ChecklistTemplate } from '@/types/checklist';
 import { ClipboardCheck, Clock, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
@@ -93,10 +95,12 @@ export default function ChecklistsPage() {
                     </TabsList>
                     <TabsContent value="checklists" className="space-y-4">
                         <div className="flex justify-end">
-                            <Button onClick={() => setShowNewChecklistDialog(true)}>
-                                <Plus className="w-4 h-4 mr-2" />
-                                New Checklist
-                            </Button>
+                            <PermissionGuard required={PERMISSIONS.CHECKLISTS_EDIT}>
+                                <Button onClick={() => setShowNewChecklistDialog(true)}>
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    New Checklist
+                                </Button>
+                            </PermissionGuard>
                         </div>
                         {checklistsLoading ? (
                             <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>
@@ -230,17 +234,24 @@ export default function ChecklistsPage() {
                                     <ClipboardCheck className="w-16 h-16 text-muted-foreground mb-4" />
                                     <h3 className="text-lg font-semibold mb-2">No Checklists</h3>
                                     <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">Create your first checklist to get started.</p>
-                                    <Button onClick={() => setShowNewChecklistDialog(true)}><Plus className="w-4 h-4 mr-2" />New Checklist</Button>
+                                    <PermissionGuard required={PERMISSIONS.CHECKLISTS_EDIT}>
+                                        <Button onClick={() => setShowNewChecklistDialog(true)}>
+                                            <Plus className="w-4 h-4 mr-2" />
+                                            New Checklist
+                                        </Button>
+                                    </PermissionGuard>
                                 </CardContent>
                             </Card>
                         )}
                     </TabsContent>
                     <TabsContent value="templates" className="space-y-4">
                         <div className="flex justify-end">
-                            <Button onClick={() => router.push(`/org/${slug}/checklists/new?type=template`)}>
-                                <Plus className="w-4 h-4 mr-2" />
-                                New Template
-                            </Button>
+                            <PermissionGuard required={PERMISSIONS.CHECKLISTS_EDIT}>
+                                <Button onClick={() => router.push(`/org/${slug}/checklists/new?type=template`)}>
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    New Template
+                                </Button>
+                            </PermissionGuard>
                         </div>
                         {templatesLoading ? (
                             <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>
@@ -282,14 +293,16 @@ export default function ChecklistsPage() {
                                             <p className="text-sm text-muted-foreground">
                                                 {template.itemsJson.length} {template.itemsJson.length === 1 ? 'item' : 'items'}
                                             </p>
-                                            <Button
-                                                size="sm"
-                                                className="w-full"
-                                                onClick={() => router.push(`/org/${slug}/checklists/new?from=template&templateId=${template.id}`)}
-                                            >
-                                                <Plus className="w-3 h-3 mr-1" />
-                                                Create from Template
-                                            </Button>
+                                            <PermissionGuard required={PERMISSIONS.CHECKLISTS_EDIT}>
+                                                <Button
+                                                    size="sm"
+                                                    className="w-full"
+                                                    onClick={() => router.push(`/org/${slug}/checklists/new?from=template&templateId=${template.id}`)}
+                                                >
+                                                    <Plus className="w-3 h-3 mr-1" />
+                                                    Create from Template
+                                                </Button>
+                                            </PermissionGuard>
                                         </CardContent>
                                     </Card>
                                 ))}
@@ -300,10 +313,12 @@ export default function ChecklistsPage() {
                                     <ClipboardCheck className="w-16 h-16 text-muted-foreground mb-4" />
                                     <h3 className="text-lg font-semibold mb-2">No Templates</h3>
                                     <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">Create your first checklist template to get started.</p>
-                                    <Button onClick={() => router.push(`/org/${slug}/checklists/new?type=template`)}>
-                                        <Plus className="w-4 h-4 mr-2" />
-                                        New Template
-                                    </Button>
+                                    <PermissionGuard required={PERMISSIONS.CHECKLISTS_EDIT}>
+                                        <Button onClick={() => router.push(`/org/${slug}/checklists/new?type=template`)}>
+                                            <Plus className="w-4 h-4 mr-2" />
+                                            New Template
+                                        </Button>
+                                    </PermissionGuard>
                                 </CardContent>
                             </Card>
                         )}

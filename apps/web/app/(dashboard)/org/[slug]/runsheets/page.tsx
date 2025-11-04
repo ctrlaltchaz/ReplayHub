@@ -1,5 +1,6 @@
 'use client';
 
+import { PermissionGuard } from "@/components/permissions/PermissionGuard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
+import { PERMISSIONS } from "@/lib/permissions/utils";
 import type { CreateRunsheetDto, RunsheetQueryDto } from "@/types/runsheet";
 import { format } from "date-fns";
 import { Calendar, Clock, FileText, FolderOpen, Lock, Plus, Search, Trash2 } from "lucide-react";
@@ -101,16 +103,20 @@ export default function RunsheetsPage() {
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Link href={`/org/${slug}/runsheets/templates`}>
-                            <Button variant="outline">
-                                <FolderOpen className="h-4 w-4 mr-2" />
-                                Manage Templates
+                        <PermissionGuard required={PERMISSIONS.RUNSHEETS_EDIT}>
+                            <Link href={`/org/${slug}/runsheets/templates`}>
+                                <Button variant="outline">
+                                    <FolderOpen className="h-4 w-4 mr-2" />
+                                    Manage Templates
+                                </Button>
+                            </Link>
+                        </PermissionGuard>
+                        <PermissionGuard required={PERMISSIONS.RUNSHEETS_EDIT}>
+                            <Button onClick={() => setShowCreateDialog(true)}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Create Runsheet
                             </Button>
-                        </Link>
-                        <Button onClick={() => setShowCreateDialog(true)}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Create Runsheet
-                        </Button>
+                        </PermissionGuard>
                     </div>
                 </div>
 
@@ -188,10 +194,12 @@ export default function RunsheetsPage() {
                                         : "Create your first runsheet to get started"}
                                 </p>
                                 {!searchQuery && !filters.status && (
-                                    <Button onClick={() => setShowCreateDialog(true)}>
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Create Runsheet
-                                    </Button>
+                                    <PermissionGuard required={PERMISSIONS.RUNSHEETS_EDIT}>
+                                        <Button onClick={() => setShowCreateDialog(true)}>
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Create Runsheet
+                                        </Button>
+                                    </PermissionGuard>
                                 )}
                             </div>
                         </CardContent>

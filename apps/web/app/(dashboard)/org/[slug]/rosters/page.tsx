@@ -280,12 +280,14 @@ export default function RostersPage() {
                                 </PermissionGuard>
                             )}
                             {activeTab === "lineups" && (
-                                <Button asChild>
-                                    <Link href={`/org/${slug}/rosters/lineups`}>
-                                        <ListOrdered className="h-4 w-4 mr-2" />
-                                        View All Lineups
-                                    </Link>
-                                </Button>
+                                <PermissionGuard required={PERMISSIONS.ROSTERS_VIEW}>
+                                    <Button asChild>
+                                        <Link href={`/org/${slug}/rosters/lineups`}>
+                                            <ListOrdered className="h-4 w-4 mr-2" />
+                                            View All Lineups
+                                        </Link>
+                                    </Button>
+                                </PermissionGuard>
                             )}
                             {activeTab === "achievements" && (
                                 <Button asChild>
@@ -630,12 +632,14 @@ export default function RostersPage() {
                                             Manage player lineups for matches and events
                                         </CardDescription>
                                     </div>
-                                    <Button asChild>
-                                        <Link href={`/org/${slug}/rosters/lineups`}>
-                                            <ListOrdered className="h-4 w-4 mr-2" />
-                                            View All Lineups
-                                        </Link>
-                                    </Button>
+                                    <PermissionGuard required={PERMISSIONS.ROSTERS_VIEW}>
+                                        <Button asChild>
+                                            <Link href={`/org/${slug}/rosters/lineups`}>
+                                                <ListOrdered className="h-4 w-4 mr-2" />
+                                                View All Lineups
+                                            </Link>
+                                        </Button>
+                                    </PermissionGuard>
                                 </div>
                             </CardHeader>
                             <CardContent>
@@ -652,11 +656,13 @@ export default function RostersPage() {
                                         <p className="text-muted-foreground mb-4">
                                             Build and manage team lineups for events and matches
                                         </p>
-                                        <Button asChild>
-                                            <Link href={`/org/${slug}/rosters/lineups`}>
-                                                Create First Lineup
-                                            </Link>
-                                        </Button>
+                                        <PermissionGuard required={PERMISSIONS.LINEUP_CREATE}>
+                                            <Button asChild>
+                                                <Link href={`/org/${slug}/rosters/lineups`}>
+                                                    Create First Lineup
+                                                </Link>
+                                            </Button>
+                                        </PermissionGuard>
                                     </div>
                                 ) : (
                                     <div className="space-y-3">

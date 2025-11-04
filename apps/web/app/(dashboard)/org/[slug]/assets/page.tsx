@@ -1,5 +1,6 @@
 'use client';
 
+import { PermissionGuard } from '@/components/permissions/PermissionGuard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
+import { PERMISSIONS } from '@/lib/permissions/utils';
 import type { Asset, AssetStatus } from '@/types/asset';
 import { useQueryClient } from '@tanstack/react-query';
 import { FileText, Loader2, Plus, Search, Tag, Tags, Trash2, X } from 'lucide-react';
@@ -209,10 +211,12 @@ export default function AssetsPage() {
                                 Review Pending
                             </Button>
                         )}
-                        <Button onClick={() => setUploadDialogOpen(true)}>
-                            <Plus className="w-4 h-4 mr-2" />
-                            Upload Asset
-                        </Button>
+                        <PermissionGuard required={PERMISSIONS.ASSETS_UPLOAD}>
+                            <Button onClick={() => setUploadDialogOpen(true)}>
+                                <Plus className="w-4 h-4 mr-2" />
+                                Upload Asset
+                            </Button>
+                        </PermissionGuard>
                     </div>
                 </div>
 
@@ -457,10 +461,12 @@ export default function AssetsPage() {
                                     Clear Tag Filters
                                 </Button>
                             )}
-                            <Button onClick={() => setUploadDialogOpen(true)}>
-                                <Plus className="w-4 h-4 mr-2" />
-                                Upload Asset
-                            </Button>
+                            <PermissionGuard required={PERMISSIONS.ASSETS_UPLOAD}>
+                                <Button onClick={() => setUploadDialogOpen(true)}>
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Upload Asset
+                                </Button>
+                            </PermissionGuard>
                         </CardContent>
                     </Card>
                 )}
