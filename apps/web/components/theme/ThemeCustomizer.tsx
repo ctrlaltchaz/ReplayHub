@@ -24,7 +24,7 @@ export function ThemeCustomizer({ trigger }: ThemeCustomizerProps) {
         // ThemeProvider not available - render nothing
         return null;
     }
-    
+
     const { currentTheme, saveTheme, resetToDefault, previewTheme, clearPreview } = themeContext;
     const [isOpen, setIsOpen] = useState(false);
     const [workingTheme, setWorkingTheme] = useState<ThemeConfig | null>(currentTheme);
@@ -362,8 +362,8 @@ export function ThemeCustomizer({ trigger }: ThemeCustomizerProps) {
                             key={key}
                             onClick={() => setActiveTab(key as any)}
                             className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors ${activeTab === key
-                                    ? 'bg-white text-gray-900 shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-white text-gray-900 shadow-sm'
+                                : 'text-gray-600 hover:text-gray-900'
                                 }`}
                         >
                             {label}

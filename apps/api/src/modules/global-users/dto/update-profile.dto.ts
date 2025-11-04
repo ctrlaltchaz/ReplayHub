@@ -1,20 +1,24 @@
 import { Type } from 'class-transformer';
-import { IsObject, IsOptional, IsString, IsUrl, MaxLength, ValidateNested } from 'class-validator';
+import { IsObject, IsOptional, IsString, IsUrl, MaxLength, ValidateIf, ValidateNested } from 'class-validator';
 
 class SocialLinksDto {
     @IsOptional()
+    @ValidateIf((o) => o.linkedin !== '' && o.linkedin !== null && o.linkedin !== undefined)
     @IsUrl({}, { message: 'LinkedIn URL must be a valid URL' })
     linkedin?: string;
 
     @IsOptional()
+    @ValidateIf((o) => o.twitter !== '' && o.twitter !== null && o.twitter !== undefined)
     @IsUrl({}, { message: 'Twitter URL must be a valid URL' })
     twitter?: string;
 
     @IsOptional()
+    @ValidateIf((o) => o.github !== '' && o.github !== null && o.github !== undefined)
     @IsUrl({}, { message: 'GitHub URL must be a valid URL' })
     github?: string;
 
     @IsOptional()
+    @ValidateIf((o) => o.website !== '' && o.website !== null && o.website !== undefined)
     @IsUrl({}, { message: 'Website URL must be a valid URL' })
     website?: string;
 }
