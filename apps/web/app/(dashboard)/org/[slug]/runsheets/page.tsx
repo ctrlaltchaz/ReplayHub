@@ -46,10 +46,16 @@ export default function RunsheetsPage() {
 
     const handleCreateRunsheet = async (data: CreateRunsheetDto & { templateId?: string }) => {
         try {
+            console.log('[Frontend] Creating runsheet with data:', data);
             await createMutation.mutateAsync(data);
             toast({ title: "Runsheet created", description: "Your runsheet has been created successfully." });
             setShowCreateDialog(false);
         } catch (error) {
+            console.error('[Frontend] Failed to create runsheet:', error);
+            console.error('[Frontend] Request data was:', data);
+            if (error && typeof error === 'object' && 'response' in error) {
+                console.error('[Frontend] Response error:', (error as any).response);
+            }
             toast({
                 title: "Failed to create runsheet",
                 description: error instanceof Error ? error.message : "An error occurred",

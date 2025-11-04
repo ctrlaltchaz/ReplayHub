@@ -46,6 +46,15 @@ export async function fetchJson<T>(path: string, init: FetchOptions = {}): Promi
                 errorData = { message: res.statusText };
             }
 
+            // Log error details to console for debugging
+            console.error('[API] Request failed:', {
+                url,
+                status: res.status,
+                statusText: res.statusText,
+                errorData,
+                requestBody: fetchOptions.body
+            });
+
             // Handle 401 Unauthorized - redirect to login with return URL
             if (res.status === 401) {
                 // Only redirect if we're in the browser, not on login page, and not on public routes
