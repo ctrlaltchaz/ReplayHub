@@ -95,7 +95,7 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
 
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const { globalUser, permissions, isLoadingOrg } = useAuth();
+    const { globalUser, permissions, isLoadingOrg, isPermissionsReady } = useAuth();
     const { counts, isLoading: countsLoading } = useBadgeCounts(slug);
     const { data: quickLinks, isLoading: quickLinksLoading } = useQuickLinks(slug);
 
@@ -296,7 +296,7 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                         /* Organization Navigation */
                         <>
                             {/* Show loading skeleton while org permissions are loading */}
-                            {slug && isLoadingOrg ? (
+                            {slug && !isPermissionsReady ? (
                                 <div className="space-y-2 px-3">
                                     {[1, 2, 3, 4, 5].map((i) => (
                                         <div key={i} className="h-10 bg-gray-700/50 rounded animate-pulse" />
@@ -313,6 +313,7 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                                             required: item.required,
                                             hasAccess,
                                             isLoadingOrg,
+                                            isPermissionsReady,
                                             permissionsLength: permissions.length,
                                             firstFewPermissions: permissions.slice(0, 3)
                                         });
@@ -322,118 +323,118 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                                         return null; // Hide item if user lacks permission
                                     }
 
-                                const href = slug ? item.href(slug) : '#';
-                                // Check if current page is this route or a child route
-                                const isActive = pathname === href || pathname?.startsWith(href + '/');
-                                // Check if any child is active by comparing pathname + search params
-                                const hasActiveChild = item.children?.some(child => {
-                                    const childHref = slug ? child.href(slug) : '#';
-                                    // pathname includes the path, we need to check if we're on the rosters page
-                                    return pathname?.startsWith('/org/' + slug + '/rosters') &&
-                                        (childHref.includes('?tab=') || pathname === childHref);
-                                });
-                                const Icon = iconMap[item.key] || iconMap.overview;
-                                const badgeCount = getBadgeCount(item.key);
-                                const isSubmenuOpen = openSubmenus.has(item.key);
-                                const hasChildren = item.children && item.children.length > 0;
+                                    const href = slug ? item.href(slug) : '#';
+                                    // Check if current page is this route or a child route
+                                    const isActive = pathname === href || pathname?.startsWith(href + '/');
+                                    // Check if any child is active by comparing pathname + search params
+                                    const hasActiveChild = item.children?.some(child => {
+                                        const childHref = slug ? child.href(slug) : '#';
+                                        // pathname includes the path, we need to check if we're on the rosters page
+                                        return pathname?.startsWith('/org/' + slug + '/rosters') &&
+                                            (childHref.includes('?tab=') || pathname === childHref);
+                                    });
+                                    const Icon = iconMap[item.key] || iconMap.overview;
+                                    const badgeCount = getBadgeCount(item.key);
+                                    const isSubmenuOpen = openSubmenus.has(item.key);
+                                    const hasChildren = item.children && item.children.length > 0;
 
-                                return (
-                                    <div key={item.key}>
-                                        {hasChildren ? (
-                                            // Item with submenu - make entire row clickable for toggle
-                                            <button
-                                                onClick={() => toggleSubmenu(item.key)}
-                                                className={cn(
-                                                    "w-full flex items-center gap-4 rounded-xl px-4 py-3 text-base transition-all duration-200",
-                                                    "font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                                                    "font-montserrat text-left",
-                                                    (isActive || hasActiveChild)
-                                                        ? "bg-primary text-primary-foreground shadow-modern font-semibold hover:bg-primary/90"
-                                                        : "hover:bg-primary hover:text-primary-foreground hover:shadow-sm",
-                                                    isCollapsed && "justify-center px-3"
-                                                )}
-                                                title={isCollapsed ? item.label : undefined}
-                                            >
-                                                <Icon className="h-5 w-5 shrink-0" />
-                                                {!isCollapsed && (
-                                                    <>
+                                    return (
+                                        <div key={item.key}>
+                                            {hasChildren ? (
+                                                // Item with submenu - make entire row clickable for toggle
+                                                <button
+                                                    onClick={() => toggleSubmenu(item.key)}
+                                                    className={cn(
+                                                        "w-full flex items-center gap-4 rounded-xl px-4 py-3 text-base transition-all duration-200",
+                                                        "font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                                        "font-montserrat text-left",
+                                                        (isActive || hasActiveChild)
+                                                            ? "bg-primary text-primary-foreground shadow-modern font-semibold hover:bg-primary/90"
+                                                            : "hover:bg-primary hover:text-primary-foreground hover:shadow-sm",
+                                                        isCollapsed && "justify-center px-3"
+                                                    )}
+                                                    title={isCollapsed ? item.label : undefined}
+                                                >
+                                                    <Icon className="h-5 w-5 shrink-0" />
+                                                    {!isCollapsed && (
+                                                        <>
+                                                            <span className="flex-1 truncate font-medium font-montserrat">{item.label}</span>
+                                                            <ChevronDown className={cn(
+                                                                "h-4 w-4 shrink-0 transition-transform duration-200",
+                                                                isSubmenuOpen && "transform rotate-180"
+                                                            )} />
+                                                        </>
+                                                    )}
+                                                    {!isCollapsed && badgeCount > 0 && (
+                                                        <Badge variant="destructive">
+                                                            {badgeCount > 99 ? '99+' : badgeCount}
+                                                        </Badge>
+                                                    )}
+                                                </button>
+                                            ) : (
+                                                // Regular link item without submenu
+                                                <Link
+                                                    href={href}
+                                                    className={cn(
+                                                        "flex items-center gap-4 rounded-xl px-4 py-3 text-base transition-all duration-200",
+                                                        "font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                                        "font-montserrat",
+                                                        isActive
+                                                            ? "bg-primary text-primary-foreground shadow-modern font-semibold hover:bg-primary/90"
+                                                            : "hover:bg-primary hover:text-primary-foreground hover:shadow-sm",
+                                                        isCollapsed && "justify-center px-3"
+                                                    )}
+                                                    aria-current={isActive ? "page" : undefined}
+                                                    title={isCollapsed ? item.label : undefined}
+                                                >
+                                                    <Icon className="h-5 w-5 shrink-0" />
+                                                    {!isCollapsed && (
                                                         <span className="flex-1 truncate font-medium font-montserrat">{item.label}</span>
-                                                        <ChevronDown className={cn(
-                                                            "h-4 w-4 shrink-0 transition-transform duration-200",
-                                                            isSubmenuOpen && "transform rotate-180"
-                                                        )} />
-                                                    </>
-                                                )}
-                                                {!isCollapsed && badgeCount > 0 && (
-                                                    <Badge variant="destructive">
-                                                        {badgeCount > 99 ? '99+' : badgeCount}
-                                                    </Badge>
-                                                )}
-                                            </button>
-                                        ) : (
-                                            // Regular link item without submenu
-                                            <Link
-                                                href={href}
-                                                className={cn(
-                                                    "flex items-center gap-4 rounded-xl px-4 py-3 text-base transition-all duration-200",
-                                                    "font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                                                    "font-montserrat",
-                                                    isActive
-                                                        ? "bg-primary text-primary-foreground shadow-modern font-semibold hover:bg-primary/90"
-                                                        : "hover:bg-primary hover:text-primary-foreground hover:shadow-sm",
-                                                    isCollapsed && "justify-center px-3"
-                                                )}
-                                                aria-current={isActive ? "page" : undefined}
-                                                title={isCollapsed ? item.label : undefined}
-                                            >
-                                                <Icon className="h-5 w-5 shrink-0" />
-                                                {!isCollapsed && (
-                                                    <span className="flex-1 truncate font-medium font-montserrat">{item.label}</span>
-                                                )}
-                                                {!isCollapsed && badgeCount > 0 && (
-                                                    <Badge variant="destructive" className="ml-auto">
-                                                        {badgeCount > 99 ? '99+' : badgeCount}
-                                                    </Badge>
-                                                )}
-                                            </Link>
-                                        )}
+                                                    )}
+                                                    {!isCollapsed && badgeCount > 0 && (
+                                                        <Badge variant="destructive" className="ml-auto">
+                                                            {badgeCount > 99 ? '99+' : badgeCount}
+                                                        </Badge>
+                                                    )}
+                                                </Link>
+                                            )}
 
-                                        {/* Submenu items */}
-                                        {!isCollapsed && item.children && isSubmenuOpen && (
-                                            <div className="ml-9 mt-1 space-y-1">
-                                                {item.children.map((child) => {
-                                                    const childHasAccess = checkPermission(child.required);
-                                                    if (!childHasAccess) return null;
+                                            {/* Submenu items */}
+                                            {!isCollapsed && item.children && isSubmenuOpen && (
+                                                <div className="ml-9 mt-1 space-y-1">
+                                                    {item.children.map((child) => {
+                                                        const childHasAccess = checkPermission(child.required);
+                                                        if (!childHasAccess) return null;
 
-                                                    const childHref = slug ? child.href(slug) : '#';
-                                                    // Check if this child tab is active by comparing pathname and query params
-                                                    const childIsActive = pathname?.startsWith('/org/' + slug + '/rosters') &&
-                                                        childHref.includes('?tab=') &&
-                                                        childHref.includes(searchParams?.get('tab') || '');
+                                                        const childHref = slug ? child.href(slug) : '#';
+                                                        // Check if this child tab is active by comparing pathname and query params
+                                                        const childIsActive = pathname?.startsWith('/org/' + slug + '/rosters') &&
+                                                            childHref.includes('?tab=') &&
+                                                            childHref.includes(searchParams?.get('tab') || '');
 
-                                                    return (
-                                                        <Link
-                                                            key={child.key}
-                                                            href={childHref}
-                                                            className={cn(
-                                                                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all duration-200",
-                                                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                                                                "font-montserrat",
-                                                                childIsActive
-                                                                    ? "bg-secondary text-secondary-foreground font-medium hover:bg-secondary/80"
-                                                                    : "hover:bg-secondary hover:text-secondary-foreground"
-                                                            )}
-                                                            aria-current={childIsActive ? "page" : undefined}
-                                                        >
-                                                            <span className="truncate">{child.label}</span>
-                                                        </Link>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })
+                                                        return (
+                                                            <Link
+                                                                key={child.key}
+                                                                href={childHref}
+                                                                className={cn(
+                                                                    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all duration-200",
+                                                                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                                                    "font-montserrat",
+                                                                    childIsActive
+                                                                        ? "bg-secondary text-secondary-foreground font-medium hover:bg-secondary/80"
+                                                                        : "hover:bg-secondary hover:text-secondary-foreground"
+                                                                )}
+                                                                aria-current={childIsActive ? "page" : undefined}
+                                                            >
+                                                                <span className="truncate">{child.label}</span>
+                                                            </Link>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })
                             )}
 
                             {/* Quick Links Section - Organization custom links */}

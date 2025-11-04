@@ -24,6 +24,7 @@ interface AuthContextType {
     // Loading states
     isLoadingGlobal: boolean;
     isLoadingOrg: boolean;
+    isPermissionsReady: boolean; // New flag to indicate permissions are loaded and ready
 }
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
@@ -65,6 +66,15 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
     const permissions = React.useMemo(() => {
         return orgUser?.permissions ? flattenPermissions(orgUser.permissions) : [];
     }, [orgUser]);
+
+    // Determine if permissions are ready:
+    // - If no orgSlug, permissions are ready (we're not in an org context)
+    // - If orgSlug exists and not loading, check if we have orgUser data
+    const isPermissionsReady = React.useMemo(() => {
+        if (!orgSlug) return true; // Not in org context, no permissions needed
+        if (isLoadingOrg) return false; // Still loading
+        return orgUser !== undefined && orgUser !== null; // Ready if we have orgUser data (even if no permissions)
+    }, [orgSlug, isLoadingOrg, orgUser]);
 
     // Debug logging for permissions
     React.useEffect(() => {
@@ -151,6 +161,7 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
         refresh,
         isLoadingGlobal,
         isLoadingOrg,
+        isPermissionsReady,
     };
 
     return (
