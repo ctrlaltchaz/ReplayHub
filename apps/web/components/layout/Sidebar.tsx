@@ -296,10 +296,8 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                         /* Organization Navigation */
                         <>
                             {ORG_NAV.filter(item => item.key !== 'settings').map((item) => {
-                                // If we have a slug but no permissions loaded yet, treat as loading
-                                const isStillLoading = slug && permissions.length === 0;
                                 // While loading org user, show all items
-                                const hasAccess = (isLoadingOrg || isStillLoading) ? true : checkPermission(item.required);
+                                const hasAccess = isLoadingOrg ? true : checkPermission(item.required);
 
                                 // Debug logging
                                 if (['runsheets', 'checklists', 'inventory', 'assets'].includes(item.key)) {
@@ -307,7 +305,6 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                                         required: item.required,
                                         hasAccess,
                                         isLoadingOrg,
-                                        isStillLoading,
                                         permissionsLength: permissions.length,
                                         userPermissions: permissions
                                     });
@@ -397,7 +394,7 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                                         {!isCollapsed && item.children && isSubmenuOpen && (
                                             <div className="ml-9 mt-1 space-y-1">
                                                 {item.children.map((child) => {
-                                                    const childHasAccess = (isLoadingOrg || isStillLoading) ? true : checkPermission(child.required);
+                                                    const childHasAccess = isLoadingOrg ? true : checkPermission(child.required);
                                                     if (!childHasAccess) return null;
 
                                                     const childHref = slug ? child.href(slug) : '#';
