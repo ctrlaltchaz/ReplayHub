@@ -45,6 +45,28 @@ export class GlobalAuthController {
             // Create session
             req.session.userId = user.id;
 
+            // AUTO-LOGIN TO ORG: Check if user has org accounts and auto-set first org session
+            const orgUsers = await this.globalAuthService.getOrgUsersForGlobalUser(user.id);
+            if (orgUsers && orgUsers.length > 0) {
+                const firstOrgUser = orgUsers[0];
+                req.session.orgUserId = firstOrgUser.id;
+                req.session.orgTenant = firstOrgUser.organisation.slug;
+                console.log(`[GlobalAuth/Login] Auto-set org session: orgUserId=${firstOrgUser.id}, tenant=${firstOrgUser.organisation.slug}`);
+            }
+
+            // Save session before checking TOTP
+            await new Promise<void>((resolve, reject) => {
+                req.session.save((err) => {
+                    if (err) {
+                        console.error('[GlobalAuth/Login] Session save error:', err);
+                        reject(err);
+                    } else {
+                        console.log(`[GlobalAuth/Login] Session saved with orgUserId=${req.session.orgUserId}`);
+                        resolve();
+                    }
+                });
+            });
+
             // Check if user has 2FA enabled
             if (user.isTotpEnabled) {
                 req.session.requiresTotp = true;

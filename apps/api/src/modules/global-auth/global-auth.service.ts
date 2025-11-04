@@ -388,4 +388,32 @@ export class GlobalAuthService {
             }
         };
     }
+
+    async getOrgUsersForGlobalUser(globalUserId: string) {
+        const orgUsers = await this.prisma.orgUser.findMany({
+            where: {
+                globalUserId: globalUserId
+            }
+        });
+
+        // Get org data for each org user
+        const orgUsersWithOrg = await Promise.all(
+            orgUsers.map(async (orgUser) => {
+                const org = await this.prisma.organisation.findUnique({
+                    where: { id: orgUser.tenantId },
+                    select: {
+                        id: true,
+                        name: true,
+                        slug: true
+                    }
+                });
+                return {
+                    ...orgUser,
+                    organisation: org
+                };
+            })
+        );
+
+        return orgUsersWithOrg;
+    }
 }
