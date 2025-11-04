@@ -147,236 +147,261 @@ export class RunsheetService {
     }
 
     async update(tenantId: string, id: string, updateRunsheetDto: UpdateRunsheetDto) {
-        // Set RLS context for tenant isolation
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        // Use transaction to ensure RLS context is set on the same connection
+        return await this.prisma.$transaction(async (tx) => {
+            // Set RLS context for tenant isolation
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        // Check if runsheet exists and is not locked
-        const existingRunsheet = await this.prisma.runsheet.findFirst({
-            where: { id, tenantId }
-        });
+            // Check if runsheet exists and is not locked
+            const existingRunsheet = await tx.runsheet.findFirst({
+                where: { id, tenantId }
+            });
 
-        if (!existingRunsheet) {
-            throw new NotFoundException('Runsheet not found');
-        }
-
-        if (existingRunsheet.status === 'locked') {
-            throw new ConflictException('Cannot modify locked runsheet');
-        }
-
-        return this.prisma.runsheet.update({
-            where: { id },
-            data: updateRunsheetDto,
-            include: {
-                items: {
-                    orderBy: { idx: 'asc' }
-                }
+            if (!existingRunsheet) {
+                throw new NotFoundException('Runsheet not found');
             }
+
+            if (existingRunsheet.status === 'locked') {
+                throw new ConflictException('Cannot modify locked runsheet');
+            }
+
+            return tx.runsheet.update({
+                where: { id },
+                data: updateRunsheetDto,
+                include: {
+                    items: {
+                        orderBy: { idx: 'asc' }
+                    }
+                }
+            });
         });
     }
 
     async approve(tenantId: string, id: string) {
-        const existingRunsheet = await this.prisma.runsheet.findFirst({
-            where: { id, tenantId }
-        });
+        return await this.prisma.$transaction(async (tx) => {
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        if (!existingRunsheet) {
-            throw new NotFoundException('Runsheet not found');
-        }
+            const existingRunsheet = await tx.runsheet.findFirst({
+                where: { id, tenantId }
+            });
 
-        if (existingRunsheet.status === 'locked') {
-            throw new ConflictException('Cannot approve locked runsheet');
-        }
-
-        if (existingRunsheet.status === 'approved') {
-            throw new ConflictException('Runsheet already approved');
-        }
-
-        return this.prisma.runsheet.update({
-            where: { id },
-            data: {
-                status: 'approved',
-                revision: existingRunsheet.revision + 1
-            },
-            include: {
-                items: {
-                    orderBy: { idx: 'asc' }
-                }
+            if (!existingRunsheet) {
+                throw new NotFoundException('Runsheet not found');
             }
+
+            if (existingRunsheet.status === 'locked') {
+                throw new ConflictException('Cannot approve locked runsheet');
+            }
+
+            if (existingRunsheet.status === 'approved') {
+                throw new ConflictException('Runsheet already approved');
+            }
+
+            return tx.runsheet.update({
+                where: { id },
+                data: {
+                    status: 'approved',
+                    revision: existingRunsheet.revision + 1
+                },
+                include: {
+                    items: {
+                        orderBy: { idx: 'asc' }
+                    }
+                }
+            });
         });
     }
 
     async lock(tenantId: string, id: string) {
-        const existingRunsheet = await this.prisma.runsheet.findFirst({
-            where: { id, tenantId }
-        });
+        return await this.prisma.$transaction(async (tx) => {
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        if (!existingRunsheet) {
-            throw new NotFoundException('Runsheet not found');
-        }
+            const existingRunsheet = await tx.runsheet.findFirst({
+                where: { id, tenantId }
+            });
 
-        return this.prisma.runsheet.update({
-            where: { id },
-            data: { status: 'locked' },
-            include: {
-                items: {
-                    orderBy: { idx: 'asc' }
-                }
+            if (!existingRunsheet) {
+                throw new NotFoundException('Runsheet not found');
             }
+
+            return tx.runsheet.update({
+                where: { id },
+                data: { status: 'locked' },
+                include: {
+                    items: {
+                        orderBy: { idx: 'asc' }
+                    }
+                }
+            });
         });
     }
 
     async unapprove(tenantId: string, id: string) {
-        const existingRunsheet = await this.prisma.runsheet.findFirst({
-            where: { id, tenantId }
-        });
+        return await this.prisma.$transaction(async (tx) => {
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        if (!existingRunsheet) {
-            throw new NotFoundException('Runsheet not found');
-        }
+            const existingRunsheet = await tx.runsheet.findFirst({
+                where: { id, tenantId }
+            });
 
-        if (existingRunsheet.status === 'locked') {
-            throw new ConflictException('Cannot unapprove locked runsheet');
-        }
-
-        if (existingRunsheet.status === 'draft') {
-            throw new ConflictException('Runsheet is already in draft status');
-        }
-
-        return this.prisma.runsheet.update({
-            where: { id },
-            data: { status: 'draft' },
-            include: {
-                items: {
-                    orderBy: { idx: 'asc' }
-                }
+            if (!existingRunsheet) {
+                throw new NotFoundException('Runsheet not found');
             }
+
+            if (existingRunsheet.status === 'locked') {
+                throw new ConflictException('Cannot unapprove locked runsheet');
+            }
+
+            if (existingRunsheet.status === 'draft') {
+                throw new ConflictException('Runsheet is already in draft status');
+            }
+
+            return tx.runsheet.update({
+                where: { id },
+                data: { status: 'draft' },
+                include: {
+                    items: {
+                        orderBy: { idx: 'asc' }
+                    }
+                }
+            });
         });
     }
 
     async delete(tenantId: string, id: string) {
-        // Set RLS context for tenant isolation
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        // Use transaction to ensure RLS context is set on the same connection
+        return await this.prisma.$transaction(async (tx) => {
+            // Set RLS context for tenant isolation
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const existingRunsheet = await this.prisma.runsheet.findFirst({
-            where: { id, tenantId }
-        });
+            const existingRunsheet = await tx.runsheet.findFirst({
+                where: { id, tenantId }
+            });
 
-        if (!existingRunsheet) {
-            throw new NotFoundException('Runsheet not found');
-        }
+            if (!existingRunsheet) {
+                throw new NotFoundException('Runsheet not found');
+            }
 
-        if (existingRunsheet.status === 'locked') {
-            throw new ConflictException('Cannot delete locked runsheet');
-        }
+            if (existingRunsheet.status === 'locked') {
+                throw new ConflictException('Cannot delete locked runsheet');
+            }
 
-        // Delete all items first (cascade)
-        await this.prisma.runsheetItem.deleteMany({
-            where: { runsheetId: id }
-        });
+            // Delete all items first (cascade)
+            await tx.runsheetItem.deleteMany({
+                where: { runsheetId: id }
+            });
 
-        // Delete the runsheet
-        return this.prisma.runsheet.delete({
-            where: { id }
+            // Delete the runsheet
+            return tx.runsheet.delete({
+                where: { id }
+            });
         });
     }
 
     async duplicate(tenantId: string, id: string, createdBy: string) {
-        const existingRunsheet = await this.prisma.runsheet.findFirst({
-            where: { id, tenantId },
-            include: {
-                items: {
-                    orderBy: { idx: 'asc' }
+        return await this.prisma.$transaction(async (tx) => {
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+
+            const existingRunsheet = await tx.runsheet.findFirst({
+                where: { id, tenantId },
+                include: {
+                    items: {
+                        orderBy: { idx: 'asc' }
+                    }
                 }
-            }
-        });
-
-        if (!existingRunsheet) {
-            throw new NotFoundException('Runsheet not found');
-        }
-
-        // Create new runsheet with copied data
-        const newRunsheet = await this.prisma.runsheet.create({
-            data: {
-                tenantId,
-                title: `${existingRunsheet.title} (Copy)`,
-                status: 'draft',
-                revision: 1,
-                createdBy,
-                eventId: existingRunsheet.eventId
-            }
-        });
-
-        // Copy all items
-        if (existingRunsheet.items.length > 0) {
-            await this.prisma.runsheetItem.createMany({
-                data: existingRunsheet.items.map(item => ({
-                    tenantId,
-                    runsheetId: newRunsheet.id,
-                    idx: item.idx,
-                    title: item.title,
-                    type: item.type,
-                    ownerId: item.ownerId,
-                    durationMs: item.durationMs,
-                    location: item.location,
-                    equipment: item.equipment,
-                    priority: item.priority,
-                    notes: item.notes,
-                    attachmentsJson: item.attachmentsJson
-                }))
             });
-        }
 
-        // Return the new runsheet with items
-        return this.prisma.runsheet.findFirst({
-            where: { id: newRunsheet.id },
-            include: {
-                items: {
-                    orderBy: { idx: 'asc' }
-                }
+            if (!existingRunsheet) {
+                throw new NotFoundException('Runsheet not found');
             }
+
+            // Create new runsheet with copied data
+            const newRunsheet = await tx.runsheet.create({
+                data: {
+                    tenantId,
+                    title: `${existingRunsheet.title} (Copy)`,
+                    status: 'draft',
+                    revision: 1,
+                    createdBy,
+                    eventId: existingRunsheet.eventId
+                }
+            });
+
+            // Copy all items
+            if (existingRunsheet.items.length > 0) {
+                await tx.runsheetItem.createMany({
+                    data: existingRunsheet.items.map(item => ({
+                        tenantId,
+                        runsheetId: newRunsheet.id,
+                        idx: item.idx,
+                        title: item.title,
+                        type: item.type,
+                        ownerId: item.ownerId,
+                        durationMs: item.durationMs,
+                        location: item.location,
+                        equipment: item.equipment,
+                        priority: item.priority,
+                        notes: item.notes,
+                        attachmentsJson: item.attachmentsJson
+                    }))
+                });
+            }
+
+            // Return the new runsheet with items
+            return tx.runsheet.findFirst({
+                where: { id: newRunsheet.id },
+                include: {
+                    items: {
+                        orderBy: { idx: 'asc' }
+                    }
+                }
+            });
         });
     }
 
     // Runsheet Items
 
     async addItems(tenantId: string, runsheetId: string, itemsDto: BulkCreateRunsheetItemsDto) {
-        // Check if runsheet exists and is not locked
-        const runsheet = await this.prisma.runsheet.findFirst({
-            where: { id: runsheetId, tenantId }
-        });
+        return await this.prisma.$transaction(async (tx) => {
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        if (!runsheet) {
-            throw new NotFoundException('Runsheet not found');
-        }
+            // Check if runsheet exists and is not locked
+            const runsheet = await tx.runsheet.findFirst({
+                where: { id: runsheetId, tenantId }
+            });
 
-        if (runsheet.status === 'locked') {
-            throw new ConflictException('Cannot modify locked runsheet');
-        }
-
-        // Validate unique indexes
-        const indexes = itemsDto.items.map(item => item.idx);
-        const uniqueIndexes = new Set(indexes);
-        if (indexes.length !== uniqueIndexes.size) {
-            throw new BadRequestException('Duplicate item indexes not allowed');
-        }
-
-        // Check for existing indexes
-        const existingItems = await this.prisma.runsheetItem.findMany({
-            where: {
-                tenantId,
-                runsheetId,
-                idx: { in: indexes }
+            if (!runsheet) {
+                throw new NotFoundException('Runsheet not found');
             }
-        });
 
-        if (existingItems.length > 0) {
-            throw new ConflictException(`Item indexes already exist: ${existingItems.map(item => item.idx).join(', ')}`);
-        }
+            if (runsheet.status === 'locked') {
+                throw new ConflictException('Cannot modify locked runsheet');
+            }
 
-        // Create items in transaction
-        const createdItems = await this.prisma.$transaction(
-            itemsDto.items.map(itemDto =>
-                this.prisma.runsheetItem.create({
+            // Validate unique indexes
+            const indexes = itemsDto.items.map(item => item.idx);
+            const uniqueIndexes = new Set(indexes);
+            if (indexes.length !== uniqueIndexes.size) {
+                throw new BadRequestException('Duplicate item indexes not allowed');
+            }
+
+            // Check for existing indexes
+            const existingItems = await tx.runsheetItem.findMany({
+                where: {
+                    tenantId,
+                    runsheetId,
+                    idx: { in: indexes }
+                }
+            });
+
+            if (existingItems.length > 0) {
+                throw new ConflictException(`Item indexes already exist: ${existingItems.map(item => item.idx).join(', ')}`);
+            }
+
+            // Create items
+            const createdItems = [];
+            for (const itemDto of itemsDto.items) {
+                const item = await tx.runsheetItem.create({
                     data: {
                         tenantId,
                         runsheetId,
@@ -391,108 +416,129 @@ export class RunsheetService {
                         notes: itemDto.notes,
                         attachmentsJson: (itemDto.attachmentsJson || []) as any
                     }
-                })
-            )
-        );
+                });
+                createdItems.push(item);
+            }
 
-        return createdItems;
+            return createdItems;
+        });
     }
 
     async updateItem(tenantId: string, runsheetId: string, itemId: string, updateItemDto: UpdateRunsheetItemDto) {
-        // Set RLS context for tenant isolation
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set RLS context for tenant isolation
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        // Check if runsheet exists and is not locked
-        const runsheet = await this.prisma.runsheet.findFirst({
-            where: { id: runsheetId, tenantId }
-        });
-
-        if (!runsheet) {
-            throw new NotFoundException('Runsheet not found');
-        }
-
-        if (runsheet.status === 'locked') {
-            throw new ConflictException('Cannot modify locked runsheet');
-        }
-
-        // Check if item exists
-        const existingItem = await this.prisma.runsheetItem.findFirst({
-            where: { id: itemId, tenantId, runsheetId }
-        });
-
-        if (!existingItem) {
-            throw new NotFoundException('Runsheet item not found');
-        }
-
-        // If updating index, check for conflicts
-        if (updateItemDto.idx !== undefined && updateItemDto.idx !== existingItem.idx) {
-            const conflictingItem = await this.prisma.runsheetItem.findFirst({
-                where: {
-                    tenantId,
-                    runsheetId,
-                    idx: updateItemDto.idx,
-                    id: { not: itemId }
-                }
+            // Check if runsheet exists and is not locked
+            const runsheet = await tx.runsheet.findFirst({
+                where: { id: runsheetId, tenantId }
             });
 
-            if (conflictingItem) {
-                throw new BadRequestException(`Item index ${updateItemDto.idx} already exists`);
+            if (!runsheet) {
+                throw new NotFoundException('Runsheet not found');
             }
-        }
 
-        return this.prisma.runsheetItem.update({
-            where: { id: itemId },
-            data: {
-                ...updateItemDto,
-                attachmentsJson: updateItemDto.attachmentsJson as any
+            if (runsheet.status === 'locked') {
+                throw new ConflictException('Cannot modify locked runsheet');
             }
+
+            // Check if item exists
+            const existingItem = await tx.runsheetItem.findFirst({
+                where: { id: itemId, tenantId, runsheetId }
+            });
+
+            if (!existingItem) {
+                throw new NotFoundException('Runsheet item not found');
+            }
+
+            // If updating index, check for conflicts
+            if (updateItemDto.idx !== undefined && updateItemDto.idx !== existingItem.idx) {
+                const conflictingItem = await tx.runsheetItem.findFirst({
+                    where: {
+                        tenantId,
+                        runsheetId,
+                        idx: updateItemDto.idx,
+                        id: { not: itemId }
+                    }
+                });
+
+                if (conflictingItem) {
+                    throw new BadRequestException(`Item index ${updateItemDto.idx} already exists`);
+                }
+            }
+
+            return tx.runsheetItem.update({
+                where: { id: itemId },
+                data: {
+                    ...updateItemDto,
+                    attachmentsJson: updateItemDto.attachmentsJson as any
+                }
+            });
         });
     }
 
     async deleteItem(tenantId: string, runsheetId: string, itemId: string) {
-        // Set RLS context for tenant isolation
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set RLS context for tenant isolation
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        // Check if runsheet exists and is not locked
-        const runsheet = await this.prisma.runsheet.findFirst({
-            where: { id: runsheetId, tenantId }
-        });
+            // Check if runsheet exists and is not locked
+            const runsheet = await tx.runsheet.findFirst({
+                where: { id: runsheetId, tenantId }
+            });
 
-        if (!runsheet) {
-            throw new NotFoundException('Runsheet not found');
-        }
+            if (!runsheet) {
+                throw new NotFoundException('Runsheet not found');
+            }
 
-        if (runsheet.status === 'locked') {
-            throw new ConflictException('Cannot modify locked runsheet');
-        }
+            if (runsheet.status === 'locked') {
+                throw new ConflictException('Cannot modify locked runsheet');
+            }
 
-        // Check if item exists
-        const existingItem = await this.prisma.runsheetItem.findFirst({
-            where: { id: itemId, tenantId, runsheetId }
-        });
+            // Check if item exists
+            const existingItem = await tx.runsheetItem.findFirst({
+                where: { id: itemId, tenantId, runsheetId }
+            });
 
-        if (!existingItem) {
-            throw new NotFoundException('Runsheet item not found');
-        }
+            if (!existingItem) {
+                throw new NotFoundException('Runsheet item not found');
+            }
 
-        return this.prisma.runsheetItem.delete({
-            where: { id: itemId }
+            return tx.runsheetItem.delete({
+                where: { id: itemId }
+            });
         });
     }
     async reorderItems(tenantId: string, runsheetId: string, itemIds: string[]) {
-        const runsheet = await this.prisma.runsheet.findFirst({
-            where: { id: runsheetId, tenantId },
-            include: { items: true }
+        return await this.prisma.$transaction(async (tx) => {
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+
+            const runsheet = await tx.runsheet.findFirst({
+                where: { id: runsheetId, tenantId },
+                include: { items: true }
+            });
+
+            if (!runsheet) throw new NotFoundException('Runsheet not found');
+            if (runsheet.status === 'locked') throw new ConflictException('Cannot modify locked runsheet');
+            if (itemIds.length !== runsheet.items.length) throw new BadRequestException('Invalid item list');
+
+            const runsheetItemIds = new Set(runsheet.items.map(item => item.id));
+            for (const itemId of itemIds) {
+                if (!runsheetItemIds.has(itemId)) throw new BadRequestException('Item does not belong to runsheet');
+            }
+
+            for (let index = 0; index < itemIds.length; index++) {
+                await tx.runsheetItem.update({
+                    where: { id: itemIds[index] },
+                    data: { idx: index + 1 }
+                });
+            }
+
+            return tx.runsheet.findFirst({
+                where: { id: runsheetId, tenantId },
+                include: { items: { orderBy: { idx: 'asc' } } }
+            });
         });
-        if (!runsheet) throw new NotFoundException('Runsheet not found');
-        if (runsheet.status === 'locked') throw new ConflictException('Cannot modify locked runsheet');
-        if (itemIds.length !== runsheet.items.length) throw new BadRequestException('Invalid item list');
-        const runsheetItemIds = new Set(runsheet.items.map(item => item.id));
-        for (const itemId of itemIds) {
-            if (!runsheetItemIds.has(itemId)) throw new BadRequestException('Item does not belong to runsheet');
-        }
-        await this.prisma.$transaction(itemIds.map((itemId, index) => this.prisma.runsheetItem.update({ where: { id: itemId }, data: { idx: index + 1 } })));
-        return this.prisma.runsheet.findFirst({ where: { id: runsheetId, tenantId }, include: { items: { orderBy: { idx: 'asc' } } } });
     }
 }
 
