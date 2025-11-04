@@ -29,6 +29,21 @@ import { RunsheetService } from '../services/runsheet.service';
 export class RunsheetController {
     constructor(private readonly runsheetService: RunsheetService) { }
 
+    // Temporary test endpoint without guards
+    @Post('runsheets-test')
+    async createTest(
+        @Req() req: Request,
+        @Body() createRunsheetDto: CreateRunsheetDto,
+    ) {
+        return {
+            success: true,
+            tenant: req.tenant?.id || 'NO_TENANT',
+            orgUser: req.orgUser?.id || 'NO_ORG_USER',
+            dto: createRunsheetDto,
+            message: 'Test endpoint reached successfully'
+        };
+    }
+
     @Post('runsheets')
     @Can('runsheet.edit')
     @UseGuards(PermissionGuard)
@@ -61,7 +76,7 @@ export class RunsheetController {
                 orgUserId: req.orgUser?.id,
                 dto: createRunsheetDto,
             };
-            
+
             // Throw a new error with all the details in the message
             throw new Error(JSON.stringify(errorDetails, null, 2));
         }
