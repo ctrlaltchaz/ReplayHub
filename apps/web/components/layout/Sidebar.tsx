@@ -307,18 +307,6 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                                     // Check permission - no special handling needed since we wait for loading to complete
                                     const hasAccess = checkPermission(item.required);
 
-                                    // Debug logging
-                                    if (['runsheets', 'checklists', 'inventory', 'assets', 'overview', 'events', 'rosters'].includes(item.key)) {
-                                        console.log(`[Sidebar] ${item.key}:`, {
-                                            required: item.required,
-                                            hasAccess,
-                                            isLoadingOrg,
-                                            isPermissionsReady,
-                                            permissionsLength: permissions.length,
-                                            firstFewPermissions: permissions.slice(0, 3)
-                                        });
-                                    }
-
                                     if (!hasAccess) {
                                         return null; // Hide item if user lacks permission
                                     }

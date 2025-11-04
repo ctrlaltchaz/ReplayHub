@@ -101,6 +101,8 @@ export default function ProfilePage() {
                     if (text) {
                         try {
                             const data = JSON.parse(text);
+                            console.log('[Profile] Player response:', data);
+                            console.log('[Profile] Player data:', data.player);
                             // API now returns { player: ... }
                             setPlayerData(data.player);
                         } catch (e) {
@@ -108,11 +110,11 @@ export default function ProfilePage() {
                             setPlayerData(null);
                         }
                     } else {
-                        console.log('Empty response from players/me');
+                        console.log('[Profile] Empty response from players/me');
                         setPlayerData(null);
                     }
                 } else {
-                    console.log('Player not found or not accessible:', response.status);
+                    console.log('[Profile] Player not found or not accessible:', response.status);
                     setPlayerData(null);
                 }
             } catch (error) {

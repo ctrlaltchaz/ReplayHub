@@ -187,8 +187,6 @@ export class PlayerService {
             return null;
         }
 
-        console.log('[PlayerService] Searching for player with globalUserId:', globalUserId, 'in tenant:', tenantId);
-
         const player = await this.prisma.player.findFirst({
             where: {
                 tenantId,
@@ -210,8 +208,6 @@ export class PlayerService {
                 },
             },
         });
-
-        console.log('[PlayerService] Query result:', player ? `Found: ${player.gamerTag}` : 'Not found');
 
         return player;
     }
