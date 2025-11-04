@@ -77,67 +77,73 @@ export class RunsheetService {
     }
 
     async findMany(tenantId: string, query: RunsheetQueryDto) {
-        // Set RLS context for tenant isolation
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        // Use transaction to ensure RLS context is set on the same connection
+        return await this.prisma.$transaction(async (tx) => {
+            // Set RLS context for tenant isolation
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const where: any = { tenantId };
+            const where: any = { tenantId };
 
-        if (query.eventId) {
-            where.eventId = query.eventId;
-        }
-
-        if (query.status) {
-            where.status = query.status;
-        }
-
-        if (query.cursor) {
-            where.id = { lt: query.cursor };
-        }
-
-        const limit = Math.min(query.limit || 20, 100); // Max 100 items
-
-        const items = await this.prisma.runsheet.findMany({
-            where,
-            include: {
-                items: {
-                    orderBy: { idx: 'asc' }
-                }
-            },
-            orderBy: { createdAt: 'desc' },
-            take: limit + 1 // Take one extra to check if there are more
-        });
-
-        const hasMore = items.length > limit;
-        const runsheets = hasMore ? items.slice(0, -1) : items;
-        const nextCursor = hasMore ? runsheets[runsheets.length - 1].id : null;
-
-        return {
-            data: runsheets,
-            pagination: {
-                hasMore,
-                nextCursor
+            if (query.eventId) {
+                where.eventId = query.eventId;
             }
-        };
+
+            if (query.status) {
+                where.status = query.status;
+            }
+
+            if (query.cursor) {
+                where.id = { lt: query.cursor };
+            }
+
+            const limit = Math.min(query.limit || 20, 100); // Max 100 items
+
+            const items = await tx.runsheet.findMany({
+                where,
+                include: {
+                    items: {
+                        orderBy: { idx: 'asc' }
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+                take: limit + 1 // Take one extra to check if there are more
+            });
+
+            const hasMore = items.length > limit;
+            const runsheets = hasMore ? items.slice(0, -1) : items;
+            const nextCursor = hasMore ? runsheets[runsheets.length - 1].id : null;
+
+            return {
+                data: runsheets,
+                pagination: {
+                    hasMore,
+                    nextCursor
+                }
+            };
+        });
     }
 
     async findOne(tenantId: string, id: string) {
-        // Set RLS context for tenant isolation
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        // Use transaction to ensure RLS context is set on the same connection
+        return await this.prisma.$transaction(async (tx) => {
+            // Set RLS context for tenant isolation
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const runsheet = await this.prisma.runsheet.findFirst({
-            where: { id, tenantId },
-            include: {
-                items: {
-                    orderBy: { idx: 'asc' }
+            const runsheet = await tx.runsheet.findFirst({
+                where: { id, tenantId },
+                include: {
+                    items: {
+                        orderBy: { idx: 'asc' }
+                    }
                 }
+            });
+
+            if (!runsheet) {
+                throw new NotFoundException('Runsheet not found');
             }
+
+            return runsheet;
         });
-
-        if (!runsheet) {
-            throw new NotFoundException('Runsheet not found');
-        }
-
-        return runsheet;
     }
 
     async update(tenantId: string, id: string, updateRunsheetDto: UpdateRunsheetDto) {
