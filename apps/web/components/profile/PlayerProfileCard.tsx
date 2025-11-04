@@ -39,7 +39,7 @@ export function PlayerProfileCard({ player, slug, onUpdate }: PlayerProfileCardP
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            const response = await fetch(`http://localhost:3001/api/org/${slug}/players/${player.id}/my-profile`, {
+            const response = await fetch(`${getServerUrl()}/api/org/${slug}/players/${player.id}/my-profile`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
@@ -83,7 +83,7 @@ export function PlayerProfileCard({ player, slug, onUpdate }: PlayerProfileCardP
     const handleSyncWithUserProfile = async () => {
         setIsSyncing(true);
         try {
-            const response = await fetch(`http://localhost:3001/api/org/${slug}/players/${player.id}/sync-user-data`, {
+            const response = await fetch(`${getServerUrl()}/api/org/${slug}/players/${player.id}/sync-user-data`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",

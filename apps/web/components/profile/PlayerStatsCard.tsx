@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
 import { useUpdatePlayerSettings } from '@/hooks/profile/useUpdatePlayerSettings';
+import { getServerUrl } from '@/lib/api/config';
 import { BarChart3, Eye, EyeOff, Target, TrendingUp, Trophy, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -57,7 +58,7 @@ export function PlayerStatsCard({ playerId, slug, showPrivacyToggle = false, sta
         async function fetchStats() {
             try {
                 const response = await fetch(
-                    `http://localhost:3001/api/org/${slug}/players/${playerId}/game-stats`,
+                    `${getServerUrl()}/api/org/${slug}/players/${playerId}/game-stats`,
                     {
                         credentials: 'include',
                     }
