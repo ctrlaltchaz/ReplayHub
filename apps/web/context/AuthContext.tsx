@@ -63,6 +63,21 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
     // Computed permissions - flatten from org user permissions array
     const permissions = orgUser?.permissions ? flattenPermissions(orgUser.permissions) : [];
 
+    // Debug logging for permissions
+    React.useEffect(() => {
+        if (orgUser) {
+            console.log('[AuthContext] OrgUser loaded:', {
+                userId: orgUser.id,
+                email: orgUser.email,
+                rawPermissions: orgUser.permissions,
+                flattenedPermissions: permissions,
+                permissionsCount: permissions.length
+            });
+        } else {
+            console.log('[AuthContext] No orgUser loaded');
+        }
+    }, [orgUser, permissions]);
+
     // Compute isGlobalAdmin flag
     const isGlobalAdmin = globalUser?.isGlobalAdmin === true;
 
