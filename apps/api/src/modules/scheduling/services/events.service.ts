@@ -655,34 +655,38 @@ export class EventsService {
 
 
     async countEvents(tenantId: string): Promise<number> {
-        try {
-            await this.prisma.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
-            const result = await this.prisma.$queryRaw<[{ count: bigint }]>`
+        return await this.prisma.$transaction(async (tx) => {
+            try {
+                await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+                const result = await tx.$queryRaw<[{ count: bigint }]>`
                 SELECT COUNT(*) as count
                 FROM events
                 WHERE tenant_id = ${tenantId}
             `;
-            return Number(result[0]?.count || 0);
-        } catch (error) {
-            console.error('Failed to count events:', error);
-            return 0;
-        }
+                return Number(result[0]?.count || 0);
+            } catch (error) {
+                console.error('Failed to count events:', error);
+                return 0;
+            }
+        });
     }
 
     async countUpcomingEvents(tenantId: string): Promise<number> {
-        try {
-            await this.prisma.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
-            const now = new Date();
-            const result = await this.prisma.$queryRaw<[{ count: bigint }]>`
+        return await this.prisma.$transaction(async (tx) => {
+            try {
+                await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+                const now = new Date();
+                const result = await tx.$queryRaw<[{ count: bigint }]>`
                 SELECT COUNT(*) as count
                 FROM events
                 WHERE tenant_id = ${tenantId}
                 AND start_at >= ${now}
             `;
-            return Number(result[0]?.count || 0);
-        } catch (error) {
-            console.error('Failed to count upcoming events:', error);
-            return 0;
-        }
+                return Number(result[0]?.count || 0);
+            } catch (error) {
+                console.error('Failed to count upcoming events:', error);
+                return 0;
+            }
+        });
     }
 }
