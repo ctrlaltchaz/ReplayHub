@@ -213,4 +213,15 @@ export class GlobalAuthController {
             throw new BadRequestException(error.message);
         }
     }
+
+    @UseGuards(SessionGuard)
+    @Post('switch-org')
+    async switchOrg(@Body() body: { orgSlug: string }, @Req() req: Request) {
+        try {
+            const result = await this.globalAuthService.switchOrg(req.session.userId!, body.orgSlug, req);
+            return result;
+        } catch (error) {
+            throw new BadRequestException(error.message);
+        }
+    }
 }

@@ -337,4 +337,41 @@ export class GlobalAuthService {
 
         return avatarUrl;
     }
+
+    async switchOrg(globalUserId: string, orgSlug: string, req: any) {
+        // Find the organization
+        const org = await this.prisma.organisation.findUnique({
+            where: { slug: orgSlug }
+        });
+
+        if (!org) {
+            throw new Error('Organization not found');
+        }
+
+        // Find org_user for this global user in this org
+        const orgUser = await this.prisma.orgUser.findFirst({
+            where: {
+                tenantId: org.id,
+                globalUserId: globalUserId
+            }
+        });
+
+        if (!orgUser) {
+            throw new Error('You do not have access to this organization');
+        }
+
+        // Set session org context
+        req.session.currentOrgId = org.id;
+        req.session.currentOrgSlug = org.slug;
+        req.session.currentOrgUserId = orgUser.id;
+
+        return {
+            message: 'Switched to organization',
+            org: {
+                id: org.id,
+                slug: org.slug,
+                name: org.name
+            }
+        };
+    }
 }
