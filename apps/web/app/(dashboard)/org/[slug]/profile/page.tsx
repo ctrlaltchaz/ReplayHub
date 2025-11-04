@@ -101,12 +101,14 @@ export default function ProfilePage() {
                     if (text) {
                         try {
                             const data = JSON.parse(text);
-                            setPlayerData(data);
+                            // API now returns { player: ... }
+                            setPlayerData(data.player);
                         } catch (e) {
                             console.error('Failed to parse player response:', text);
                             setPlayerData(null);
                         }
                     } else {
+                        console.log('Empty response from players/me');
                         setPlayerData(null);
                     }
                 } else {
@@ -137,7 +139,8 @@ export default function ProfilePage() {
                 if (text) {
                     try {
                         const data = JSON.parse(text);
-                        setPlayerData(data);
+                        // API now returns { player: ... }
+                        setPlayerData(data.player);
                     } catch (e) {
                         console.error('Failed to parse player refresh response:', text);
                     }

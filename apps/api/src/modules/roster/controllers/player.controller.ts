@@ -74,9 +74,10 @@ export class PlayerController {
     async getMyPlayer(@Req() req: Request) {
         const globalUserId = req.globalUser?.id;
         if (!globalUserId) {
-            return null;
+            return { player: null };
         }
-        return this.playerService.findPlayerByGlobalUser(req.tenant!.id, globalUserId);
+        const player = await this.playerService.findPlayerByGlobalUser(req.tenant!.id, globalUserId);
+        return { player };
     }
 
     @Get('stats')
