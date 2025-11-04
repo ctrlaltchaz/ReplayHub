@@ -93,7 +93,7 @@ export default function ProfilePage() {
 
             setPlayerLoading(true);
             try {
-                const response = await fetch(`http://localhost:3001/api/org/${slug}/players/me`, {
+                const response = await fetch(`${getServerUrl()}/api/org/${slug}/players/me`, {
                     credentials: 'include'
                 });
                 if (response.ok) {
@@ -118,7 +118,9 @@ export default function ProfilePage() {
         if (!slug) return;
 
         try {
-            const response = await fetch(`/api/org/${slug}/players/me`);
+            const response = await fetch(`${getServerUrl()}/api/org/${slug}/players/me`, {
+                credentials: 'include'
+            });
             if (response.ok) {
                 const data = await response.json();
                 setPlayerData(data);

@@ -16,7 +16,6 @@ export class OrganizationController {
     constructor(private organizationService: OrganizationService) { }
 
     @Get()
-    @Can('org.settings.view')
     async getOrganizationProfile(@Req() req: Request) {
         const organization = await this.organizationService.getOrganization(req.tenant!.id);
         return { organization };
