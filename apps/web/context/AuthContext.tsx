@@ -44,7 +44,12 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
     });
 
     // Org auth queries (only when orgSlug is provided)
-    const { data: orgUser, isLoading: isLoadingOrg, refetch: refetchOrg } = useOrgMe(
+    const { 
+        data: orgUser, 
+        isLoading: isLoadingOrg, 
+        isFetched: isOrgFetched,
+        refetch: refetchOrg 
+    } = useOrgMe(
         orgSlug || '',
         {
             enabled: !!orgSlug,
@@ -69,15 +74,26 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
 
     // Determine if permissions are ready:
     // - If no orgSlug, permissions are ready (we're not in an org context)
-    // - If orgSlug exists and not loading, check if we have orgUser data
+    // - If orgSlug exists, wait for the fetch to complete AND have valid orgUser data
     const isPermissionsReady = React.useMemo(() => {
         if (!orgSlug) return true; // Not in org context, no permissions needed
         if (isLoadingOrg) return false; // Still loading
-        return orgUser !== undefined && orgUser !== null; // Ready if we have orgUser data (even if no permissions)
-    }, [orgSlug, isLoadingOrg, orgUser]);
+        // Only ready if the query has completed AND we have valid orgUser data
+        // This handles the case where the query fails or returns null
+        return isOrgFetched && orgUser !== undefined && orgUser !== null;
+    }, [orgSlug, isLoadingOrg, isOrgFetched, orgUser]);
 
     // Debug logging for permissions
     React.useEffect(() => {
+        console.log('[AuthContext] State:', {
+            orgSlug,
+            isLoadingOrg,
+            isOrgFetched,
+            hasOrgUser: !!orgUser,
+            isPermissionsReady,
+            permissionsCount: permissions.length
+        });
+        
         if (orgUser) {
             console.log('[AuthContext] OrgUser loaded:', {
                 userId: orgUser.id,
@@ -86,10 +102,10 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
                 flattenedPermissions: permissions,
                 permissionsCount: permissions.length
             });
-        } else {
-            console.log('[AuthContext] No orgUser loaded');
+        } else if (orgSlug && isOrgFetched) {
+            console.log('[AuthContext] No orgUser - user may not have access to this org');
         }
-    }, [orgUser, permissions]);
+    }, [orgSlug, isLoadingOrg, isOrgFetched, orgUser, permissions, isPermissionsReady]);
 
     // Compute isGlobalAdmin flag
     const isGlobalAdmin = globalUser?.isGlobalAdmin === true;
