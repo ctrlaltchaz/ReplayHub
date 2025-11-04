@@ -67,8 +67,8 @@ export const ORG_NAV: NavItem[] = [
     { key: 'runsheets', label: 'Runsheets', href: orgPath.runsheets, required: PERMISSIONS.RUNSHEETS_VIEW },
     { key: 'checklists', label: 'Checklists', href: orgPath.checklists, required: PERMISSIONS.CHECKLISTS_VIEW },
     { key: 'inventory', label: 'Inventory', href: orgPath.inventory, required: PERMISSIONS.INVENTORY_VIEW },
-    { key: 'assets', label: 'Assets', href: orgPath.assets, required: PERMISSIONS.INVENTORY_VIEW },
-    { key: 'incidents', label: 'Incidents', href: orgPath.incidents }, // No permission required for now
+    { key: 'assets', label: 'Assets', href: orgPath.assets, required: PERMISSIONS.ASSETS_UPLOAD },
+    { key: 'incidents', label: 'Incidents', href: orgPath.incidents, required: PERMISSIONS.INCIDENTS_VIEW },
     { key: 'settings', label: 'Settings', href: orgPath.settings, required: PERMISSIONS.ORG_SETTINGS_MANAGE },
 ];
 

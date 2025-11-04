@@ -3,8 +3,10 @@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/context/AuthContext';
 import { apiGet } from '@/lib/api/client';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
+import { hasPermission, PERMISSIONS } from '@/lib/permissions/utils';
 import { AlertTriangle, Calendar, Lightbulb, Package, RefreshCw, Target, Trophy, Users } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -44,6 +46,7 @@ const quickTips = [
 export default function OverviewPage() {
     const params = useParams();
     const slug = params?.slug as string;
+    const { permissions } = useAuth();
 
     usePageTitle('Overview');
 
@@ -176,24 +179,30 @@ export default function OverviewPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="flex flex-wrap gap-2">
-                            <Button asChild variant="default" size="sm">
-                                <a href={`/org/${slug}/rosters`}>
-                                    <Trophy className="h-4 w-4 mr-2" />
-                                    Manage Teams
-                                </a>
-                            </Button>
-                            <Button asChild variant="outline" size="sm">
-                                <a href={`/org/${slug}/events`}>
-                                    <Calendar className="h-4 w-4 mr-2" />
-                                    Schedule Events
-                                </a>
-                            </Button>
-                            <Button asChild variant="outline" size="sm">
-                                <a href={`/org/${slug}/inventory`}>
-                                    <Package className="h-4 w-4 mr-2" />
-                                    View Inventory
-                                </a>
-                            </Button>
+                            {hasPermission(permissions, PERMISSIONS.ROSTERS_MANAGE) && (
+                                <Button asChild variant="default" size="sm">
+                                    <a href={`/org/${slug}/rosters`}>
+                                        <Trophy className="h-4 w-4 mr-2" />
+                                        Manage Teams
+                                    </a>
+                                </Button>
+                            )}
+                            {hasPermission(permissions, PERMISSIONS.EVENTS_CREATE) && (
+                                <Button asChild variant="outline" size="sm">
+                                    <a href={`/org/${slug}/events`}>
+                                        <Calendar className="h-4 w-4 mr-2" />
+                                        Schedule Events
+                                    </a>
+                                </Button>
+                            )}
+                            {hasPermission(permissions, PERMISSIONS.INVENTORY_VIEW) && (
+                                <Button asChild variant="outline" size="sm">
+                                    <a href={`/org/${slug}/inventory`}>
+                                        <Package className="h-4 w-4 mr-2" />
+                                        View Inventory
+                                    </a>
+                                </Button>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
