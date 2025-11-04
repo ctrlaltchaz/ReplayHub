@@ -56,7 +56,6 @@ export class OrganizationController {
     }
 
     @Get('quick-links')
-    @Can('org.settings.view')
     async getQuickLinks(@Req() req: Request) {
         const quickLinks = await this.organizationService.getQuickLinks(req.tenant!.id);
         return { quickLinks };

@@ -60,8 +60,8 @@ export class UserDiscordController {
         console.log('[Discord OAuth Auth] Session userId:', req.session?.userId);
 
         // Discord should redirect to the BACKEND callback endpoint
-        const apiUrl = process.env.API_URL || 
-                       (process.env.FRONTEND_URL?.replace('app.', 'api.') || 'http://localhost:3001');
+        const apiUrl = process.env.API_URL ||
+            (process.env.FRONTEND_URL?.replace('app.', 'api.') || 'http://localhost:3001');
         const redirectUri = `${apiUrl}/api/user/discord/callback`;
         const state = req.session?.userId; // Use user ID as state for CSRF protection
 
@@ -92,8 +92,8 @@ export class UserDiscordController {
             const validated = DiscordOAuthCallbackSchema.parse(query);
             console.log('[Discord OAuth Callback] Validated query params:', validated);
 
-            const apiUrl = process.env.API_URL || 
-                           (process.env.FRONTEND_URL?.replace('app.', 'api.') || 'http://localhost:3001');
+            const apiUrl = process.env.API_URL ||
+                (process.env.FRONTEND_URL?.replace('app.', 'api.') || 'http://localhost:3001');
             const redirectUri = `${apiUrl}/api/user/discord/callback`;
             console.log('[Discord OAuth Callback] Using redirect URI:', redirectUri);
 
