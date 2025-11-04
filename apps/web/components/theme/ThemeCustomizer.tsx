@@ -16,7 +16,16 @@ interface ThemeCustomizerProps {
 }
 
 export function ThemeCustomizer({ trigger }: ThemeCustomizerProps) {
-    const { currentTheme, saveTheme, resetToDefault, previewTheme, clearPreview } = useTheme();
+    // Try to use theme context, but gracefully handle if not available
+    let themeContext;
+    try {
+        themeContext = useTheme();
+    } catch (e) {
+        // ThemeProvider not available - render nothing
+        return null;
+    }
+    
+    const { currentTheme, saveTheme, resetToDefault, previewTheme, clearPreview } = themeContext;
     const [isOpen, setIsOpen] = useState(false);
     const [workingTheme, setWorkingTheme] = useState<ThemeConfig | null>(currentTheme);
     const [isPreviewMode, setIsPreviewMode] = useState(false);
