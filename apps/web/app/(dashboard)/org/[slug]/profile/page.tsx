@@ -100,6 +100,7 @@ export default function ProfilePage() {
                     const data = await response.json();
                     setPlayerData(data);
                 } else {
+                    console.log('Player not found or not accessible:', response.status);
                     setPlayerData(null);
                 }
             } catch (error) {
@@ -124,6 +125,8 @@ export default function ProfilePage() {
             if (response.ok) {
                 const data = await response.json();
                 setPlayerData(data);
+            } else {
+                console.log('Failed to refresh player data:', response.status);
             }
         } catch (error) {
             console.error('Failed to refresh player:', error);
