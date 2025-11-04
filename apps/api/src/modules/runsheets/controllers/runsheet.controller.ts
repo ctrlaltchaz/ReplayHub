@@ -36,24 +36,33 @@ export class RunsheetController {
         @Req() req: Request,
         @Body() createRunsheetDto: CreateRunsheetDto,
     ) {
-        console.log('[RunsheetController] Create request:', {
-            tenantId: req.tenant?.id,
-            orgUserId: req.orgUser?.id,
-            dto: createRunsheetDto
-        });
+        try {
+            console.log('[RunsheetController] Create request:', {
+                tenantId: req.tenant?.id,
+                orgUserId: req.orgUser?.id,
+                dto: createRunsheetDto
+            });
 
-        if (!req.tenant?.id) {
-            throw new Error('Tenant ID is required');
-        }
-        if (!req.orgUser?.id) {
-            throw new Error('Org User ID is required');
-        }
+            if (!req.tenant?.id) {
+                throw new Error('Tenant ID is required');
+            }
+            if (!req.orgUser?.id) {
+                throw new Error('Org User ID is required');
+            }
 
-        return this.runsheetService.create(
-            req.tenant.id,
-            createRunsheetDto,
-            req.orgUser.id
-        );
+            const result = await this.runsheetService.create(
+                req.tenant.id,
+                createRunsheetDto,
+                req.orgUser.id
+            );
+
+            console.log('[RunsheetController] Successfully created runsheet:', result.id);
+            return result;
+        } catch (error) {
+            console.error('[RunsheetController] Error creating runsheet:', error);
+            console.error('[RunsheetController] Error stack:', error instanceof Error ? error.stack : 'No stack');
+            throw error;
+        }
     }
 
     @Get('runsheets')

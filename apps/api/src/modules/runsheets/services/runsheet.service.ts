@@ -47,8 +47,8 @@ export class RunsheetService {
             }
 
             // Handle empty strings for optional fields - convert to null
-            const eventId = createRunsheetDto.eventId && createRunsheetDto.eventId.trim() !== '' 
-                ? createRunsheetDto.eventId 
+            const eventId = createRunsheetDto.eventId && createRunsheetDto.eventId.trim() !== ''
+                ? createRunsheetDto.eventId
                 : null;
 
             console.log('[RunsheetService] Creating runsheet with:', {
