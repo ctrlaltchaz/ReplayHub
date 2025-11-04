@@ -76,27 +76,27 @@ export default function ChecklistsPage() {
     };
 
     return (
-        <div className="container mx-auto p-6">
+        <div className="container mx-auto p-4 sm:p-6">
             <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
                             <ClipboardCheck className="w-6 h-6" />
                             Checklists
                         </h1>
-                        <p className="text-muted-foreground">Manage checklists and templates</p>
+                        <p className="text-muted-foreground text-sm sm:text-base">Manage checklists and templates</p>
                     </div>
                 </div>
 
                 <Tabs defaultValue="checklists" className="space-y-4">
-                    <TabsList>
-                        <TabsTrigger value="checklists">Checklists</TabsTrigger>
-                        <TabsTrigger value="templates">Templates</TabsTrigger>
+                    <TabsList className="w-full sm:w-auto">
+                        <TabsTrigger value="checklists" className="flex-1 sm:flex-initial">Checklists</TabsTrigger>
+                        <TabsTrigger value="templates" className="flex-1 sm:flex-initial">Templates</TabsTrigger>
                     </TabsList>
                     <TabsContent value="checklists" className="space-y-4">
                         <div className="flex justify-end">
                             <PermissionGuard required={PERMISSIONS.CHECKLISTS_MANAGE}>
-                                <Button onClick={() => setShowNewChecklistDialog(true)}>
+                                <Button onClick={() => setShowNewChecklistDialog(true)} className="w-full sm:w-auto">
                                     <Plus className="w-4 h-4 mr-2" />
                                     New Checklist
                                 </Button>

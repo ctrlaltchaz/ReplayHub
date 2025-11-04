@@ -188,22 +188,23 @@ export default function AssetsPage() {
     };
 
     return (
-        <div className="container mx-auto p-6">
+        <div className="container mx-auto p-4 sm:p-6">
             <div className="space-y-6">
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
                             <FileText className="w-6 h-6" />
                             Asset Library
                         </h1>
-                        <p className="text-muted-foreground">Manage your digital assets and media files</p>
+                        <p className="text-muted-foreground text-sm sm:text-base">Manage your digital assets and media files</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap gap-2">
                         {stats.pending > 0 && (
                             <Button
                                 variant="outline"
                                 onClick={() => router.push(`/org/${slug}/assets/pending`)}
+                                className="w-full sm:w-auto"
                             >
                                 <Badge variant="secondary" className="mr-2">
                                     {stats.pending}
@@ -212,7 +213,7 @@ export default function AssetsPage() {
                             </Button>
                         )}
                         <PermissionGuard required={PERMISSIONS.ASSETS_UPLOAD}>
-                            <Button onClick={() => setUploadDialogOpen(true)}>
+                            <Button onClick={() => setUploadDialogOpen(true)} className="w-full sm:w-auto">
                                 <Plus className="w-4 h-4 mr-2" />
                                 Upload Asset
                             </Button>

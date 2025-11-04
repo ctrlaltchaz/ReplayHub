@@ -89,30 +89,30 @@ export default function RunsheetsPage() {
     };
 
     return (
-        <div className="container mx-auto p-6">
+        <div className="container mx-auto p-4 sm:p-6">
             <div className="space-y-6">
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
                             <FileText className="h-6 w-6" />
                             Runsheets
                         </h1>
-                        <p className="text-muted-foreground">
+                        <p className="text-muted-foreground text-sm sm:text-base">
                             Create and manage event runsheets and schedules
                         </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap gap-2">
                         <PermissionGuard required={PERMISSIONS.RUNSHEETS_EDIT}>
                             <Link href={`/org/${slug}/runsheets/templates`}>
-                                <Button variant="outline">
+                                <Button variant="outline" className="w-full sm:w-auto">
                                     <FolderOpen className="h-4 w-4 mr-2" />
                                     Manage Templates
                                 </Button>
                             </Link>
                         </PermissionGuard>
                         <PermissionGuard required={PERMISSIONS.RUNSHEETS_EDIT}>
-                            <Button onClick={() => setShowCreateDialog(true)}>
+                            <Button onClick={() => setShowCreateDialog(true)} className="w-full sm:w-auto">
                                 <Plus className="h-4 w-4 mr-2" />
                                 Create Runsheet
                             </Button>

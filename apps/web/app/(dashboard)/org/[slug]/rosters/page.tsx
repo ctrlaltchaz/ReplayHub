@@ -230,7 +230,85 @@ export default function RostersPage() {
                     </div>
                 </div>
 
-                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "teams" | "players" | "achievements" | "availability" | "lineups")}>
+                                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "teams" | "players" | "achievements" | "availability" | "lineups")}>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+                        <TabsList className="w-full sm:w-auto overflow-x-auto">
+                            <TabsTrigger value="teams" className="gap-2">
+                                <Users className="h-4 w-4" />
+                                Teams
+                            </TabsTrigger>
+                            <TabsTrigger value="players" className="gap-2">
+                                <UserPlus className="h-4 w-4" />
+                                Players
+                            </TabsTrigger>
+                            <TabsTrigger value="lineups" className="gap-2">
+                                <ListOrdered className="h-4 w-4" />
+                                Lineups
+                            </TabsTrigger>
+                            <TabsTrigger value="achievements" className="gap-2">
+                                <Trophy className="h-4 w-4" />
+                                Achievements
+                            </TabsTrigger>
+                            <TabsTrigger value="availability" className="gap-2">
+                                <Calendar className="h-4 w-4" />
+                                Availability
+                            </TabsTrigger>
+                        </TabsList>
+
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                            <div className="relative flex-1 sm:flex-initial">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Search..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-9 w-full sm:w-64"
+                                />
+                            </div>
+                            {activeTab === "teams" && (
+                                <PermissionGuard required={PERMISSIONS.TEAM_CREATE}>
+                                    <Button onClick={() => setShowTeamDialog(true)} className="w-full sm:w-auto">
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Create Team
+                                    </Button>
+                                </PermissionGuard>
+                            )}
+                            {activeTab === "players" && (
+                                <PermissionGuard required={PERMISSIONS.PLAYER_CREATE}>
+                                    <Button onClick={() => setShowPlayerDialog(true)} className="w-full sm:w-auto">
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Add Player
+                                    </Button>
+                                </PermissionGuard>
+                            )}
+                            {activeTab === "lineups" && (
+                                <PermissionGuard required={PERMISSIONS.ROSTERS_VIEW}>
+                                    <Button asChild className="w-full sm:w-auto">
+                                        <Link href={`/org/${slug}/rosters/lineups`}>
+                                            <ListOrdered className="h-4 w-4 mr-2" />
+                                            View All Lineups
+                                        </Link>
+                                    </Button>
+                                </PermissionGuard>
+                            )}
+                            {activeTab === "achievements" && (
+                                <Button asChild className="w-full sm:w-auto">
+                                    <Link href={`/org/${slug}/rosters/achievements`}>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        View All Achievements
+                                    </Link>
+                                </Button>
+                            )}
+                            {activeTab === "availability" && (
+                                <Button asChild className="w-full sm:w-auto">
+                                    <Link href={`/org/${slug}/rosters/availability`}>
+                                        <Calendar className="h-4 w-4 mr-2" />
+                                        View Calendar
+                                    </Button>
+                                </Button>
+                            )}
+                        </div>
+                    </div>
                     <div className="flex items-center justify-between mb-4">
                         <TabsList>
                             <TabsTrigger value="teams" className="gap-2">
