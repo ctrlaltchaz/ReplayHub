@@ -29,6 +29,37 @@ import { RunsheetService } from '../services/runsheet.service';
 export class RunsheetController {
     constructor(private readonly runsheetService: RunsheetService) { }
 
+    // Temporary test endpoint WITH permission guard AND service call
+    @Post('runsheets-test-full')
+    @Can('runsheet.edit')
+    @UseGuards(PermissionGuard)
+    async createTestFull(
+        @Req() req: Request,
+        @Body() createRunsheetDto: CreateRunsheetDto,
+    ) {
+        try {
+            const result = await this.runsheetService.create(
+                req.tenant!.id,
+                createRunsheetDto,
+                req.orgUser!.id
+            );
+            return {
+                success: true,
+                message: 'Full flow worked!',
+                runsheet: result,
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: {
+                    message: error instanceof Error ? error.message : 'Unknown error',
+                    stack: error instanceof Error ? error.stack : undefined,
+                    name: error instanceof Error ? error.name : undefined,
+                }
+            };
+        }
+    }
+
     // Temporary test endpoint WITH permission guard
     @Post('runsheets-test-with-guard')
     @Can('runsheet.edit')
