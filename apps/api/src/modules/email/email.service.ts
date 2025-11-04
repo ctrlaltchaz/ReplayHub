@@ -710,9 +710,9 @@ The ReplayHub Team
         <div class="header">
             <div class="logo">
                 ${options.organizationLogo
-                ? `<img src="${options.organizationLogo}" alt="${options.organizationName} Logo">`
-                : `<img src="https://assets.mckeonwebsolutions.com/replayhub/replayicon.png" alt="ReplayHub Logo">`
-            }
+                    ? `<img src="${options.organizationLogo}" alt="${options.organizationName} Logo">`
+                    : `<div style="color: white; font-size: 40px; font-weight: bold;">🎮</div>`
+                }
             </div>
             <h1>${options.organizationName}</h1>
         </div>
