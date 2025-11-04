@@ -74,7 +74,7 @@ export class PlayerController {
     async debugPlayerLink(@Req() req: Request) {
         const globalUserId = req.globalUser?.id;
         const tenantId = req.tenant!.id;
-        
+
         // Get all players with their orgUser info
         const allPlayers = await this.playerService['prisma'].player.findMany({
             where: { tenantId },

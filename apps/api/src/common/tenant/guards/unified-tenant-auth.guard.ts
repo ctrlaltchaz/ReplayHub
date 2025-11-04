@@ -129,6 +129,17 @@ export class UnifiedTenantAuthGuard implements CanActivate {
                 permissions: permissions
             };
 
+            // Also set globalUser if this orgUser has one linked
+            if (orgUser.globalUserId) {
+                request.globalUser = {
+                    id: orgUser.globalUserId,
+                    email: orgUser.email, // Using orgUser email as fallback
+                    name: orgUser.displayName || orgUser.email,
+                    isGlobalAdmin: false,
+                };
+                console.log(`[UnifiedTenantAuth] handleOrgSession: Set globalUser with id=${orgUser.globalUserId}`);
+            }
+
             console.log(`[UnifiedTenantAuth] handleOrgSession: ✅ SUCCESS - User: ${orgUser.email}, Permissions: ${permissions.length}`);
             return true;
         } catch (error) {
