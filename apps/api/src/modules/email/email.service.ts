@@ -1,13 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class EmailService {
     private transporter: nodemailer.Transporter;
+    private logFile: string;
 
     constructor() {
-        console.log('🚀 EmailService constructor called');
-        console.log('📧 Raw environment variables:', {
+        // Setup logging
+        const logDir = path.join(process.cwd(), 'logs');
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+        }
+        this.logFile = path.join(logDir, 'email.log');
+
+        this.log('🚀 EmailService constructor called');
+        this.log('📧 Raw environment variables:', {
             SMTP_HOST: process.env.SMTP_HOST,
             SMTP_PORT: process.env.SMTP_PORT,
             SMTP_SECURE: process.env.SMTP_SECURE,
@@ -31,7 +41,7 @@ export class EmailService {
             },
         };
 
-        console.log('📧 SMTP Configuration:', {
+        this.log('📧 SMTP Configuration:', {
             host: smtpConfig.host,
             port: smtpConfig.port,
             secure: smtpConfig.secure,
@@ -40,6 +50,23 @@ export class EmailService {
         });
 
         this.transporter = nodemailer.createTransport(smtpConfig);
+    }
+
+    private log(message: string, data?: any) {
+        const timestamp = new Date().toISOString();
+        const logMessage = data 
+            ? `${timestamp} ${message} ${JSON.stringify(data, null, 2)}\n`
+            : `${timestamp} ${message}\n`;
+        
+        try {
+            fs.appendFileSync(this.logFile, logMessage);
+        } catch (error) {
+            // Fallback to console if file write fails
+            console.error('Failed to write to log file:', error);
+        }
+        
+        // Also log to console
+        console.log(message, data || '');
     }
 
     async sendPasswordResetEmail(email: string, token: string): Promise<void> {
@@ -69,7 +96,7 @@ The ReplayHub Team
             `.trim(),
         };
 
-        console.log('📧 Attempting to send email:', {
+        this.log('📧 Attempting to send password reset email:', {
             to: email,
             from: mailOptions.from,
             subject: mailOptions.subject,
@@ -78,14 +105,14 @@ The ReplayHub Team
 
         try {
             const info = await this.transporter.sendMail(mailOptions);
-            console.log('✅ Password reset email sent successfully:', {
+            this.log('✅ Password reset email sent successfully:', {
                 messageId: info.messageId,
                 accepted: info.accepted,
                 rejected: info.rejected,
                 response: info.response,
             });
         } catch (error) {
-            console.error('❌ Error sending password reset email:', {
+            this.log('❌ Error sending password reset email:', {
                 error: error.message,
                 code: error.code,
                 command: error.command,
@@ -288,7 +315,7 @@ The ReplayHub Team
             `.trim(),
         };
 
-        console.log('📧 Attempting to send email verification code:', {
+        this.log('📧 Attempting to send email verification code:', {
             to: email,
             from: mailOptions.from,
             subject: mailOptions.subject,
@@ -297,14 +324,14 @@ The ReplayHub Team
 
         try {
             const info = await this.transporter.sendMail(mailOptions);
-            console.log('✅ Email verification code sent successfully:', {
+            this.log('✅ Email verification code sent successfully:', {
                 messageId: info.messageId,
                 accepted: info.accepted,
                 rejected: info.rejected,
                 response: info.response,
             });
         } catch (error) {
-            console.error('❌ Error sending email verification code:', {
+            this.log('❌ Error sending email verification code:', {
                 error: error.message,
                 code: error.code,
                 command: error.command,
@@ -497,7 +524,7 @@ The ReplayHub Team
             `.trim(),
         };
 
-        console.log('📧 Attempting to send invite email:', {
+        this.log('📧 Attempting to send invite email:', {
             to: options.to,
             from: mailOptions.from,
             subject: mailOptions.subject,
@@ -506,14 +533,14 @@ The ReplayHub Team
 
         try {
             const info = await this.transporter.sendMail(mailOptions);
-            console.log('✅ Invite email sent successfully:', {
+            this.log('✅ Invite email sent successfully:', {
                 messageId: info.messageId,
                 accepted: info.accepted,
                 rejected: info.rejected,
                 response: info.response,
             });
         } catch (error) {
-            console.error('❌ Error sending invite email:', {
+            this.log('❌ Error sending invite email:', {
                 error: error.message,
                 code: error.code,
                 command: error.command,
@@ -736,10 +763,10 @@ The ReplayHub Team
     async testConnection(): Promise<boolean> {
         try {
             await this.transporter.verify();
-            console.log('SMTP connection successful');
+            this.log('SMTP connection successful');
             return true;
         } catch (error) {
-            console.error('SMTP connection failed:', error);
+            this.log('SMTP connection failed:', error);
             return false;
         }
     }
