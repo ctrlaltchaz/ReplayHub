@@ -29,7 +29,7 @@ export default function ProfilePage() {
 
     const params = useParams();
     const slug = params?.slug as string;
-    const { globalUser, refresh: refreshAuth } = useAuth();
+    const { globalUser, orgUser, refresh: refreshAuth } = useAuth();
     const { profile, loading: profileLoading, error: profileError, refetch } = useUserProfile();
     const { updateProfile, loading: updateLoading } = useUpdateProfile();
     const { toast } = useToast();
@@ -507,6 +507,18 @@ export default function ProfilePage() {
                                         <h2 className="text-2xl font-bold">{profile.name || 'No name set'}</h2>
                                     )}
                                     <p className="text-sm text-muted-foreground">{profile.email}</p>
+                                    {orgUser && orgUser.roles && orgUser.roles.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 justify-center mt-2">
+                                            {orgUser.roles.map((role) => (
+                                                <span
+                                                    key={role}
+                                                    className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium uppercase"
+                                                >
+                                                    {role}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Bio */}
