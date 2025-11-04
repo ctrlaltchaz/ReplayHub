@@ -45,11 +45,16 @@ export class RunsheetService {
             }
         }
 
+        // Handle empty strings for optional fields - convert to null
+        const eventId = createRunsheetDto.eventId && createRunsheetDto.eventId.trim() !== '' 
+            ? createRunsheetDto.eventId 
+            : null;
+
         return this.prisma.runsheet.create({
             data: {
                 tenantId,
                 title: createRunsheetDto.title,
-                eventId: createRunsheetDto.eventId,
+                eventId,
                 createdBy,
                 items: initialItems.length > 0 ? {
                     create: initialItems
