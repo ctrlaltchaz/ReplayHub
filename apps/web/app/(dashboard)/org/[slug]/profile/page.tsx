@@ -97,8 +97,18 @@ export default function ProfilePage() {
                     credentials: 'include'
                 });
                 if (response.ok) {
-                    const data = await response.json();
-                    setPlayerData(data);
+                    const text = await response.text();
+                    if (text) {
+                        try {
+                            const data = JSON.parse(text);
+                            setPlayerData(data);
+                        } catch (e) {
+                            console.error('Failed to parse player response:', text);
+                            setPlayerData(null);
+                        }
+                    } else {
+                        setPlayerData(null);
+                    }
                 } else {
                     console.log('Player not found or not accessible:', response.status);
                     setPlayerData(null);
@@ -123,8 +133,15 @@ export default function ProfilePage() {
                 credentials: 'include'
             });
             if (response.ok) {
-                const data = await response.json();
-                setPlayerData(data);
+                const text = await response.text();
+                if (text) {
+                    try {
+                        const data = JSON.parse(text);
+                        setPlayerData(data);
+                    } catch (e) {
+                        console.error('Failed to parse player refresh response:', text);
+                    }
+                }
             } else {
                 console.log('Failed to refresh player data:', response.status);
             }
