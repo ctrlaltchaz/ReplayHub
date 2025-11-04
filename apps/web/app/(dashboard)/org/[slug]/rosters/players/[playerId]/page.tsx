@@ -1,11 +1,13 @@
 "use client";
 
+import { PermissionGuard } from "@/components/permissions/PermissionGuard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/use-toast";
 import { getServerUrl } from "@/lib/api/config";
+import { PERMISSIONS } from "@/lib/permissions/utils";
 import { ArrowLeft, Award, Link as LinkIcon, Unlink, User } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -136,23 +138,25 @@ export default function PlayerDetailPage() {
                         )}
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    {player.orgUserId ? (
-                        <Button
-                            variant="outline"
-                            onClick={handleUnlinkUser}
-                            disabled={unlinkPlayerMutation.isPending}
-                        >
-                            <Unlink className="h-4 w-4 mr-2" />
-                            Unlink User
-                        </Button>
-                    ) : (
-                        <Button onClick={() => setShowLinkDialog(true)}>
-                            <LinkIcon className="h-4 w-4 mr-2" />
-                            Link User
-                        </Button>
-                    )}
-                </div>
+                <PermissionGuard required={PERMISSIONS.ROSTERS_MANAGE}>
+                    <div className="flex items-center gap-2">
+                        {player.orgUserId ? (
+                            <Button
+                                variant="outline"
+                                onClick={handleUnlinkUser}
+                                disabled={unlinkPlayerMutation.isPending}
+                            >
+                                <Unlink className="h-4 w-4 mr-2" />
+                                Unlink User
+                            </Button>
+                        ) : (
+                            <Button onClick={() => setShowLinkDialog(true)}>
+                                <LinkIcon className="h-4 w-4 mr-2" />
+                                Link User
+                            </Button>
+                        )}
+                    </div>
+                </PermissionGuard>
             </div>
 
             {/* Stats Grid */}
