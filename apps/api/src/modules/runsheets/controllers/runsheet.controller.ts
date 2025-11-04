@@ -36,10 +36,23 @@ export class RunsheetController {
         @Req() req: Request,
         @Body() createRunsheetDto: CreateRunsheetDto,
     ) {
+        console.log('[RunsheetController] Create request:', {
+            tenantId: req.tenant?.id,
+            orgUserId: req.orgUser?.id,
+            dto: createRunsheetDto
+        });
+
+        if (!req.tenant?.id) {
+            throw new Error('Tenant ID is required');
+        }
+        if (!req.orgUser?.id) {
+            throw new Error('Org User ID is required');
+        }
+
         return this.runsheetService.create(
-            req.tenant!.id,
+            req.tenant.id,
             createRunsheetDto,
-            req.orgUser!.id
+            req.orgUser.id
         );
     }
 
