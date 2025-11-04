@@ -295,29 +295,32 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                     ) : (
                         /* Organization Navigation */
                         <>
-                            {ORG_NAV.filter(item => item.key !== 'settings').map((item) => {
-                                // If we're on an org page but permissions haven't loaded yet, show items to avoid hiding everything
-                                // This handles the race condition where sidebar renders before AuthContext loads permissions
-                                const permissionsNotLoadedYet = slug && !isLoadingOrg && permissions.length === 0;
-                                
-                                // While loading org user OR permissions not loaded yet, show all items to avoid flickering
-                                const hasAccess = (isLoadingOrg || permissionsNotLoadedYet) ? true : checkPermission(item.required);
+                            {/* Show loading skeleton while org permissions are loading */}
+                            {slug && isLoadingOrg ? (
+                                <div className="space-y-2 px-3">
+                                    {[1, 2, 3, 4, 5].map((i) => (
+                                        <div key={i} className="h-10 bg-gray-700/50 rounded animate-pulse" />
+                                    ))}
+                                </div>
+                            ) : (
+                                ORG_NAV.filter(item => item.key !== 'settings').map((item) => {
+                                    // Check permission - no special handling needed since we wait for loading to complete
+                                    const hasAccess = checkPermission(item.required);
 
-                                // Debug logging
-                                if (['runsheets', 'checklists', 'inventory', 'assets', 'overview', 'events', 'rosters'].includes(item.key)) {
-                                    console.log(`[Sidebar] ${item.key}:`, {
-                                        required: item.required,
-                                        hasAccess,
-                                        isLoadingOrg,
-                                        permissionsNotLoadedYet,
-                                        permissionsLength: permissions.length,
-                                        firstFewPermissions: permissions.slice(0, 3)
-                                    });
-                                }
+                                    // Debug logging
+                                    if (['runsheets', 'checklists', 'inventory', 'assets', 'overview', 'events', 'rosters'].includes(item.key)) {
+                                        console.log(`[Sidebar] ${item.key}:`, {
+                                            required: item.required,
+                                            hasAccess,
+                                            isLoadingOrg,
+                                            permissionsLength: permissions.length,
+                                            firstFewPermissions: permissions.slice(0, 3)
+                                        });
+                                    }
 
-                                if (!hasAccess) {
-                                    return null; // Hide item if user lacks permission
-                                }
+                                    if (!hasAccess) {
+                                        return null; // Hide item if user lacks permission
+                                    }
 
                                 const href = slug ? item.href(slug) : '#';
                                 // Check if current page is this route or a child route
@@ -399,8 +402,7 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                                         {!isCollapsed && item.children && isSubmenuOpen && (
                                             <div className="ml-9 mt-1 space-y-1">
                                                 {item.children.map((child) => {
-                                                    const permissionsNotLoadedYet = slug && !isLoadingOrg && permissions.length === 0;
-                                                    const childHasAccess = (isLoadingOrg || permissionsNotLoadedYet) ? true : checkPermission(child.required);
+                                                    const childHasAccess = checkPermission(child.required);
                                                     if (!childHasAccess) return null;
 
                                                     const childHref = slug ? child.href(slug) : '#';
@@ -431,7 +433,8 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                                         )}
                                     </div>
                                 );
-                            })}
+                            })
+                            )}
 
                             {/* Quick Links Section - Organization custom links */}
                             {slug && quickLinks && quickLinks.length > 0 && (
