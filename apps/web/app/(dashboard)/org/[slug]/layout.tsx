@@ -1,7 +1,6 @@
 "use client";
 
 import { PageTransition } from "@/components/ui/PageTransition";
-import { AuthProvider } from "@/context/AuthContext";
 import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import { useParams } from "next/navigation";
 import * as React from "react";
@@ -15,12 +14,10 @@ export default function OrgLayout({
     const slug = params?.slug as string;
 
     return (
-        <AuthProvider orgSlug={slug}>
-            <OrganizationProvider orgSlug={slug}>
-                <PageTransition>
-                    {children}
-                </PageTransition>
-            </OrganizationProvider>
-        </AuthProvider>
+        <OrganizationProvider orgSlug={slug}>
+            <PageTransition>
+                {children}
+            </PageTransition>
+        </OrganizationProvider>
     );
 }

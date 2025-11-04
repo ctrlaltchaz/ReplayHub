@@ -3,6 +3,7 @@
 import { Footer } from "@/components/layout/Footer";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
+import { AuthProvider } from "@/context/AuthContext";
 import { OrganizationProvider } from "@/contexts/OrganizationContext";
 import { useFavicon } from "@/lib/hooks/useFavicon";
 import { usePathname } from "next/navigation";
@@ -29,16 +30,21 @@ export default function DashboardLayout({
     // Create org object for TopBar if we have a slug
     const orgForTopBar = slug ? { slug, name: '' } : undefined;
 
-    // Conditionally wrap with OrganizationProvider if we're in an org route
-    const content = <DashboardContent
-        slug={slug}
-        orgForTopBar={orgForTopBar}
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-    >
-        {children}
-    </DashboardContent>;
+    // Wrap with AuthProvider with orgSlug so Sidebar has access to org permissions
+    const content = (
+        <AuthProvider orgSlug={slug}>
+            <DashboardContent
+                slug={slug}
+                orgForTopBar={orgForTopBar}
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
+            >
+                {children}
+            </DashboardContent>
+        </AuthProvider>
+    );
 
+    // Also wrap with OrganizationProvider if we're in an org route
     if (slug) {
         return <OrganizationProvider orgSlug={slug}>{content}</OrganizationProvider>;
     }
