@@ -53,6 +53,7 @@ export default function RostersPage() {
     const [showPlayerDialog, setShowPlayerDialog] = useState(false);
     const [showPlayerEditDialog, setShowPlayerEditDialog] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [teamFilter, setTeamFilter] = useState<string>("all");
     const [activeTab, setActiveTab] = useState<"teams" | "players" | "achievements" | "availability" | "lineups">("teams");
     const [selectedTeam, setSelectedTeam] = useState<Team | undefined>();
     const [selectedPlayer, setSelectedPlayer] = useState<Player | undefined>();
@@ -265,6 +266,21 @@ export default function RostersPage() {
                                     className="pl-9 w-full sm:w-64"
                                 />
                             </div>
+                            {activeTab === "players" && teams.length > 0 && (
+                                <select
+                                    className="flex h-10 w-full sm:w-auto rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                    value={teamFilter}
+                                    onChange={(e) => setTeamFilter(e.target.value)}
+                                >
+                                    <option value="all">All Teams</option>
+                                    <option value="unassigned">Unassigned</option>
+                                    {teams.map((team) => (
+                                        <option key={team.id} value={team.id}>
+                                            {team.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
                             {activeTab === "teams" && (
                                 <PermissionGuard required={PERMISSIONS.TEAM_CREATE}>
                                     <Button onClick={() => setShowTeamDialog(true)} className="w-full sm:w-auto">
@@ -449,7 +465,17 @@ export default function RostersPage() {
                                     </div>
                                 ) : (
                                     <div className="space-y-2">
-                                        {players.map((player) => (
+                                        {players
+                                            .filter((player) => {
+                                                // Filter by team
+                                                if (teamFilter === "all") return true;
+                                                if (teamFilter === "unassigned") {
+                                                    return !player.teams || player.teams.length === 0;
+                                                }
+                                                // Check if player is in the selected team
+                                                return player.teams?.some(tm => tm.teamId === teamFilter);
+                                            })
+                                            .map((player) => (
                                             <Link
                                                 key={player.id}
                                                 href={`/org/${slug}/rosters/players/${player.id}`}
