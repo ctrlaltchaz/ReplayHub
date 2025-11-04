@@ -10,15 +10,21 @@ import { useState } from "react";
 export function Providers({ children }: { children: React.ReactNode }) {
     const [qc] = useState(() => new QueryClient());
     const pathname = usePathname();
-    
+    const [mounted, setMounted] = React.useState(false);
+
+    React.useEffect(() => {
+        setMounted(true);
+    }, []);
+
     // Extract orgSlug from pathname if we're in an org route
+    // Only do this on the client to avoid hydration mismatches
     const orgSlug = React.useMemo(() => {
-        if (pathname?.startsWith('/org/')) {
-            const parts = pathname.split('/');
-            return parts[2]; // /org/[slug]/...
+        if (!mounted || !pathname?.startsWith('/org/')) {
+            return undefined;
         }
-        return undefined;
-    }, [pathname]);
+        const parts = pathname.split('/');
+        return parts[2]; // /org/[slug]/...
+    }, [pathname, mounted]);
 
     return (
         <ThemeProvider
