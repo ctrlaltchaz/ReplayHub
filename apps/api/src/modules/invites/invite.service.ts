@@ -113,11 +113,18 @@ export class InviteService {
             try {
                 const branding = org?.branding as any;
                 const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite/${token}`;
+                
+                // Build full URL for logo if it's a relative path
+                let logoUrl = branding?.logoUrl || branding?.logo;
+                if (logoUrl && logoUrl.startsWith('/')) {
+                    const apiUrl = process.env.API_URL || process.env.FRONTEND_URL?.replace('app.', 'api.') || 'http://localhost:3001';
+                    logoUrl = `${apiUrl}${logoUrl}`;
+                }
 
                 await this.emailService.sendInviteEmail({
                     to: createInviteDto.email,
                     organizationName: org?.name || 'Organization',
-                    organizationLogo: branding?.logoUrl || branding?.logo,
+                    organizationLogo: logoUrl,
                     inviterName: inviter?.displayName || 'Team Member',
                     roles: createInviteDto.roles,
                     inviteUrl,

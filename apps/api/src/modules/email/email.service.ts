@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import * as nodemailer from 'nodemailer';
 import * as fs from 'fs';
+import * as nodemailer from 'nodemailer';
 import * as path from 'path';
 
 @Injectable()
@@ -54,17 +54,17 @@ export class EmailService {
 
     private log(message: string, data?: any) {
         const timestamp = new Date().toISOString();
-        const logMessage = data 
+        const logMessage = data
             ? `${timestamp} ${message} ${JSON.stringify(data, null, 2)}\n`
             : `${timestamp} ${message}\n`;
-        
+
         try {
             fs.appendFileSync(this.logFile, logMessage);
         } catch (error) {
             // Fallback to console if file write fails
             console.error('Failed to write to log file:', error);
         }
-        
+
         // Also log to console
         console.log(message, data || '');
     }
@@ -710,9 +710,9 @@ The ReplayHub Team
         <div class="header">
             <div class="logo">
                 ${options.organizationLogo
-                    ? `<img src="${options.organizationLogo}" alt="${options.organizationName} Logo">`
-                    : `<div style="color: white; font-size: 40px; font-weight: bold;">🎮</div>`
-                }
+                ? `<img src="${options.organizationLogo}" alt="${options.organizationName} Logo">`
+                : `<div style="color: white; font-size: 40px; font-weight: bold;">🎮</div>`
+            }
             </div>
             <h1>${options.organizationName}</h1>
         </div>
