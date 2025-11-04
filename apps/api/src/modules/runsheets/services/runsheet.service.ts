@@ -13,15 +13,16 @@ export class RunsheetService {
     constructor(private prisma: PrismaService) { }
 
     async create(tenantId: string, createRunsheetDto: CreateRunsheetDto, createdBy: string) {
-        // Set RLS context for tenant isolation
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        // Use transaction to ensure RLS context is set on the same connection
+        return await this.prisma.$transaction(async (tx) => {
+            // Set RLS context for tenant isolation
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        try {
             // If a template is provided, fetch it and create items from template
             let initialItems: any[] = [];
 
             if (createRunsheetDto.templateId) {
-                const template = await this.prisma.runsheetTemplate.findFirst({
+                const template = await tx.runsheetTemplate.findFirst({
                     where: {
                         tenantId,
                         id: createRunsheetDto.templateId
@@ -54,15 +55,7 @@ export class RunsheetService {
                 ? createRunsheetDto.eventId
                 : null;
 
-            console.log('[RunsheetService] Creating runsheet with:', {
-                tenantId,
-                title: createRunsheetDto.title,
-                eventId,
-                createdBy,
-                hasItems: initialItems.length > 0
-            });
-
-            const result = await this.prisma.runsheet.create({
+            const result = await tx.runsheet.create({
                 data: {
                     tenantId,
                     title: createRunsheetDto.title,
@@ -79,15 +72,8 @@ export class RunsheetService {
                 }
             });
 
-            console.log('[RunsheetService] Successfully created runsheet:', result.id);
             return result;
-        } catch (error) {
-            console.error('[RunsheetService] Error creating runsheet:', error);
-            console.error('[RunsheetService] DTO:', createRunsheetDto);
-            console.error('[RunsheetService] TenantId:', tenantId);
-            console.error('[RunsheetService] CreatedBy:', createdBy);
-            throw error;
-        }
+        });
     }
 
     async findMany(tenantId: string, query: RunsheetQueryDto) {
