@@ -67,6 +67,7 @@ apps/api/prisma/migrations/**/migration.sql
 # Documentation & Scripts (not needed for deployment)
 docs/
 scripts/
+!scripts/post-build-web.js
 *.md
 !README.md
 !package.json

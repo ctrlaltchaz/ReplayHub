@@ -138,33 +138,34 @@ export function PlayerProfileCard({ player, slug, onUpdate }: PlayerProfileCardP
                 <CardDescription>
                     Your competitive player information
                 </CardDescription>
-                <div className="flex gap-2 pt-4">
+                <div className="flex flex-wrap gap-2 pt-4">
                     {!isEditing ? (
                         <>
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => window.location.href = `/org/${slug}/roster/players/${player.id}`}
+                                className="flex-shrink-0"
                             >
                                 <ExternalLink className="h-4 w-4 mr-2" />
                                 View Full Profile
                             </Button>
-                            <Button variant="outline" size="sm" onClick={handleSyncWithUserProfile} disabled={isSyncing}>
+                            <Button variant="outline" size="sm" onClick={handleSyncWithUserProfile} disabled={isSyncing} className="flex-shrink-0">
                                 <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
                                 Sync
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="flex-shrink-0">
                                 <Pencil className="h-4 w-4 mr-2" />
                                 Edit
                             </Button>
                         </>
                     ) : (
                         <>
-                            <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSaving}>
+                            <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSaving} className="flex-shrink-0">
                                 <X className="h-4 w-4 mr-2" />
                                 Cancel
                             </Button>
-                            <Button size="sm" onClick={handleSave} disabled={isSaving}>
+                            <Button size="sm" onClick={handleSave} disabled={isSaving} className="flex-shrink-0">
                                 <Save className="h-4 w-4 mr-2" />
                                 {isSaving ? "Saving..." : "Save"}
                             </Button>
