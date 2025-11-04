@@ -166,12 +166,69 @@ export class GlobalAdminService {
             throw new BadRequestException('Organisation not found');
         }
 
-        // Delete the organisation (this should cascade to related records)
+        // Delete all related records manually to avoid foreign key constraint issues
+        // This ensures everything is cleaned up properly
+        
+        // 1. Delete org users and their related data
+        const orgUsers = await this.prisma.orgUser.findMany({
+            where: { tenantId: orgId },
+            select: { id: true }
+        });
+        
+        const orgUserIds = orgUsers.map(u => u.id);
+        
+        // Delete audit logs for org users
+        await this.prisma.auditLog.deleteMany({
+            where: { orgUserId: { in: orgUserIds } }
+        });
+        
+        // Delete org user roles
+        await this.prisma.orgUserRole.deleteMany({
+            where: { orgUserId: { in: orgUserIds } }
+        });
+        
+        // Delete org users
+        await this.prisma.orgUser.deleteMany({
+            where: { tenantId: orgId }
+        });
+        
+        // 2. Delete roles and permissions
+        const roles = await this.prisma.role.findMany({
+            where: { tenantId: orgId },
+            select: { id: true }
+        });
+        
+        const roleIds = roles.map(r => r.id);
+        
+        await this.prisma.rolePermission.deleteMany({
+            where: { roleId: { in: roleIds } }
+        });
+        
+        await this.prisma.role.deleteMany({
+            where: { tenantId: orgId }
+        });
+        
+        // 3. Delete Discord config
+        await this.prisma.organizationDiscord.deleteMany({
+            where: { tenantId: orgId }
+        });
+        
+        // 4. Delete invites
+        await this.prisma.orgInvite.deleteMany({
+            where: { tenantId: orgId }
+        });
+        
+        // 5. Delete organisation admins
+        await this.prisma.organisationAdmin.deleteMany({
+            where: { organisationId: orgId }
+        });
+        
+        // 6. Finally delete the organisation
         await this.prisma.organisation.delete({
             where: { id: orgId }
         });
 
-        return { message: 'Organisation deleted successfully' };
+        return { message: 'Organisation and all related data deleted successfully' };
     }
 
     // Global user management
