@@ -187,50 +187,6 @@ export class PlayerService {
             return null;
         }
 
-        const fs = require('fs');
-        const path = require('path');
-        const logDir = path.join(__dirname, '../../../../../logs');
-        const logFile = path.join(logDir, 'player-query-debug.log');
-        
-        try {
-            if (!fs.existsSync(logDir)) {
-                fs.mkdirSync(logDir, { recursive: true });
-            }
-        } catch (e) {
-            console.error('Failed to create log directory:', e);
-        }
-
-        const log = (message: string) => {
-            const timestamp = new Date().toISOString();
-            const logMessage = `[${timestamp}] ${message}\n`;
-            console.log(message);
-            try {
-                fs.appendFileSync(logFile, logMessage);
-            } catch (e) {
-                console.error('Failed to write to log file:', e);
-            }
-        };
-
-        log(`[PlayerService] Query parameters: tenantId=${tenantId}, globalUserId=${globalUserId}`);
-
-        // First, let's check if there are any players with orgUser set
-        const allPlayersWithOrgUser = await this.prisma.player.findMany({
-            where: { tenantId },
-            select: {
-                id: true,
-                gamerTag: true,
-                orgUserId: true,
-                orgUser: {
-                    select: {
-                        id: true,
-                        email: true,
-                        globalUserId: true,
-                    }
-                }
-            }
-        });
-        log(`[PlayerService] All players in tenant: ${JSON.stringify(allPlayersWithOrgUser, null, 2)}`);
-
         const player = await this.prisma.player.findFirst({
             where: {
                 tenantId,
@@ -252,8 +208,6 @@ export class PlayerService {
                 },
             },
         });
-
-        log(`[PlayerService] Found player with query: ${player ? player.gamerTag : 'null'}`);
 
         return player;
     }
