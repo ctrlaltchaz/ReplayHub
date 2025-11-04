@@ -63,11 +63,19 @@ export function RunsheetCreateDialog({
         e.preventDefault();
         if (!title.trim()) return;
 
-        await onSubmit({
+        const payload: CreateRunsheetDto & { templateId?: string } = {
             title: title.trim(),
-            eventId: eventId || undefined,
-            templateId: templateId || undefined,
-        });
+        };
+
+        // Only include optional fields if they have values
+        if (eventId && eventId.trim() !== '') {
+            payload.eventId = eventId;
+        }
+        if (templateId && templateId.trim() !== '') {
+            payload.templateId = templateId;
+        }
+
+        await onSubmit(payload);
         setTitle("");
         setEventId("");
         setTemplateId("");
