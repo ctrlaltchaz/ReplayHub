@@ -13,14 +13,61 @@ export class RunsheetService {
     constructor(private prisma: PrismaService) { }
 
     async create(tenantId: string, createRunsheetDto: CreateRunsheetDto, createdBy: string) {
-        // If a template is provided, fetch it and create items from template
-        let initialItems: any[] = [];
+        try {
+            // If a template is provided, fetch it and create items from template
+            let initialItems: any[] = [];
 
-        if (createRunsheetDto.templateId) {
-            const template = await this.prisma.runsheetTemplate.findFirst({
-                where: {
+            if (createRunsheetDto.templateId) {
+                const template = await this.prisma.runsheetTemplate.findFirst({
+                    where: {
+                        tenantId,
+                        id: createRunsheetDto.templateId
+                    },
+                    include: {
+                        items: {
+                            orderBy: { idx: 'asc' }
+                        }
+                    }
+                });
+
+                if (template) {
+                    // Create items from template
+                    initialItems = template.items.map((item) => ({
+                        idx: item.idx,
+                        title: item.title,
+                        type: item.type,
+                        ownerId: item.ownerId,
+                        durationMs: item.durationMs,
+                        location: item.location,
+                        equipment: item.equipment,
+                        priority: item.priority,
+                        notes: item.notes,
+                    }));
+                }
+            }
+
+            // Handle empty strings for optional fields - convert to null
+            const eventId = createRunsheetDto.eventId && createRunsheetDto.eventId.trim() !== '' 
+                ? createRunsheetDto.eventId 
+                : null;
+
+            console.log('[RunsheetService] Creating runsheet with:', {
+                tenantId,
+                title: createRunsheetDto.title,
+                eventId,
+                createdBy,
+                hasItems: initialItems.length > 0
+            });
+
+            const result = await this.prisma.runsheet.create({
+                data: {
                     tenantId,
-                    id: createRunsheetDto.templateId
+                    title: createRunsheetDto.title,
+                    eventId,
+                    createdBy,
+                    items: initialItems.length > 0 ? {
+                        create: initialItems
+                    } : undefined,
                 },
                 include: {
                     items: {
@@ -29,43 +76,15 @@ export class RunsheetService {
                 }
             });
 
-            if (template) {
-                // Create items from template
-                initialItems = template.items.map((item) => ({
-                    idx: item.idx,
-                    title: item.title,
-                    type: item.type,
-                    ownerId: item.ownerId,
-                    durationMs: item.durationMs,
-                    location: item.location,
-                    equipment: item.equipment,
-                    priority: item.priority,
-                    notes: item.notes,
-                }));
-            }
+            console.log('[RunsheetService] Successfully created runsheet:', result.id);
+            return result;
+        } catch (error) {
+            console.error('[RunsheetService] Error creating runsheet:', error);
+            console.error('[RunsheetService] DTO:', createRunsheetDto);
+            console.error('[RunsheetService] TenantId:', tenantId);
+            console.error('[RunsheetService] CreatedBy:', createdBy);
+            throw error;
         }
-
-        // Handle empty strings for optional fields - convert to null
-        const eventId = createRunsheetDto.eventId && createRunsheetDto.eventId.trim() !== '' 
-            ? createRunsheetDto.eventId 
-            : null;
-
-        return this.prisma.runsheet.create({
-            data: {
-                tenantId,
-                title: createRunsheetDto.title,
-                eventId,
-                createdBy,
-                items: initialItems.length > 0 ? {
-                    create: initialItems
-                } : undefined,
-            },
-            include: {
-                items: {
-                    orderBy: { idx: 'asc' }
-                }
-            }
-        });
     }
 
     async findMany(tenantId: string, query: RunsheetQueryDto) {
