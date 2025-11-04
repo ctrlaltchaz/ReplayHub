@@ -29,6 +29,23 @@ import { RunsheetService } from '../services/runsheet.service';
 export class RunsheetController {
     constructor(private readonly runsheetService: RunsheetService) { }
 
+    // Temporary test endpoint WITH permission guard
+    @Post('runsheets-test-with-guard')
+    @Can('runsheet.edit')
+    @UseGuards(PermissionGuard)
+    async createTestWithGuard(
+        @Req() req: Request,
+        @Body() createRunsheetDto: CreateRunsheetDto,
+    ) {
+        return {
+            success: true,
+            message: 'Permission guard passed!',
+            tenant: req.tenant?.id,
+            orgUser: req.orgUser?.id,
+            dto: createRunsheetDto,
+        };
+    }
+
     // Temporary test endpoint without guards
     @Post('runsheets-test')
     async createTest(
