@@ -13,6 +13,9 @@ export class RunsheetService {
     constructor(private prisma: PrismaService) { }
 
     async create(tenantId: string, createRunsheetDto: CreateRunsheetDto, createdBy: string) {
+        // Set RLS context for tenant isolation
+        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+
         try {
             // If a template is provided, fetch it and create items from template
             let initialItems: any[] = [];
@@ -88,6 +91,9 @@ export class RunsheetService {
     }
 
     async findMany(tenantId: string, query: RunsheetQueryDto) {
+        // Set RLS context for tenant isolation
+        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+
         const where: any = { tenantId };
 
         if (query.eventId) {
@@ -129,6 +135,9 @@ export class RunsheetService {
     }
 
     async findOne(tenantId: string, id: string) {
+        // Set RLS context for tenant isolation
+        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+
         const runsheet = await this.prisma.runsheet.findFirst({
             where: { id, tenantId },
             include: {
@@ -146,6 +155,9 @@ export class RunsheetService {
     }
 
     async update(tenantId: string, id: string, updateRunsheetDto: UpdateRunsheetDto) {
+        // Set RLS context for tenant isolation
+        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+
         // Check if runsheet exists and is not locked
         const existingRunsheet = await this.prisma.runsheet.findFirst({
             where: { id, tenantId }
@@ -250,6 +262,9 @@ export class RunsheetService {
     }
 
     async delete(tenantId: string, id: string) {
+        // Set RLS context for tenant isolation
+        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+
         const existingRunsheet = await this.prisma.runsheet.findFirst({
             where: { id, tenantId }
         });
@@ -392,6 +407,9 @@ export class RunsheetService {
     }
 
     async updateItem(tenantId: string, runsheetId: string, itemId: string, updateItemDto: UpdateRunsheetItemDto) {
+        // Set RLS context for tenant isolation
+        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+
         // Check if runsheet exists and is not locked
         const runsheet = await this.prisma.runsheet.findFirst({
             where: { id: runsheetId, tenantId }
@@ -440,6 +458,9 @@ export class RunsheetService {
     }
 
     async deleteItem(tenantId: string, runsheetId: string, itemId: string) {
+        // Set RLS context for tenant isolation
+        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+
         // Check if runsheet exists and is not locked
         const runsheet = await this.prisma.runsheet.findFirst({
             where: { id: runsheetId, tenantId }
