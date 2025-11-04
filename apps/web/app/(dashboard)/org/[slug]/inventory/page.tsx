@@ -1,11 +1,14 @@
 'use client';
 
+import { PermissionGuard } from '@/components/permissions/PermissionGuard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
+import { usePermissions } from '@/hooks/usePermissions';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
+import { PERMISSIONS } from '@/lib/permissions/utils';
 import type { InventoryItem, InventoryStatus } from '@/types/inventory';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, Package, Plus, Search } from 'lucide-react';
@@ -27,6 +30,11 @@ export default function InventoryPage() {
     const slug = params?.slug as string;
     const { toast } = useToast();
     const queryClient = useQueryClient();
+    const { hasPermission } = usePermissions();
+
+    const canManageInventory = hasPermission(PERMISSIONS.INVENTORY_MANAGE);
+    const canUpdateInventory = hasPermission(PERMISSIONS.INVENTORY_UPDATE);
+    const canBookInventory = hasPermission(PERMISSIONS.INVENTORY_BOOK);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<InventoryStatus | 'all'>('all');
@@ -119,10 +127,12 @@ export default function InventoryPage() {
                             <Package className="w-4 h-4 mr-2" />
                             View Kits
                         </Button>
-                        <Button onClick={() => setShowCreateDialog(true)}>
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Item
-                        </Button>
+                        <PermissionGuard required={PERMISSIONS.INVENTORY_MANAGE}>
+                            <Button onClick={() => setShowCreateDialog(true)}>
+                                <Plus className="w-4 h-4 mr-2" />
+                                Add Item
+                            </Button>
+                        </PermissionGuard>
                     </div>
                 </div>
 
@@ -210,10 +220,10 @@ export default function InventoryPage() {
                                 key={item.id}
                                 item={item}
                                 onClick={() => router.push(`/org/${slug}/inventory/${item.id}`)}
-                                onEdit={() => handleEdit(item)}
-                                onMove={() => handleMove(item)}
-                                onBook={() => handleBook(item)}
-                                onDelete={() => setItemToDelete(item)}
+                                onEdit={canUpdateInventory ? () => handleEdit(item) : undefined}
+                                onMove={canUpdateInventory ? () => handleMove(item) : undefined}
+                                onBook={canBookInventory ? () => handleBook(item) : undefined}
+                                onDelete={canManageInventory ? () => setItemToDelete(item) : undefined}
                             />
                         ))}
                     </div>
@@ -227,10 +237,12 @@ export default function InventoryPage() {
                                     ? 'No items match your search criteria.'
                                     : 'Get started by adding your first inventory item.'}
                             </p>
-                            <Button onClick={() => setShowCreateDialog(true)}>
-                                <Plus className="w-4 h-4 mr-2" />
-                                Add Item
-                            </Button>
+                            <PermissionGuard required={PERMISSIONS.INVENTORY_MANAGE}>
+                                <Button onClick={() => setShowCreateDialog(true)}>
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Add Item
+                                </Button>
+                            </PermissionGuard>
                         </CardContent>
                     </Card>
                 )}

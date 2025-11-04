@@ -1,18 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  async rewrites() {
-    return [
-      {
-        source: '/api/org/:slug/players/me',
-        destination: '/api/org/:slug/players/me', // Handle by Next.js API route
-      },
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:3001/api/:path*',
-      },
-    ];
-  },
+  // API requests are now handled by the catch-all API route at app/api/[...path]/route.ts
+  // This properly forwards cookies and headers to the backend
 };
 
 export default nextConfig;

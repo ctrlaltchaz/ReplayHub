@@ -15,9 +15,18 @@ export function AdminGuard({ children, requiresGlobalAdmin = false }: AdminGuard
 
     React.useEffect(() => {
         if (!isLoadingGlobal && !globalUser) {
+            // Don't redirect if we're already being redirected to login
+            // This prevents redirect loops
+            const currentPath = window.location.pathname;
+            if (currentPath.startsWith('/login')) {
+                console.log('[AdminGuard] Already on login page, skipping redirect');
+                return;
+            }
+
             // Redirect to login with current URL as redirect parameter
             const currentUrl = window.location.pathname + window.location.search;
             const loginUrl = `/login?redirect=${encodeURIComponent(currentUrl)}`;
+            console.log('[AdminGuard] No global user, redirecting to:', loginUrl);
             router.push(loginUrl);
         }
     }, [globalUser, isLoadingGlobal, router]);

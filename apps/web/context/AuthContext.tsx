@@ -104,10 +104,12 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
     }, [orgTotpMutation, orgSlug, refetchOrg]);
 
     const refresh = React.useCallback(async () => {
-        await Promise.all([
+        console.log('[AuthContext] Refreshing auth state...');
+        const results = await Promise.all([
             refetchGlobal(),
             orgSlug ? refetchOrg() : Promise.resolve(),
         ]);
+        console.log('[AuthContext] Refresh complete. Global user:', results[0].data);
         setRefreshKey((prev: number) => prev + 1);
     }, [refetchGlobal, refetchOrg, orgSlug]);
 

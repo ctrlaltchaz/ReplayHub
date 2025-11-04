@@ -103,7 +103,11 @@ export class UniversalAuthService {
                         console.error('[UniversalAuth] Session save error:', err);
                         reject(err);
                     } else {
-                        console.log(`[UniversalAuth] Session saved with orgUserId=${req.session.orgUserId}`);
+                        console.log(`[UniversalAuth] Session saved successfully!`);
+                        console.log(`[UniversalAuth] Session ID: ${req.session.id}`);
+                        console.log(`[UniversalAuth] Session userId: ${req.session.userId}`);
+                        console.log(`[UniversalAuth] Session orgUserId: ${req.session.orgUserId}`);
+                        console.log(`[UniversalAuth] Response will set cookie: sessionId=${req.session.id}`);
                         resolve();
                     }
                 });

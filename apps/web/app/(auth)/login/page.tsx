@@ -4,6 +4,7 @@ import { AppButton } from "@/components/ui/AppButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/context/AuthContext";
 import { apiPost } from "@/lib/api/client";
 import { AlertCircle, ArrowRight, CheckCircle2, Eye, EyeOff, Lock } from "lucide-react";
 import Link from "next/link";
@@ -43,6 +44,7 @@ interface TotpVerifyRequest {
 function UniversalLoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { refresh } = useAuth();
 
     // Form state
     const [email, setEmail] = useState("");
@@ -150,10 +152,24 @@ function UniversalLoginContent() {
 
     const handleLoginSuccess = async (data: UniversalLoginResponse) => {
         try {
+            console.log('[Login] Login successful, refreshing auth context...');
+
+            // Refresh auth context to load the global user session
+            await refresh();
+
+            console.log('[Login] Auth context refreshed');
+
+            // Add small delay to ensure the auth context has fully updated
+            // This prevents race condition where AdminGuard checks before context is ready
+            await new Promise(resolve => setTimeout(resolve, 200));
+
             // Check if there's a redirect URL in search params
             const redirectTo = searchParams?.get('redirect');
 
+            console.log('[Login] Redirect URL:', redirectTo);
+
             if (redirectTo && redirectTo.startsWith('/')) {
+                console.log('[Login] Redirecting to:', redirectTo);
                 router.push(redirectTo);
                 return;
             }

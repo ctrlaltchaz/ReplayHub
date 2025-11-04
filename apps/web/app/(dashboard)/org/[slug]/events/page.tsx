@@ -5,8 +5,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { type CreateEventData, type Event, type EventsQueryParams, type EventType, useEventsList } from '@/hooks/events';
+import { usePermissions } from '@/hooks/usePermissions';
 import { apiDelete, apiGet, apiPut } from '@/lib/api/client';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
+import { PERMISSIONS } from '@/lib/permissions/utils';
 import { AlertTriangle, Calendar, RefreshCw } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -26,6 +28,10 @@ export default function EventsPage() {
     const [editingEvent, setEditingEvent] = useState<Event | null>(null);
     const [deletingEvent, setDeletingEvent] = useState<Event | null>(null);
     const [productionLeads, setProductionLeads] = useState<Array<{ id: string; name: string }>>([]);
+
+    const { hasPermission } = usePermissions();
+    const canManageEvents = hasPermission(PERMISSIONS.EVENTS_MANAGE);
+    const canViewEvents = hasPermission(PERMISSIONS.EVENTS_VIEW);
 
     const { data: events, isLoading, error, refetch, isRefetching } = useEventsList(slug, filters);
 
@@ -48,9 +54,6 @@ export default function EventsPage() {
             fetchProductionLeads();
         }
     }, [slug]);
-
-    const canManageEvents = true;
-    const canViewEvents = true;
 
     const handleSearchChange = (q: string) => {
         setFilters(prev => ({ ...prev, q }));

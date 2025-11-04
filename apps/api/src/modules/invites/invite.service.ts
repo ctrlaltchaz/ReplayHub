@@ -113,7 +113,7 @@ export class InviteService {
             try {
                 const branding = org?.branding as any;
                 const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite/${token}`;
-                
+
                 // Build full URL for logo if it's a relative path
                 let logoUrl = branding?.logoUrl || branding?.logo;
                 if (logoUrl && logoUrl.startsWith('/')) {

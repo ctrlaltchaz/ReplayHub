@@ -79,6 +79,25 @@ async function bootstrap() {
   const uploadDir = process.env.ASSET_UPLOAD_DIR || './data';
   app.use('/uploads', express.static(path.resolve(uploadDir)));
 
+  // Optionally serve frontend from the same server (solves cookie issues in dev)
+  // Set SERVE_FRONTEND=true in .env to enable
+  if (process.env.SERVE_FRONTEND === 'true') {
+    const frontendPath = process.env.FRONTEND_PATH || path.resolve(__dirname, '../../web/out');
+    console.log(`[Frontend] Serving frontend from: ${frontendPath}`);
+
+    // Serve Next.js static files
+    app.use('/_next', express.static(path.join(frontendPath, '_next')));
+    app.use('/static', express.static(path.join(frontendPath, 'static')));
+
+    // Serve frontend index for all non-API routes
+    app.use((req, res, next) => {
+      if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+        return next();
+      }
+      res.sendFile(path.join(frontendPath, 'index.html'));
+    });
+  }
+
   // Security
   app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow uploads to be accessed
@@ -91,6 +110,7 @@ async function bootstrap() {
   const isProduction = process.env.NODE_ENV === 'production' ||
     process.env.SESSION_SECRET !== undefined ||
     process.env.COOKIE_DOMAIN !== undefined;
+
   const cookieDomain = process.env.COOKIE_DOMAIN || (isProduction ? '.replayhub.app' : undefined);
 
   app.use(
@@ -98,29 +118,25 @@ async function bootstrap() {
       secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
       resave: false,
       saveUninitialized: false,
-      name: 'sessionId', // Standardize session cookie name
+      name: 'sessionId',
       cookie: {
-        secure: isProduction, // HTTPS only in prod
-        httpOnly: true, // Prevent XSS
+        secure: isProduction, // HTTPS only in production
+        httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        sameSite: isProduction ? 'none' : 'lax', // Cross-origin for prod
-        path: '/', // Ensure cookie available for all paths
-        domain: cookieDomain, // Share cookie across subdomains
+        sameSite: 'none', // Allow cross-origin in both dev and prod
+        path: '/',
+        domain: cookieDomain, // '.replayhub.app' in prod, undefined in dev
       },
-      // Force session save for debugging
-      rolling: false, // Don't reset expiry on each request
+      rolling: false,
     }),
   );
 
   console.log('[Session] Cookie config:', {
-    isProduction,
+    environment: isProduction ? 'production' : 'development',
     secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax',
-    httpOnly: true,
-    maxAge: '24h',
-    path: '/',
-    name: 'sessionId',
-    domain: cookieDomain
+    sameSite: 'none',
+    domain: cookieDomain || 'undefined (localhost)',
+    note: !isProduction ? 'DEV: SameSite=none without Secure - Chrome/Edge may block this' : 'Production config',
   });
 
   // Trace scheduling middleware (temporary for debugging) - AFTER session middleware

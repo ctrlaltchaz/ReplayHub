@@ -1,12 +1,15 @@
 'use client';
 
+import { PermissionGuard } from '@/components/permissions/PermissionGuard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { usePermissions } from '@/hooks/usePermissions';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
+import { PERMISSIONS } from '@/lib/permissions/utils';
 import type { Incident, IncidentCategory, IncidentSeverity, IncidentStatus } from '@/types/incident';
 import {
     AlertTriangle,
@@ -61,6 +64,11 @@ export default function IncidentsPage() {
     const router = useRouter();
     const { toast } = useToast();
     const slug = params?.slug as string;
+    const { hasPermission } = usePermissions();
+
+    const canCreateIncident = hasPermission(PERMISSIONS.INCIDENTS_CREATE);
+    const canManageIncidents = hasPermission(PERMISSIONS.INCIDENTS_MANAGE);
+    const canExportReports = hasPermission(PERMISSIONS.REPORTS_EXPORT);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<IncidentCategory | 'all'>('all');
@@ -128,25 +136,31 @@ export default function IncidentsPage() {
                         <p className="text-muted-foreground">Track and manage operational incidents</p>
                     </div>
                     <div className="flex gap-2">
-                        <Button
-                            variant="outline"
-                            onClick={() => router.push(`/org/${slug}/incidents/reports`)}
-                        >
-                            <BarChart3 className="w-4 h-4 mr-2" />
-                            Reports
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onClick={handleExport}
-                            disabled={exportMutation.isPending}
-                        >
-                            <Download className="w-4 h-4 mr-2" />
-                            {exportMutation.isPending ? 'Exporting...' : 'Export CSV'}
-                        </Button>
-                        <Button onClick={() => router.push(`/org/${slug}/incidents/new`)}>
-                            <Plus className="w-4 h-4 mr-2" />
-                            Report Incident
-                        </Button>
+                        <PermissionGuard required={PERMISSIONS.REPORTS_VIEW}>
+                            <Button
+                                variant="outline"
+                                onClick={() => router.push(`/org/${slug}/incidents/reports`)}
+                            >
+                                <BarChart3 className="w-4 h-4 mr-2" />
+                                Reports
+                            </Button>
+                        </PermissionGuard>
+                        <PermissionGuard required={PERMISSIONS.REPORTS_EXPORT}>
+                            <Button
+                                variant="outline"
+                                onClick={handleExport}
+                                disabled={exportMutation.isPending}
+                            >
+                                <Download className="w-4 h-4 mr-2" />
+                                {exportMutation.isPending ? 'Exporting...' : 'Export CSV'}
+                            </Button>
+                        </PermissionGuard>
+                        <PermissionGuard required={PERMISSIONS.INCIDENTS_CREATE}>
+                            <Button onClick={() => router.push(`/org/${slug}/incidents/new`)}>
+                                <Plus className="w-4 h-4 mr-2" />
+                                Report Incident
+                            </Button>
+                        </PermissionGuard>
                     </div>
                 </div>
 

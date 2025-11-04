@@ -1,5 +1,6 @@
 "use client";
 
+import { PermissionGuard } from "@/components/permissions/PermissionGuard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { apiDelete } from "@/lib/api/client";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
+import { PERMISSIONS } from "@/lib/permissions/utils";
 import type { CreatePlayerDto, CreateTeamDto, Player, Team, UpdatePlayerDto, UpdateTeamDto } from "@/types/roster";
 import { useQueryClient } from "@tanstack/react-query";
 import { Award, Calendar, Edit, ListOrdered, Plus, Search, Trash2, Trophy, UserPlus, Users } from "lucide-react";
@@ -262,16 +264,20 @@ export default function RostersPage() {
                                 />
                             </div>
                             {activeTab === "teams" && (
-                                <Button onClick={() => setShowTeamDialog(true)}>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Create Team
-                                </Button>
+                                <PermissionGuard required={PERMISSIONS.TEAM_CREATE}>
+                                    <Button onClick={() => setShowTeamDialog(true)}>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Create Team
+                                    </Button>
+                                </PermissionGuard>
                             )}
                             {activeTab === "players" && (
-                                <Button onClick={() => setShowPlayerDialog(true)}>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Add Player
-                                </Button>
+                                <PermissionGuard required={PERMISSIONS.PLAYER_CREATE}>
+                                    <Button onClick={() => setShowPlayerDialog(true)}>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Add Player
+                                    </Button>
+                                </PermissionGuard>
                             )}
                             {activeTab === "lineups" && (
                                 <Button asChild>
@@ -322,10 +328,12 @@ export default function RostersPage() {
                                         <p className="text-muted-foreground mb-4">
                                             Create your first team to get started
                                         </p>
-                                        <Button onClick={() => setShowTeamDialog(true)}>
-                                            <Plus className="h-4 w-4 mr-2" />
-                                            Create Team
-                                        </Button>
+                                        <PermissionGuard required={PERMISSIONS.TEAM_CREATE}>
+                                            <Button onClick={() => setShowTeamDialog(true)}>
+                                                <Plus className="h-4 w-4 mr-2" />
+                                                Create Team
+                                            </Button>
+                                        </PermissionGuard>
                                     </div>
                                 ) : (
                                     <div className="space-y-2">
@@ -369,30 +377,34 @@ export default function RostersPage() {
                                                     <span className={`text-xs px-2 py-1 rounded ${team.status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'}`}>
                                                         {team.status}
                                                     </span>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            setSelectedTeam(team);
-                                                            setShowTeamEditDialog(true);
-                                                        }}
-                                                    >
-                                                        <Edit className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            handleDeleteTeam(team.id, team.name);
-                                                        }}
-                                                        disabled={deletingId === team.id}
-                                                    >
-                                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                                    </Button>
+                                                    <PermissionGuard required={PERMISSIONS.TEAM_UPDATE}>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                setSelectedTeam(team);
+                                                                setShowTeamEditDialog(true);
+                                                            }}
+                                                        >
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                    </PermissionGuard>
+                                                    <PermissionGuard required={PERMISSIONS.TEAM_DELETE}>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                handleDeleteTeam(team.id, team.name);
+                                                            }}
+                                                            disabled={deletingId === team.id}
+                                                        >
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                        </Button>
+                                                    </PermissionGuard>
                                                 </div>
                                             </Link>
                                         ))}
@@ -424,10 +436,12 @@ export default function RostersPage() {
                                         <p className="text-muted-foreground mb-4">
                                             Add your first player to get started
                                         </p>
-                                        <Button onClick={() => setShowPlayerDialog(true)}>
-                                            <Plus className="h-4 w-4 mr-2" />
-                                            Add Player
-                                        </Button>
+                                        <PermissionGuard required={PERMISSIONS.PLAYER_CREATE}>
+                                            <Button onClick={() => setShowPlayerDialog(true)}>
+                                                <Plus className="h-4 w-4 mr-2" />
+                                                Add Player
+                                            </Button>
+                                        </PermissionGuard>
                                     </div>
                                 ) : (
                                     <div className="space-y-2">
@@ -466,30 +480,34 @@ export default function RostersPage() {
                                                     <span className={`text-xs px-2 py-1 rounded ${player.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'}`}>
                                                         {player.isActive ? 'Active' : 'Inactive'}
                                                     </span>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            setSelectedPlayer(player);
-                                                            setShowPlayerEditDialog(true);
-                                                        }}
-                                                    >
-                                                        <Edit className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            handleDeletePlayer(player.id, player.gamerTag);
-                                                        }}
-                                                        disabled={deletingId === player.id}
-                                                    >
-                                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                                    </Button>
+                                                    <PermissionGuard required={PERMISSIONS.PLAYER_UPDATE}>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                setSelectedPlayer(player);
+                                                                setShowPlayerEditDialog(true);
+                                                            }}
+                                                        >
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                    </PermissionGuard>
+                                                    <PermissionGuard required={PERMISSIONS.PLAYER_DELETE}>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                handleDeletePlayer(player.id, player.gamerTag);
+                                                            }}
+                                                            disabled={deletingId === player.id}
+                                                        >
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                        </Button>
+                                                    </PermissionGuard>
                                                 </div>
                                             </Link>
                                         ))}
@@ -530,12 +548,14 @@ export default function RostersPage() {
                                         <p className="text-muted-foreground mb-4">
                                             Start tracking team and player accomplishments
                                         </p>
-                                        <Button asChild>
-                                            <Link href={`/org/${slug}/rosters/achievements`}>
-                                                <Plus className="h-4 w-4 mr-2" />
-                                                Add First Achievement
-                                            </Link>
-                                        </Button>
+                                        <PermissionGuard required={PERMISSIONS.ACHIEVEMENT_CREATE}>
+                                            <Button asChild>
+                                                <Link href={`/org/${slug}/rosters/achievements`}>
+                                                    <Plus className="h-4 w-4 mr-2" />
+                                                    Add First Achievement
+                                                </Link>
+                                            </Button>
+                                        </PermissionGuard>
                                     </div>
                                 ) : (
                                     <div className="space-y-3">
