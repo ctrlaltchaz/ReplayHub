@@ -296,9 +296,12 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                         /* Organization Navigation */
                         <>
                             {ORG_NAV.filter(item => item.key !== 'settings').map((item) => {
-                                // While loading org user, show all items to avoid flickering
-                                // Once loaded, check permissions (empty permissions array means user has no perms)
-                                const hasAccess = isLoadingOrg ? true : checkPermission(item.required);
+                                // If we're on an org page but permissions haven't loaded yet, show items to avoid hiding everything
+                                // This handles the race condition where sidebar renders before AuthContext loads permissions
+                                const permissionsNotLoadedYet = slug && !isLoadingOrg && permissions.length === 0;
+                                
+                                // While loading org user OR permissions not loaded yet, show all items to avoid flickering
+                                const hasAccess = (isLoadingOrg || permissionsNotLoadedYet) ? true : checkPermission(item.required);
 
                                 // Debug logging
                                 if (['runsheets', 'checklists', 'inventory', 'assets', 'overview', 'events', 'rosters'].includes(item.key)) {
@@ -306,6 +309,7 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                                         required: item.required,
                                         hasAccess,
                                         isLoadingOrg,
+                                        permissionsNotLoadedYet,
                                         permissionsLength: permissions.length,
                                         firstFewPermissions: permissions.slice(0, 3)
                                     });
@@ -395,7 +399,8 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                                         {!isCollapsed && item.children && isSubmenuOpen && (
                                             <div className="ml-9 mt-1 space-y-1">
                                                 {item.children.map((child) => {
-                                                    const childHasAccess = isLoadingOrg ? true : checkPermission(child.required);
+                                                    const permissionsNotLoadedYet = slug && !isLoadingOrg && permissions.length === 0;
+                                                    const childHasAccess = (isLoadingOrg || permissionsNotLoadedYet) ? true : checkPermission(child.required);
                                                     if (!childHasAccess) return null;
 
                                                     const childHref = slug ? child.href(slug) : '#';
