@@ -61,7 +61,10 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
     const orgTotpMutation = useOrgTotpVerify(orgSlug || '');
 
     // Computed permissions - flatten from org user permissions array
-    const permissions = orgUser?.permissions ? flattenPermissions(orgUser.permissions) : [];
+    // Memoize to ensure the array reference only changes when orgUser changes
+    const permissions = React.useMemo(() => {
+        return orgUser?.permissions ? flattenPermissions(orgUser.permissions) : [];
+    }, [orgUser]);
 
     // Debug logging for permissions
     React.useEffect(() => {
