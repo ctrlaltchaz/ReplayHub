@@ -16,7 +16,7 @@ export class EventsService {
         return await this.prisma.$transaction(async (tx) => {
             try {
                 // Set tenant context for RLS
-                await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+                await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
                 console.log('📝 Creating event with tenantId:', tenantId);
                 console.log('📝 Event data:', data);
@@ -278,7 +278,7 @@ export class EventsService {
     async updateEvent(tenantId: string, id: string, data: UpdateEventDto) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
             try {
                 const setClause: string[] = [];
@@ -475,7 +475,7 @@ export class EventsService {
     async deleteEvent(tenantId: string, id: string) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
             try {
                 await tx.$executeRawUnsafe(`
@@ -493,7 +493,7 @@ export class EventsService {
     async getWeekEvents(tenantId: string, startOfWeek: Date) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
             const endOfWeek = new Date(startOfWeek);
             endOfWeek.setDate(endOfWeek.getDate() + 7);
@@ -533,7 +533,7 @@ export class EventsService {
         return await this.prisma.$transaction(async (tx) => {
             try {
                 // Set tenant context for RLS
-                await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+                await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
                 // Resolve timezone from params or tenant settings
                 const timezone = await this.calendarUtils.resolveTimezone(tenantId, queryDto.tz);
@@ -626,7 +626,7 @@ export class EventsService {
     async assignLineup(tenantId: string, eventId: string, lineupId: string) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
             try {
                 // First verify the event exists
