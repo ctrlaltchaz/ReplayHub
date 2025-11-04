@@ -463,6 +463,276 @@ The ReplayHub Team
         `.trim();
     }
 
+    async sendInviteEmail(options: {
+        to: string;
+        organizationName: string;
+        organizationLogo?: string;
+        inviterName: string;
+        roles: string[];
+        inviteUrl: string;
+        expiresAt: Date;
+    }): Promise<void> {
+        const fromEmail = process.env.EMAIL_FROM || 'noreply@replayhub.com';
+        const fromName = process.env.EMAIL_FROM_NAME || 'ReplayHub';
+
+        const mailOptions = {
+            from: `"${fromName}" <${fromEmail}>`,
+            to: options.to,
+            subject: `You're invited to join ${options.organizationName} on ReplayHub`,
+            html: this.getInviteEmailTemplate(options),
+            text: `
+Join ${options.organizationName} on ReplayHub
+
+${options.inviterName} has invited you to join ${options.organizationName} on ReplayHub.
+
+Roles: ${options.roles.join(', ')}
+
+Click the link below to accept your invitation:
+${options.inviteUrl}
+
+This invitation expires on ${options.expiresAt.toLocaleString()}.
+
+Best regards,
+The ReplayHub Team
+            `.trim(),
+        };
+
+        console.log('📧 Attempting to send invite email:', {
+            to: options.to,
+            from: mailOptions.from,
+            subject: mailOptions.subject,
+            organization: options.organizationName,
+        });
+
+        try {
+            const info = await this.transporter.sendMail(mailOptions);
+            console.log('✅ Invite email sent successfully:', {
+                messageId: info.messageId,
+                accepted: info.accepted,
+                rejected: info.rejected,
+                response: info.response,
+            });
+        } catch (error) {
+            console.error('❌ Error sending invite email:', {
+                error: error.message,
+                code: error.code,
+                command: error.command,
+                responseCode: error.responseCode,
+                response: error.response,
+            });
+            throw new Error('Failed to send invite email');
+        }
+    }
+
+    private getInviteEmailTemplate(options: {
+        organizationName: string;
+        organizationLogo?: string;
+        inviterName: string;
+        roles: string[];
+        inviteUrl: string;
+        expiresAt: Date;
+    }): string {
+        const expiryDate = options.expiresAt.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+
+        return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join ${options.organizationName}</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #2ef6fc 0%, #1ac4cf 50%, #fc040e 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        .header {
+            background: linear-gradient(135deg, #2ef6fc 0%, #fc040e 100%);
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: white;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        .logo img {
+            width: 60px;
+            height: 60px;
+        }
+        .header h1 {
+            color: white;
+            margin: 0;
+            font-size: 32px;
+            font-weight: bold;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .content h2 {
+            color: #1a1a1a;
+            font-size: 24px;
+            margin: 0 0 20px 0;
+        }
+        .content p {
+            color: #4a5568;
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 0 0 20px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 16px 32px;
+            background: linear-gradient(135deg, #2ef6fc 0%, #fc040e 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            margin: 20px 0;
+            box-shadow: 0 4px 15px rgba(46, 246, 252, 0.3);
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(46, 246, 252, 0.4);
+        }
+        .info-box {
+            background: #f7fafc;
+            border-left: 4px solid #2ef6fc;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .info-box p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #2d3748;
+        }
+        .roles-box {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .roles-box h3 {
+            margin: 0 0 10px 0;
+            color: #2d3748;
+            font-size: 16px;
+        }
+        .role-tag {
+            display: inline-block;
+            background: linear-gradient(135deg, #2ef6fc 0%, #fc040e 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            margin: 4px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .footer {
+            background: #f7fafc;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+        }
+        .footer p {
+            color: #718096;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+        .link-box {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            word-break: break-all;
+        }
+        .link-box a {
+            color: #2ef6fc;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                ${options.organizationLogo 
+                    ? `<img src="${options.organizationLogo}" alt="${options.organizationName} Logo">` 
+                    : `<img src="https://assets.mckeonwebsolutions.com/replayhub/replayicon.png" alt="ReplayHub Logo">`
+                }
+            </div>
+            <h1>${options.organizationName}</h1>
+        </div>
+        
+        <div class="content">
+            <h2>You're Invited!</h2>
+            
+            <p><strong>${options.inviterName}</strong> has invited you to join <strong>${options.organizationName}</strong> on ReplayHub.</p>
+            
+            <div class="roles-box">
+                <h3>Your Assigned Roles:</h3>
+                ${options.roles.map(role => `<span class="role-tag">${role}</span>`).join('')}
+            </div>
+            
+            <p>Click the button below to accept your invitation and get started:</p>
+            
+            <div style="text-align: center;">
+                <a href="${options.inviteUrl}" class="button">Accept Invitation</a>
+            </div>
+            
+            <div class="info-box">
+                <p><strong>⏰ This invitation expires on ${expiryDate}</strong></p>
+                <p>Make sure to accept your invitation before it expires!</p>
+            </div>
+            
+            <p>If the button doesn't work, copy and paste this link into your browser:</p>
+            
+            <div class="link-box">
+                <a href="${options.inviteUrl}">${options.inviteUrl}</a>
+            </div>
+            
+            <div class="info-box">
+                <p><strong>ℹ️ About ReplayHub:</strong> ReplayHub is an esports operations platform that helps organizations manage events, teams, players, and more.</p>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p><strong>ReplayHub</strong></p>
+            <p>Esports Operations Platform</p>
+            <p style="margin-top: 15px;">This is an automated email. Please do not reply to this message.</p>
+        </div>
+    </div>
+</body>
+</html>
+        `.trim();
+    }
+
     async testConnection(): Promise<boolean> {
         try {
             await this.transporter.verify();

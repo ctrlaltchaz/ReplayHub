@@ -2,14 +2,14 @@ import { Module } from '@nestjs/common';
 import { TenantModule } from '../../common/tenant/tenant.module';
 import { DatabaseModule } from '../../database/database.module';
 import { RbacModule } from '../rbac/rbac.module';
+import { EmailModule } from '../email/email.module';
 import { InviteAcceptController, InviteController, PublicInviteController } from './invite.controller';
 import { InviteService } from './invite.service';
-import { EmailService } from './services/email.service';
 
 @Module({
-    imports: [DatabaseModule, TenantModule, RbacModule],
+    imports: [DatabaseModule, TenantModule, RbacModule, EmailModule],
     controllers: [InviteController, InviteAcceptController, PublicInviteController],
-    providers: [InviteService, EmailService],
+    providers: [InviteService],
     exports: [InviteService],
 })
 export class InviteModule { }

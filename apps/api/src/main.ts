@@ -88,11 +88,11 @@ async function bootstrap() {
 
   // Session configuration with standardized cookie options
   // Detect production by checking for SESSION_SECRET or explicit COOKIE_DOMAIN env var
-  const isProduction = process.env.NODE_ENV === 'production' || 
-                       process.env.SESSION_SECRET !== undefined ||
-                       process.env.COOKIE_DOMAIN !== undefined;
+  const isProduction = process.env.NODE_ENV === 'production' ||
+    process.env.SESSION_SECRET !== undefined ||
+    process.env.COOKIE_DOMAIN !== undefined;
   const cookieDomain = process.env.COOKIE_DOMAIN || (isProduction ? '.replayhub.app' : undefined);
-  
+
   app.use(
     session({
       secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',

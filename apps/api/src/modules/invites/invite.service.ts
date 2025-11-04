@@ -5,8 +5,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { AcceptInviteDto, CreateInviteDto, InviteListDto } from './dto';
 import { InviteMethod } from './dto/create-invite.dto';
 import { RegisterFromInviteDto } from './dto/register-from-invite.dto';
-import { EmailService } from './services/email.service';
-import { generateInviteEmail } from './templates/invite-email.template';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class InviteService {
@@ -115,17 +114,15 @@ export class InviteService {
                 const branding = org?.branding as any;
                 const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite/${token}`;
 
-                const emailTemplate = generateInviteEmail({
+                await this.emailService.sendInviteEmail({
+                    to: createInviteDto.email,
                     organizationName: org?.name || 'Organization',
                     organizationLogo: branding?.logoUrl || branding?.logo,
                     inviterName: inviter?.displayName || 'Team Member',
-                    recipientEmail: createInviteDto.email,
                     roles: createInviteDto.roles,
                     inviteUrl,
                     expiresAt: invite.expiresAt,
                 });
-
-                await this.emailService.sendTemplateEmail(createInviteDto.email, emailTemplate);
             } catch (error) {
                 console.error('Failed to send invite email:', error);
                 // Don't throw - invite was created successfully, email is best-effort
