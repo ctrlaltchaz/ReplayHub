@@ -301,6 +301,18 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                                 // While loading org user, show all items
                                 const hasAccess = (isLoadingOrg || isStillLoading) ? true : checkPermission(item.required);
 
+                                // Debug logging
+                                if (['runsheets', 'checklists', 'inventory', 'assets'].includes(item.key)) {
+                                    console.log(`[Sidebar] ${item.key}:`, {
+                                        required: item.required,
+                                        hasAccess,
+                                        isLoadingOrg,
+                                        isStillLoading,
+                                        permissionsLength: permissions.length,
+                                        userPermissions: permissions
+                                    });
+                                }
+
                                 if (!hasAccess) {
                                     return null; // Hide item if user lacks permission
                                 }
