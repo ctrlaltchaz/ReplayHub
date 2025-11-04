@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@/context/AuthContext";
 import { PermissionGuard } from "@/components/permissions/PermissionGuard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,6 +46,7 @@ export default function RostersPage() {
     const slug = params?.slug as string;
     const { toast } = useToast();
     const queryClient = useQueryClient();
+    const { orgUser } = useAuth();
 
     const [showTeamDialog, setShowTeamDialog] = useState(false);
     const [showTeamEditDialog, setShowTeamEditDialog] = useState(false);
@@ -482,7 +484,22 @@ export default function RostersPage() {
                                                     <span className={`text-xs px-2 py-1 rounded ${player.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'}`}>
                                                         {player.isActive ? 'Active' : 'Inactive'}
                                                     </span>
-                                                    <PermissionGuard required={PERMISSIONS.PLAYER_UPDATE}>
+                                                    <PermissionGuard required={PERMISSIONS.PLAYER_UPDATE} fallback={
+                                                        player.orgUserId === orgUser?.id ? (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    setSelectedPlayer(player);
+                                                                    setShowPlayerEditDialog(true);
+                                                                }}
+                                                            >
+                                                                <Edit className="h-4 w-4" />
+                                                            </Button>
+                                                        ) : null
+                                                    }>
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
