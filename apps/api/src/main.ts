@@ -87,6 +87,12 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Session configuration with standardized cookie options
+  // Detect production by checking for SESSION_SECRET or explicit COOKIE_DOMAIN env var
+  const isProduction = process.env.NODE_ENV === 'production' || 
+                       process.env.SESSION_SECRET !== undefined ||
+                       process.env.COOKIE_DOMAIN !== undefined;
+  const cookieDomain = process.env.COOKIE_DOMAIN || (isProduction ? '.replayhub.app' : undefined);
+  
   app.use(
     session({
       secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
@@ -94,12 +100,12 @@ async function bootstrap() {
       saveUninitialized: false,
       name: 'sessionId', // Standardize session cookie name
       cookie: {
-        secure: process.env.NODE_ENV === 'production', // HTTPS only in prod
+        secure: isProduction, // HTTPS only in prod
         httpOnly: true, // Prevent XSS
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Cross-origin for prod
+        sameSite: isProduction ? 'none' : 'lax', // Cross-origin for prod
         path: '/', // Ensure cookie available for all paths
-        domain: process.env.NODE_ENV === 'production' ? '.replayhub.app' : undefined, // Share cookie across subdomains
+        domain: cookieDomain, // Share cookie across subdomains
       },
       // Force session save for debugging
       rolling: false, // Don't reset expiry on each request
@@ -107,13 +113,14 @@ async function bootstrap() {
   );
 
   console.log('[Session] Cookie config:', {
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    isProduction,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
     httpOnly: true,
     maxAge: '24h',
     path: '/',
     name: 'sessionId',
-    domain: process.env.NODE_ENV === 'production' ? '.replayhub.app' : 'auto-detect'
+    domain: cookieDomain
   });
 
   // Trace scheduling middleware (temporary for debugging) - AFTER session middleware
