@@ -44,11 +44,11 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
     });
 
     // Org auth queries (only when orgSlug is provided)
-    const { 
-        data: orgUser, 
-        isLoading: isLoadingOrg, 
+    const {
+        data: orgUser,
+        isLoading: isLoadingOrg,
         isFetched: isOrgFetched,
-        refetch: refetchOrg 
+        refetch: refetchOrg
     } = useOrgMe(
         orgSlug || '',
         {
@@ -93,7 +93,7 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
             isPermissionsReady,
             permissionsCount: permissions.length
         });
-        
+
         if (orgUser) {
             console.log('[AuthContext] OrgUser loaded:', {
                 userId: orgUser.id,
@@ -157,17 +157,19 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
         setRefreshKey((prev: number) => prev + 1);
     }, [refetchGlobal, refetchOrg, orgSlug]);
 
-    const contextValue: AuthContextType = {
+    const hasPermission = React.useCallback((required?: string | string[]) => {
+        if (!required) return true;
+        if (isGlobalAdmin) return true;
+        const requiredPerms = Array.isArray(required) ? required : [required];
+        return requiredPerms.some(perm => permissions.includes(perm));
+    }, [isGlobalAdmin, permissions]);
+
+    const contextValue: AuthContextType = React.useMemo(() => ({
         globalUser: globalUser || null,
         orgUser: orgUser || null,
         permissions,
         isGlobalAdmin,
-        hasPermission: (required?: string | string[]) => {
-            if (!required) return true;
-            if (isGlobalAdmin) return true;
-            const requiredPerms = Array.isArray(required) ? required : [required];
-            return requiredPerms.some(perm => permissions.includes(perm));
-        },
+        hasPermission,
         loginGlobal,
         logoutGlobal,
         loginOrg,
@@ -178,7 +180,23 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
         isLoadingGlobal,
         isLoadingOrg,
         isPermissionsReady,
-    };
+    }), [
+        globalUser,
+        orgUser,
+        permissions,
+        isGlobalAdmin,
+        hasPermission,
+        loginGlobal,
+        logoutGlobal,
+        loginOrg,
+        logoutOrg,
+        verifyGlobalTotp,
+        verifyOrgTotp,
+        refresh,
+        isLoadingGlobal,
+        isLoadingOrg,
+        isPermissionsReady,
+    ]);
 
     return (
         <AuthContext.Provider value={contextValue}>
