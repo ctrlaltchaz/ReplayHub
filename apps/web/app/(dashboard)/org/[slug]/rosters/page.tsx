@@ -513,23 +513,7 @@ export default function RostersPage() {
                                                             <Edit className="h-4 w-4" />
                                                         </Button>
                                                     </PermissionGuard>
-                                                    <PermissionGuard required={PERMISSIONS.PLAYER_DELETE} fallback={
-                                                        player.orgUserId !== orgUser?.id ? (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={(e) => {
-                                                                    e.preventDefault();
-                                                                    e.stopPropagation();
-                                                                    handleDeletePlayer(player.id, player.gamerTag);
-                                                                }}
-                                                                disabled={deletingId === player.id}
-                                                                className="text-destructive hover:text-destructive"
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        ) : null
-                                                    }>
+                                                    <PermissionGuard required={PERMISSIONS.PLAYER_DELETE}>
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
