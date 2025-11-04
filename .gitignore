@@ -64,9 +64,8 @@ temp/
 # Prisma
 apps/api/prisma/migrations/**/migration.sql
 
-# Documentation & Scripts (not needed for deployment)
+# Documentation (not needed for deployment)
 docs/
-scripts/
 *.md
 !README.md
 !package.json
