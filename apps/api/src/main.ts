@@ -99,7 +99,7 @@ async function bootstrap() {
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Cross-origin for prod
         path: '/', // Ensure cookie available for all paths
-        domain: process.env.NODE_ENV === 'production' ? undefined : undefined, // Auto-detect domain
+        domain: process.env.NODE_ENV === 'production' ? '.replayhub.app' : undefined, // Share cookie across subdomains
       },
       // Force session save for debugging
       rolling: false, // Don't reset expiry on each request
@@ -112,7 +112,8 @@ async function bootstrap() {
     httpOnly: true,
     maxAge: '24h',
     path: '/',
-    name: 'sessionId'
+    name: 'sessionId',
+    domain: process.env.NODE_ENV === 'production' ? '.replayhub.app' : 'auto-detect'
   });
 
   // Trace scheduling middleware (temporary for debugging) - AFTER session middleware
