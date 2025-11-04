@@ -160,14 +160,17 @@ export class TeamService {
             }
         }
 
-        // Validate captain exists if provided
-        if (updateTeamDto.captainId) {
+        // Validate captain exists if provided (ignore empty strings)
+        if (updateTeamDto.captainId && updateTeamDto.captainId.trim() !== '') {
             const captain = await this.prisma.player.findFirst({
                 where: { id: updateTeamDto.captainId, tenantId },
             });
             if (!captain) {
                 throw new BadRequestException('Captain not found');
             }
+        } else if (updateTeamDto.captainId === '') {
+            // Convert empty string to null
+            updateTeamDto.captainId = null;
         }
 
         // Check for name conflicts if name is being changed
