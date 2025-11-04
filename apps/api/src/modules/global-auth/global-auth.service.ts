@@ -360,10 +360,24 @@ export class GlobalAuthService {
             throw new Error('You do not have access to this organization');
         }
 
-        // Set session org context
-        req.session.currentOrgId = org.id;
-        req.session.currentOrgSlug = org.slug;
-        req.session.currentOrgUserId = orgUser.id;
+        // Set session org context - using same keys as universal login
+        req.session.orgUserId = orgUser.id;
+        req.session.orgTenant = org.slug;
+
+        console.log(`[GlobalAuth] Switched org session: orgUserId=${orgUser.id}, tenant=${org.slug}`);
+
+        // Save session explicitly
+        await new Promise<void>((resolve, reject) => {
+            req.session.save((err) => {
+                if (err) {
+                    console.error('[GlobalAuth] Session save failed:', err);
+                    reject(err);
+                } else {
+                    console.log('[GlobalAuth] Session saved successfully');
+                    resolve();
+                }
+            });
+        });
 
         return {
             message: 'Switched to organization',

@@ -83,6 +83,32 @@ export class UniversalAuthService {
             // Create global session
             req.session.userId = globalUser.id;
 
+            // AUTO-LOGIN: If user has org accounts, automatically set the first org session
+            // This allows seamless navigation to org pages without requiring separate login
+            if (orgUsers && orgUsers.length > 0) {
+                const firstOrgUser = orgUsers[0];
+                const firstOrg = organisations.find(o => o.id === firstOrgUser.tenantId);
+
+                if (firstOrg) {
+                    req.session.orgUserId = firstOrgUser.id;
+                    req.session.orgTenant = firstOrg.slug;
+                    console.log(`[UniversalAuth] Auto-set org session: orgUserId=${firstOrgUser.id}, tenant=${firstOrg.slug}`);
+                }
+            }
+
+            // Save session before checking TOTP
+            await new Promise<void>((resolve, reject) => {
+                req.session.save((err) => {
+                    if (err) {
+                        console.error('[UniversalAuth] Session save error:', err);
+                        reject(err);
+                    } else {
+                        console.log(`[UniversalAuth] Session saved with orgUserId=${req.session.orgUserId}`);
+                        resolve();
+                    }
+                });
+            });
+
             // Check if TOTP is required
             if (globalUser.isTotpEnabled) {
                 req.session.requiresTotp = true;
