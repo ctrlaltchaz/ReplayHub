@@ -39,6 +39,11 @@ export class RunsheetController {
             success: true,
             tenant: req.tenant?.id || 'NO_TENANT',
             orgUser: req.orgUser?.id || 'NO_ORG_USER',
+            principal: req.principal || 'NO_PRINCIPAL',
+            session: {
+                userId: req.session?.userId || 'NO_USER_ID',
+                orgUserId: req.session?.orgUserId || 'NO_ORG_USER_ID',
+            },
             dto: createRunsheetDto,
             message: 'Test endpoint reached successfully'
         };
