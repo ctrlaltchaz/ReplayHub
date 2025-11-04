@@ -95,7 +95,7 @@ export default function ChecklistsPage() {
                     </TabsList>
                     <TabsContent value="checklists" className="space-y-4">
                         <div className="flex justify-end">
-                            <PermissionGuard required={PERMISSIONS.CHECKLISTS_EDIT}>
+                            <PermissionGuard required={PERMISSIONS.CHECKLISTS_MANAGE}>
                                 <Button onClick={() => setShowNewChecklistDialog(true)}>
                                     <Plus className="w-4 h-4 mr-2" />
                                     New Checklist
@@ -234,7 +234,7 @@ export default function ChecklistsPage() {
                                     <ClipboardCheck className="w-16 h-16 text-muted-foreground mb-4" />
                                     <h3 className="text-lg font-semibold mb-2">No Checklists</h3>
                                     <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">Create your first checklist to get started.</p>
-                                    <PermissionGuard required={PERMISSIONS.CHECKLISTS_EDIT}>
+                                    <PermissionGuard required={PERMISSIONS.CHECKLISTS_MANAGE}>
                                         <Button onClick={() => setShowNewChecklistDialog(true)}>
                                             <Plus className="w-4 h-4 mr-2" />
                                             New Checklist
@@ -246,7 +246,7 @@ export default function ChecklistsPage() {
                     </TabsContent>
                     <TabsContent value="templates" className="space-y-4">
                         <div className="flex justify-end">
-                            <PermissionGuard required={PERMISSIONS.CHECKLISTS_EDIT}>
+                            <PermissionGuard required={PERMISSIONS.CHECKLISTS_MANAGE}>
                                 <Button onClick={() => router.push(`/org/${slug}/checklists/new?type=template`)}>
                                     <Plus className="w-4 h-4 mr-2" />
                                     New Template
@@ -293,7 +293,7 @@ export default function ChecklistsPage() {
                                             <p className="text-sm text-muted-foreground">
                                                 {template.itemsJson.length} {template.itemsJson.length === 1 ? 'item' : 'items'}
                                             </p>
-                                            <PermissionGuard required={PERMISSIONS.CHECKLISTS_EDIT}>
+                                            <PermissionGuard required={PERMISSIONS.CHECKLISTS_MANAGE}>
                                                 <Button
                                                     size="sm"
                                                     className="w-full"
@@ -313,7 +313,7 @@ export default function ChecklistsPage() {
                                     <ClipboardCheck className="w-16 h-16 text-muted-foreground mb-4" />
                                     <h3 className="text-lg font-semibold mb-2">No Templates</h3>
                                     <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">Create your first checklist template to get started.</p>
-                                    <PermissionGuard required={PERMISSIONS.CHECKLISTS_EDIT}>
+                                    <PermissionGuard required={PERMISSIONS.CHECKLISTS_MANAGE}>
                                         <Button onClick={() => router.push(`/org/${slug}/checklists/new?type=template`)}>
                                             <Plus className="w-4 h-4 mr-2" />
                                             New Template
