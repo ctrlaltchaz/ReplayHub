@@ -73,10 +73,12 @@ export class PlayerController {
     @Get('me')
     async getMyPlayer(@Req() req: Request) {
         const globalUserId = req.globalUser?.id;
+        console.log('[PlayerController] GET /me - globalUserId:', globalUserId, 'tenantId:', req.tenant!.id);
         if (!globalUserId) {
             return { player: null };
         }
         const player = await this.playerService.findPlayerByGlobalUser(req.tenant!.id, globalUserId);
+        console.log('[PlayerController] Found player:', player ? `${player.gamerTag} (${player.id})` : 'null');
         return { player };
     }
 
