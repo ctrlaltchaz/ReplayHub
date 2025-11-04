@@ -70,39 +70,6 @@ interface AvailabilityQueryDto {
 export class PlayerController {
     constructor(private readonly playerService: PlayerService) { }
 
-    @Get('debug-link')
-    async debugPlayerLink(@Req() req: Request) {
-        const globalUserId = req.globalUser?.id;
-        const tenantId = req.tenant!.id;
-
-        // Get all players with their orgUser info
-        const allPlayers = await this.playerService['prisma'].player.findMany({
-            where: { tenantId },
-            select: {
-                id: true,
-                gamerTag: true,
-                orgUserId: true,
-                orgUser: {
-                    select: {
-                        id: true,
-                        email: true,
-                        displayName: true,
-                        globalUserId: true,
-                    }
-                }
-            }
-        });
-
-        return {
-            requestInfo: {
-                globalUserId,
-                tenantId,
-            },
-            allPlayers,
-            message: 'Debug info for player linking'
-        };
-    }
-
     @Get('me')
     async getMyPlayer(@Req() req: Request) {
         const globalUserId = req.globalUser?.id;

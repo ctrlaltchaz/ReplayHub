@@ -205,6 +205,9 @@ export function PlayerProfileCard({ player, slug, onUpdate }: PlayerProfileCardP
                                 {player.realName && (
                                     <p className="text-muted-foreground">{player.realName}</p>
                                 )}
+                                {player.role && (
+                                    <p className="text-sm text-primary font-medium mt-1">{player.role}</p>
+                                )}
                             </div>
                         )}
                     </div>

@@ -93,15 +93,6 @@ export default function ProfilePage() {
 
             setPlayerLoading(true);
             try {
-                // First fetch debug info
-                const debugResponse = await fetch(`${getServerUrl()}/api/org/${slug}/players/debug-link`, {
-                    credentials: 'include'
-                });
-                if (debugResponse.ok) {
-                    const debugData = await debugResponse.json();
-                    console.log('[Profile] 🔍 DEBUG INFO:', debugData);
-                }
-
                 const response = await fetch(`${getServerUrl()}/api/org/${slug}/players/me`, {
                     credentials: 'include'
                 });
@@ -110,20 +101,15 @@ export default function ProfilePage() {
                     if (text) {
                         try {
                             const data = JSON.parse(text);
-                            console.log('[Profile] Player response:', data);
-                            console.log('[Profile] Player data:', data.player);
-                            // API now returns { player: ... }
                             setPlayerData(data.player);
                         } catch (e) {
                             console.error('Failed to parse player response:', text);
                             setPlayerData(null);
                         }
                     } else {
-                        console.log('[Profile] Empty response from players/me');
                         setPlayerData(null);
                     }
                 } else {
-                    console.log('[Profile] Player not found or not accessible:', response.status);
                     setPlayerData(null);
                 }
             } catch (error) {
