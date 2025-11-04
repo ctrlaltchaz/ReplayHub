@@ -37,12 +37,6 @@ export class RunsheetController {
         @Body() createRunsheetDto: CreateRunsheetDto,
     ) {
         try {
-            console.log('[RunsheetController] Create request:', {
-                tenantId: req.tenant?.id,
-                orgUserId: req.orgUser?.id,
-                dto: createRunsheetDto
-            });
-
             if (!req.tenant?.id) {
                 throw new Error('Tenant ID is required');
             }
@@ -56,12 +50,20 @@ export class RunsheetController {
                 req.orgUser.id
             );
 
-            console.log('[RunsheetController] Successfully created runsheet:', result.id);
             return result;
         } catch (error) {
-            console.error('[RunsheetController] Error creating runsheet:', error);
-            console.error('[RunsheetController] Error stack:', error instanceof Error ? error.stack : 'No stack');
-            throw error;
+            // Return detailed error information for debugging
+            const errorDetails = {
+                message: error instanceof Error ? error.message : 'Unknown error',
+                stack: error instanceof Error ? error.stack : undefined,
+                name: error instanceof Error ? error.name : undefined,
+                tenantId: req.tenant?.id,
+                orgUserId: req.orgUser?.id,
+                dto: createRunsheetDto,
+            };
+            
+            // Throw a new error with all the details in the message
+            throw new Error(JSON.stringify(errorDetails, null, 2));
         }
     }
 
