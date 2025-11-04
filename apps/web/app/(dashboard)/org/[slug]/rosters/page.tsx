@@ -514,19 +514,21 @@ export default function RostersPage() {
                                                         </Button>
                                                     </PermissionGuard>
                                                     <PermissionGuard required={PERMISSIONS.PLAYER_DELETE} fallback={
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                handleDeletePlayer(player.id, player.gamerTag);
-                                                            }}
-                                                            disabled={deletingId === player.id}
-                                                            className="text-destructive hover:text-destructive"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
+                                                        player.orgUserId !== orgUser?.id ? (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    handleDeletePlayer(player.id, player.gamerTag);
+                                                                }}
+                                                                disabled={deletingId === player.id}
+                                                                className="text-destructive hover:text-destructive"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        ) : null
                                                     }>
                                                         <Button
                                                             variant="ghost"
