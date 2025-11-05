@@ -11,8 +11,13 @@ export class GlobalUsersController {
 
     @Get('profile')
     async getProfile(@Req() req: Request) {
-        const user = await this.globalUsersService.getUserProfile(req.session.userId!);
-        return { user };
+        try {
+            const user = await this.globalUsersService.getUserProfile(req.session.userId!);
+            return { user };
+        } catch (error) {
+            console.error('Error in getUserProfile:', error);
+            throw new Error(`Profile fetch failed: ${error.message}\n\nStack: ${error.stack}`);
+        }
     }
 
     @Put('profile')
