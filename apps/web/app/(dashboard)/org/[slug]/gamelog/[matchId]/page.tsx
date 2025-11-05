@@ -462,14 +462,16 @@ export default function MatchDetailPage() {
                                 <Map className="h-4 w-4" />
                                 Map Games
                             </CardTitle>
-                            {canManage && match.status === "draft" && (
+                            {canManage && (
                                 <Button
                                     size="sm"
+                                    variant="outline"
                                     onClick={() =>
                                         router.push(`/org/${slug}/gamelog/${matchId}/maps`)
                                     }
                                 >
-                                    Manage Maps
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    {match.status === "draft" ? "Manage" : "Edit"} Maps
                                 </Button>
                             )}
                         </div>
@@ -544,14 +546,16 @@ export default function MatchDetailPage() {
                                 <Target className="h-4 w-4" />
                                 Player Statistics
                             </CardTitle>
-                            {canManage && match.status === "draft" && (
+                            {canManage && (
                                 <Button
                                     size="sm"
+                                    variant="outline"
                                     onClick={() =>
                                         router.push(`/org/${slug}/gamelog/${matchId}/stats`)
                                     }
                                 >
-                                    Manage Stats
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    {match.status === "draft" ? "Manage" : "Edit"} Stats
                                 </Button>
                             )}
                         </div>
