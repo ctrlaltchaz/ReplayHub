@@ -41,13 +41,12 @@ export interface Match {
 export interface MapGame {
     id: string;
     matchId: string;
-    mapNumber: number;
-    mapName: string;
-    side?: string;
-    teamScore: number;
-    opponentScore: number;
-    result: MatchResult;
-    duration?: number;
+    title: string;
+    mapName?: string;
+    gameIdx: number;
+    ourScore: number;
+    theirScore: number;
+    durationSec?: number;
     notes?: string;
 }
 
@@ -103,13 +102,12 @@ export interface UpdateMatchDto {
 }
 
 export interface CreateMapGameDto {
-    mapNumber: number;
-    mapName: string;
-    side?: string;
-    teamScore: number;
-    opponentScore: number;
-    result: MatchResult;
-    duration?: number;
+    title: string;
+    mapName?: string;
+    gameIdx: number;
+    ourScore?: number;
+    theirScore?: number;
+    durationSec?: number;
     notes?: string;
 }
 

@@ -478,7 +478,7 @@ export default function ManageStatsPage() {
                                             <SelectItem value="none">No specific map</SelectItem>
                                             {match.maps?.map((map: any) => (
                                                 <SelectItem key={map.id} value={map.id}>
-                                                    Map {map.mapNumber}: {map.mapName}
+                                                    {map.title}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>

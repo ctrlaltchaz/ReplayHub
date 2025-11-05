@@ -470,39 +470,30 @@ export default function MatchDetailPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Map #</TableHead>
+                                        <TableHead>Game #</TableHead>
+                                        <TableHead>Title</TableHead>
                                         <TableHead>Map Name</TableHead>
-                                        <TableHead>Side</TableHead>
                                         <TableHead>Score</TableHead>
-                                        <TableHead>Result</TableHead>
                                         <TableHead>Duration</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {match.maps.map((mapGame) => (
                                         <TableRow key={mapGame.id}>
-                                            <TableCell>{mapGame.mapNumber}</TableCell>
+                                            <TableCell>{mapGame.gameIdx}</TableCell>
                                             <TableCell className="font-medium">
-                                                {mapGame.mapName}
+                                                {mapGame.title}
                                             </TableCell>
-                                            <TableCell>{mapGame.side || "N/A"}</TableCell>
+                                            <TableCell>{mapGame.mapName || "N/A"}</TableCell>
                                             <TableCell>
-                                                {mapGame.teamScore} - {mapGame.opponentScore}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge
-                                                    variant="secondary"
-                                                    className={getResultBadge(mapGame.result)}
-                                                >
-                                                    {mapGame.result}
-                                                </Badge>
+                                                {mapGame.ourScore} - {mapGame.theirScore}
                                             </TableCell>
                                             <TableCell>
-                                                {mapGame.duration ? (
+                                                {mapGame.durationSec ? (
                                                     <span className="flex items-center gap-1">
                                                         <Clock className="h-3 w-3" />
-                                                        {Math.floor(mapGame.duration / 60)}:
-                                                        {String(mapGame.duration % 60).padStart(
+                                                        {Math.floor(mapGame.durationSec / 60)}:
+                                                        {String(mapGame.durationSec % 60).padStart(
                                                             2,
                                                             "0"
                                                         )}

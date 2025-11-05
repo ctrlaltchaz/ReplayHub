@@ -59,17 +59,16 @@ export default function ManageMapsPage() {
     const canManage = hasPermission("gamelog.manage");
 
     const addNewMap = () => {
-        const nextMapNumber = (match?.maps?.length || 0) + newMaps.length + 1;
+        const nextGameIdx = (match?.maps?.length || 0) + newMaps.length + 1;
         setNewMaps([
             ...newMaps,
             {
-                mapNumber: nextMapNumber,
+                title: `Map ${nextGameIdx}`,
                 mapName: "",
-                side: "",
-                teamScore: 0,
-                opponentScore: 0,
-                result: "win",
-                duration: 0,
+                gameIdx: nextGameIdx,
+                ourScore: 0,
+                theirScore: 0,
+                durationSec: 0,
                 notes: "",
             },
         ]);
@@ -97,10 +96,10 @@ export default function ManageMapsPage() {
 
         // Validate
         for (const map of newMaps) {
-            if (!map.mapName) {
+            if (!map.title) {
                 toast({
                     title: "Validation Error",
-                    description: "All maps must have a name",
+                    description: "All maps must have a title",
                     variant: "destructive",
                 });
                 return;
@@ -222,11 +221,10 @@ export default function ManageMapsPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Map #</TableHead>
+                                        <TableHead>Game #</TableHead>
+                                        <TableHead>Title</TableHead>
                                         <TableHead>Map Name</TableHead>
-                                        <TableHead>Side</TableHead>
                                         <TableHead>Score</TableHead>
-                                        <TableHead>Result</TableHead>
                                         <TableHead>Duration</TableHead>
                                         <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
@@ -234,28 +232,20 @@ export default function ManageMapsPage() {
                                 <TableBody>
                                     {match.maps.map((mapGame) => (
                                         <TableRow key={mapGame.id}>
-                                            <TableCell>{mapGame.mapNumber}</TableCell>
+                                            <TableCell>{mapGame.gameIdx}</TableCell>
                                             <TableCell className="font-medium">
-                                                {mapGame.mapName}
+                                                {mapGame.title}
                                             </TableCell>
-                                            <TableCell>{mapGame.side || "N/A"}</TableCell>
+                                            <TableCell>{mapGame.mapName || "N/A"}</TableCell>
                                             <TableCell>
-                                                {mapGame.teamScore} - {mapGame.opponentScore}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge
-                                                    variant="secondary"
-                                                    className={getResultBadge(mapGame.result)}
-                                                >
-                                                    {mapGame.result}
-                                                </Badge>
+                                                {mapGame.ourScore} - {mapGame.theirScore}
                                             </TableCell>
                                             <TableCell>
-                                                {mapGame.duration ? (
+                                                {mapGame.durationSec ? (
                                                     <span className="flex items-center gap-1">
                                                         <Clock className="h-3 w-3" />
-                                                        {Math.floor(mapGame.duration / 60)}:
-                                                        {String(mapGame.duration % 60).padStart(
+                                                        {Math.floor(mapGame.durationSec / 60)}:
+                                                        {String(mapGame.durationSec % 60).padStart(
                                                             2,
                                                             "0"
                                                         )}
@@ -317,7 +307,7 @@ export default function ManageMapsPage() {
                                         <CardHeader>
                                             <div className="flex items-center justify-between">
                                                 <CardTitle className="text-sm">
-                                                    Map #{map.mapNumber}
+                                                    {map.title}
                                                 </CardTitle>
                                                 <Button
                                                     variant="ghost"
@@ -332,11 +322,26 @@ export default function ManageMapsPage() {
                                             <div className="grid gap-4 md:grid-cols-2">
                                                 <div className="space-y-2">
                                                     <Label>
-                                                        Map Name{" "}
+                                                        Title{" "}
                                                         <span className="text-red-500">*</span>
                                                     </Label>
                                                     <Input
-                                                        value={map.mapName}
+                                                        value={map.title}
+                                                        onChange={(e) =>
+                                                            updateNewMap(
+                                                                index,
+                                                                "title",
+                                                                e.target.value
+                                                            )
+                                                        }
+                                                        placeholder="e.g., Map 1, Haven"
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                    <Label>Map Name</Label>
+                                                    <Input
+                                                        value={map.mapName || ""}
                                                         onChange={(e) =>
                                                             updateNewMap(
                                                                 index,
@@ -347,34 +352,19 @@ export default function ManageMapsPage() {
                                                         placeholder="e.g., Dust II, Bind"
                                                     />
                                                 </div>
-
-                                                <div className="space-y-2">
-                                                    <Label>Side</Label>
-                                                    <Input
-                                                        value={map.side}
-                                                        onChange={(e) =>
-                                                            updateNewMap(
-                                                                index,
-                                                                "side",
-                                                                e.target.value
-                                                            )
-                                                        }
-                                                        placeholder="e.g., Attack, CT"
-                                                    />
-                                                </div>
                                             </div>
 
-                                            <div className="grid gap-4 md:grid-cols-3">
+                                            <div className="grid gap-4 md:grid-cols-2">
                                                 <div className="space-y-2">
-                                                    <Label>Team Score</Label>
+                                                    <Label>Our Score</Label>
                                                     <Input
                                                         type="number"
                                                         min="0"
-                                                        value={map.teamScore}
+                                                        value={map.ourScore}
                                                         onChange={(e) =>
                                                             updateNewMap(
                                                                 index,
-                                                                "teamScore",
+                                                                "ourScore",
                                                                 parseInt(e.target.value) || 0
                                                             )
                                                         }
@@ -382,46 +372,19 @@ export default function ManageMapsPage() {
                                                 </div>
 
                                                 <div className="space-y-2">
-                                                    <Label>Opponent Score</Label>
+                                                    <Label>Their Score</Label>
                                                     <Input
                                                         type="number"
                                                         min="0"
-                                                        value={map.opponentScore}
+                                                        value={map.theirScore}
                                                         onChange={(e) =>
                                                             updateNewMap(
                                                                 index,
-                                                                "opponentScore",
+                                                                "theirScore",
                                                                 parseInt(e.target.value) || 0
                                                             )
                                                         }
                                                     />
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <Label>Result</Label>
-                                                    <Select
-                                                        value={map.result}
-                                                        onValueChange={(value) =>
-                                                            updateNewMap(
-                                                                index,
-                                                                "result",
-                                                                value as MatchResult
-                                                            )
-                                                        }
-                                                    >
-                                                        <SelectTrigger>
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="win">Win</SelectItem>
-                                                            <SelectItem value="loss">
-                                                                Loss
-                                                            </SelectItem>
-                                                            <SelectItem value="draw">
-                                                                Draw
-                                                            </SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
                                                 </div>
                                             </div>
 
@@ -430,15 +393,30 @@ export default function ManageMapsPage() {
                                                 <Input
                                                     type="number"
                                                     min="0"
-                                                    value={map.duration}
+                                                    value={map.durationSec}
                                                     onChange={(e) =>
                                                         updateNewMap(
                                                             index,
-                                                            "duration",
+                                                            "durationSec",
                                                             parseInt(e.target.value) || 0
                                                         )
                                                     }
                                                     placeholder="e.g., 2400 for 40 minutes"
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label>Notes</Label>
+                                                <Textarea
+                                                    value={map.notes || ""}
+                                                    onChange={(e) =>
+                                                        updateNewMap(
+                                                            index,
+                                                            "notes",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    placeholder="Additional notes..."
                                                 />
                                             </div>
                                         </CardContent>
