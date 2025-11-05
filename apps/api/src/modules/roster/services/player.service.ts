@@ -913,7 +913,7 @@ export class PlayerService {
         const recentMatches = await this.prisma.match.findMany({
             where: {
                 tenantId,
-                id: { in: Array.from(uniqueMatches) }
+                id: { in: Array.from(uniqueMatches) as string[] }
             },
             include: {
                 team: true,
@@ -928,16 +928,16 @@ export class PlayerService {
             take: 5
         });
 
-        const recentPerformance = recentMatches.map(match => ({
+        const recentPerformance = recentMatches.map((match: any) => ({
             matchId: match.id,
             teamName: match.team?.name,
             opponent: match.opponent,
             result: match.result,
             date: match.startedAt,
-            avgRating: match.playerStats.length > 0
-                ? parseFloat((match.playerStats.reduce((sum, s) => sum + (s.rating || 0), 0) / match.playerStats.length).toFixed(2))
+            avgRating: match.playerStats?.length > 0
+                ? parseFloat((match.playerStats.reduce((sum: number, s: any) => sum + (s.rating || 0), 0) / match.playerStats.length).toFixed(2))
                 : 0,
-            mvp: match.playerStats.some(s => s.isMvp)
+            mvp: match.playerStats?.some((s: any) => s.isMvp) || false
         }));
 
         return {
