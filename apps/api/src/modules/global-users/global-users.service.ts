@@ -50,48 +50,40 @@ export class GlobalUsersService {
             },
         });
 
-        // Fetch roles for each orgUser (also needs to bypass RLS)
-        const orgUserIds = orgUsers.map(ou => ou.id);
+        // Fetch roles for each orgUser separately (bypass RLS for each one)
+        const orgUsersWithDetails = await Promise.all(
+            orgUsers.map(async (orgUser) => {
+                const roles = await this.prisma.$queryRaw<any[]>`
+                    SELECT 
+                        our.id,
+                        our.org_user_id as "orgUserId",
+                        our.role_id as "roleId",
+                        our.assigned_at as "assignedAt",
+                        r.id as "role_id",
+                        r.name as "role_name",
+                        r.organization_id as "role_organizationId"
+                    FROM org_user_roles our
+                    INNER JOIN roles r ON our.role_id = r.id
+                    WHERE our.org_user_id = ${orgUser.id}::uuid
+                `;
 
-        // If no orgUsers, return empty array for roles
-        const orgUserRoles = orgUserIds.length > 0
-            ? await this.prisma.$queryRaw<any[]>`
-                SELECT 
-                    our.id,
-                    our.org_user_id as "orgUserId",
-                    our.role_id as "roleId",
-                    our.assigned_at as "assignedAt",
-                    r.id as "role_id",
-                    r.name as "role_name",
-                    r.organization_id as "role_organizationId"
-                FROM org_user_roles our
-                INNER JOIN roles r ON our.role_id = r.id
-                WHERE our.org_user_id = ANY(SELECT unnest(${orgUserIds}::uuid[]))
-            `
-            : [];
-
-        // Map roles to orgUsers
-        const orgUsersWithDetails = orgUsers.map(orgUser => {
-            const roles = orgUserRoles
-                .filter(r => r.orgUserId === orgUser.id)
-                .map(r => ({
-                    id: r.id,
-                    orgUserId: r.orgUserId,
-                    roleId: r.roleId,
-                    assignedAt: r.assignedAt,
-                    role: {
-                        id: r.role_id,
-                        name: r.role_name,
-                        organizationId: r.role_organizationId,
-                    },
-                }));
-
-            return {
-                ...orgUser,
-                roles,
-                organisation: organizations.find(org => org.id === orgUser.tenantId),
-            };
-        });
+                return {
+                    ...orgUser,
+                    roles: roles.map(r => ({
+                        id: r.id,
+                        orgUserId: r.orgUserId,
+                        roleId: r.roleId,
+                        assignedAt: r.assignedAt,
+                        role: {
+                            id: r.role_id,
+                            name: r.role_name,
+                            organizationId: r.role_organizationId,
+                        },
+                    })),
+                    organisation: organizations.find(org => org.id === orgUser.tenantId),
+                };
+            })
+        );
 
         // Return user without password hash
         const { passwordHash: _, ...userResponse } = user;
