@@ -10,18 +10,10 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import {
     Table,
     TableBody,
@@ -30,9 +22,10 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import type { CreateMapGameDto, MatchResult } from "@/types/gamelog";
+import type { CreateMapGameDto } from "@/types/gamelog";
 import { ArrowLeft, Clock, Loader2, Map, Plus, Save, Trash2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
