@@ -13,126 +13,132 @@ export class OrgUserService {
         createUserDto: CreateOrgUserDto,
         createdById: string,
     ): Promise<{ orgUser: OrgUserListDto; needsPasswordSetup?: boolean }> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        // Check if user already exists
-        const existingUser = await this.prisma.orgUser.findUnique({
-            where: {
-                tenantId_email: {
+            // Check if user already exists
+            const existingUser = await tx.orgUser.findUnique({
+                where: {
+                    tenantId_email: {
+                        tenantId,
+                        email: createUserDto.email,
+                    },
+                },
+            });
+
+            if (existingUser) {
+                throw new ConflictException('User already exists in this organisation');
+            }
+
+            let passwordHash: string;
+            let needsPasswordSetup = false;
+
+            if (createUserDto.password) {
+                // Password provided - hash it
+                passwordHash = await bcrypt.hash(createUserDto.password, 12);
+            } else {
+                // No password - generate temporary one that forces reset
+                const tempPassword = crypto.randomBytes(16).toString('hex');
+                passwordHash = await bcrypt.hash(tempPassword, 12);
+                needsPasswordSetup = true;
+            }
+
+            const orgUser = await tx.orgUser.create({
+                data: {
                     tenantId,
                     email: createUserDto.email,
+                    passwordHash,
+                    displayName: createUserDto.displayName,
+                    isActive: true,
                 },
-            },
+            });
+
+            return {
+                orgUser: {
+                    id: orgUser.id,
+                    email: orgUser.email,
+                    displayName: orgUser.displayName,
+                    isActive: orgUser.isActive,
+                    isTotpEnabled: orgUser.isTotpEnabled,
+                    roles: [],
+                    createdAt: orgUser.createdAt,
+                },
+                needsPasswordSetup,
+            };
         });
-
-        if (existingUser) {
-            throw new ConflictException('User already exists in this organisation');
-        }
-
-        let passwordHash: string;
-        let needsPasswordSetup = false;
-
-        if (createUserDto.password) {
-            // Password provided - hash it
-            passwordHash = await bcrypt.hash(createUserDto.password, 12);
-        } else {
-            // No password - generate temporary one that forces reset
-            const tempPassword = crypto.randomBytes(16).toString('hex');
-            passwordHash = await bcrypt.hash(tempPassword, 12);
-            needsPasswordSetup = true;
-        }
-
-        const orgUser = await this.prisma.orgUser.create({
-            data: {
-                tenantId,
-                email: createUserDto.email,
-                passwordHash,
-                displayName: createUserDto.displayName,
-                isActive: true,
-            },
-        });
-
-        return {
-            orgUser: {
-                id: orgUser.id,
-                email: orgUser.email,
-                displayName: orgUser.displayName,
-                isActive: orgUser.isActive,
-                isTotpEnabled: orgUser.isTotpEnabled,
-                roles: [],
-                createdAt: orgUser.createdAt,
-            },
-            needsPasswordSetup,
-        };
     }
 
     async getUsers(tenantId: string): Promise<OrgUserListDto[]> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const users = await this.prisma.orgUser.findMany({
-            where: { tenantId },
-            include: {
-                roles: {
-                    include: {
-                        role: {
-                            select: {
-                                name: true,
+            const users = await tx.orgUser.findMany({
+                where: { tenantId },
+                include: {
+                    roles: {
+                        include: {
+                            role: {
+                                select: {
+                                    name: true,
+                                },
                             },
                         },
                     },
                 },
-            },
-            orderBy: { createdAt: 'desc' },
-        });
+                orderBy: { createdAt: 'desc' },
+            });
 
-        return users.map(user => ({
-            id: user.id,
-            email: user.email,
-            displayName: user.displayName,
-            isActive: user.isActive,
-            isTotpEnabled: user.isTotpEnabled,
-            roles: user.roles.map(ur => ur.role.name),
-            createdAt: user.createdAt,
-        }));
+            return users.map(user => ({
+                id: user.id,
+                email: user.email,
+                displayName: user.displayName,
+                isActive: user.isActive,
+                isTotpEnabled: user.isTotpEnabled,
+                roles: user.roles.map(ur => ur.role.name),
+                createdAt: user.createdAt,
+            }));
+        });
     }
 
     async getUserById(tenantId: string, userId: string): Promise<OrgUserListDto | null> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const user = await this.prisma.orgUser.findFirst({
-            where: {
-                id: userId,
-                tenantId,
-            },
-            include: {
-                roles: {
-                    include: {
-                        role: {
-                            select: {
-                                name: true,
+            const user = await tx.orgUser.findFirst({
+                where: {
+                    id: userId,
+                    tenantId,
+                },
+                include: {
+                    roles: {
+                        include: {
+                            role: {
+                                select: {
+                                    name: true,
+                                },
                             },
                         },
                     },
                 },
-            },
+            });
+
+            if (!user) {
+                return null;
+            }
+
+            return {
+                id: user.id,
+                email: user.email,
+                displayName: user.displayName,
+                isActive: user.isActive,
+                isTotpEnabled: user.isTotpEnabled,
+                roles: user.roles.map(ur => ur.role.name),
+                createdAt: user.createdAt,
+            };
         });
-
-        if (!user) {
-            return null;
-        }
-
-        return {
-            id: user.id,
-            email: user.email,
-            displayName: user.displayName,
-            isActive: user.isActive,
-            isTotpEnabled: user.isTotpEnabled,
-            roles: user.roles.map(ur => ur.role.name),
-            createdAt: user.createdAt,
-        };
     }
 
     async updateUser(
@@ -140,42 +146,51 @@ export class OrgUserService {
         userId: string,
         updateUserDto: UpdateOrgUserDto,
     ): Promise<OrgUserListDto> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const existingUser = await this.getUserById(tenantId, userId);
-        if (!existingUser) {
-            throw new NotFoundException('User not found');
-        }
+            // Check user exists first
+            const user = await tx.orgUser.findFirst({
+                where: {
+                    id: userId,
+                    tenantId,
+                },
+            });
 
-        const updatedUser = await this.prisma.orgUser.update({
-            where: { id: userId },
-            data: {
-                displayName: updateUserDto.displayName,
-                isActive: updateUserDto.isActive,
-            },
-            include: {
-                roles: {
-                    include: {
-                        role: {
-                            select: {
-                                name: true,
+            if (!user) {
+                throw new NotFoundException('User not found');
+            }
+
+            const updatedUser = await tx.orgUser.update({
+                where: { id: userId },
+                data: {
+                    displayName: updateUserDto.displayName,
+                    isActive: updateUserDto.isActive,
+                },
+                include: {
+                    roles: {
+                        include: {
+                            role: {
+                                select: {
+                                    name: true,
+                                },
                             },
                         },
                     },
                 },
-            },
-        });
+            });
 
-        return {
-            id: updatedUser.id,
-            email: updatedUser.email,
-            displayName: updatedUser.displayName,
-            isActive: updatedUser.isActive,
-            isTotpEnabled: updatedUser.isTotpEnabled,
-            roles: updatedUser.roles.map(ur => ur.role.name),
-            createdAt: updatedUser.createdAt,
-        };
+            return {
+                id: updatedUser.id,
+                email: updatedUser.email,
+                displayName: updatedUser.displayName,
+                isActive: updatedUser.isActive,
+                isTotpEnabled: updatedUser.isTotpEnabled,
+                roles: updatedUser.roles.map(ur => ur.role.name),
+                createdAt: updatedUser.createdAt,
+            };
+        });
     }
 
     async assignRoles(
@@ -183,36 +198,42 @@ export class OrgUserService {
         userId: string,
         assignRolesDto: AssignRolesDto,
     ): Promise<OrgUserListDto> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const user = await this.getUserById(tenantId, userId);
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
+            // Check user exists
+            const user = await tx.orgUser.findFirst({
+                where: {
+                    id: userId,
+                    tenantId,
+                },
+            });
 
-        // Validate roles exist
-        const roles = await this.prisma.role.findMany({
-            where: {
-                tenantId,
-                name: { in: assignRolesDto.roles },
-            },
-        });
+            if (!user) {
+                throw new NotFoundException('User not found');
+            }
 
-        if (roles.length !== assignRolesDto.roles.length) {
-            const foundRoles = roles.map(r => r.name);
-            const missingRoles = assignRolesDto.roles.filter(role => !foundRoles.includes(role));
-            throw new BadRequestException(`Invalid roles: ${missingRoles.join(', ')}`);
-        }
+            // Validate roles exist
+            const roles = await tx.role.findMany({
+                where: {
+                    tenantId,
+                    name: { in: assignRolesDto.roles },
+                },
+            });
 
-        // Get current roles for audit logging
-        const currentRoles = await this.prisma.orgUserRole.findMany({
-            where: { tenantId, orgUserId: userId },
-            include: { role: true },
-        });
+            if (roles.length !== assignRolesDto.roles.length) {
+                const foundRoles = roles.map(r => r.name);
+                const missingRoles = assignRolesDto.roles.filter(role => !foundRoles.includes(role));
+                throw new BadRequestException(`Invalid roles: ${missingRoles.join(', ')}`);
+            }
 
-        // Update roles in a transaction
-        await this.prisma.$transaction(async (tx) => {
+            // Get current roles for audit logging
+            const currentRoles = await tx.orgUserRole.findMany({
+                where: { tenantId, orgUserId: userId },
+                include: { role: true },
+            });
+
             // Remove existing roles
             await tx.orgUserRole.deleteMany({
                 where: {
@@ -231,14 +252,40 @@ export class OrgUserService {
                     })),
                 });
             }
+
+            // TODO: Log role changes
+            const currentRoleNames = currentRoles.map(cr => cr.role.name).sort();
+            const newRoleNames = assignRolesDto.roles.sort();
+
+            // Return updated user
+            const updatedUser = await tx.orgUser.findFirst({
+                where: {
+                    id: userId,
+                    tenantId,
+                },
+                include: {
+                    roles: {
+                        include: {
+                            role: {
+                                select: {
+                                    name: true,
+                                },
+                            },
+                        },
+                    },
+                },
+            });
+
+            return {
+                id: updatedUser!.id,
+                email: updatedUser!.email,
+                displayName: updatedUser!.displayName,
+                isActive: updatedUser!.isActive,
+                isTotpEnabled: updatedUser!.isTotpEnabled,
+                roles: updatedUser!.roles.map(ur => ur.role.name),
+                createdAt: updatedUser!.createdAt,
+            };
         });
-
-        // TODO: Log role changes
-        const currentRoleNames = currentRoles.map(cr => cr.role.name).sort();
-        const newRoleNames = assignRolesDto.roles.sort();
-
-        // Return updated user
-        return this.getUserById(tenantId, userId)!;
     }
 
     async deactivateUser(tenantId: string, userId: string): Promise<OrgUserListDto> {
@@ -250,22 +297,21 @@ export class OrgUserService {
     }
 
     async deleteUser(tenantId: string, userId: string): Promise<void> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const orgUser = await this.prisma.orgUser.findFirst({
-            where: {
-                id: userId,
-                tenantId,
-            },
-        });
+            const orgUser = await tx.orgUser.findFirst({
+                where: {
+                    id: userId,
+                    tenantId,
+                },
+            });
 
-        if (!orgUser) {
-            throw new NotFoundException('User not found');
-        }
+            if (!orgUser) {
+                throw new NotFoundException('User not found');
+            }
 
-        // Hard delete: Permanently remove user and all related data
-        await this.prisma.$transaction(async (tx) => {
             // Delete user roles for this org user
             await tx.orgUserRole.deleteMany({
                 where: {
