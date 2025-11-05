@@ -55,12 +55,9 @@ export default function CreateMatchPage() {
         endedAt: "",
         vodUrl: "",
         notes: "",
+        result: undefined,
+        score: "",
     });
-
-    // Additional fields for updating after creation
-    const [teamScore, setTeamScore] = useState(0);
-    const [opponentScore, setOpponentScore] = useState(0);
-    const [result, setResult] = useState<"win" | "loss" | "draw">("win");
 
     const canManage = hasPermission("gamelog.manage");
 
@@ -113,38 +110,14 @@ export default function CreateMatchPage() {
             if (formData.endedAt) cleanedData.endedAt = formData.endedAt;
             if (formData.vodUrl) cleanedData.vodUrl = formData.vodUrl;
             if (formData.notes) cleanedData.notes = formData.notes;
+            if (formData.result) cleanedData.result = formData.result;
+            if (formData.score) cleanedData.score = formData.score;
 
             console.log('Sending match data:', cleanedData);
 
-            // Create the match first
+            // Create the match
             const response = await createMatch.mutateAsync(cleanedData);
             console.log('Match created with ID:', response.id);
-
-            // Then update with score and result if provided
-            if (teamScore > 0 || opponentScore > 0) {
-                const updateData = {
-                    score: `${teamScore}-${opponentScore}`,
-                    result: result,
-                };
-
-                console.log('Updating match with score/result:', updateData);
-
-                const updateResponse = await fetch(
-                    `http://localhost:3001/api/org/${slug}/gamelog/matches/${response.id}`,
-                    {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        credentials: 'include',
-                        body: JSON.stringify(updateData),
-                    }
-                );
-
-                if (!updateResponse.ok) {
-                    console.error('Failed to update match with score');
-                }
-            }
 
             toast({
                 title: "Success",
@@ -343,45 +316,37 @@ export default function CreateMatchPage() {
                                 />
                             </div>
 
-                            {/* Score Section */}
-                            <div className="grid gap-4 md:grid-cols-3">
-                                <div className="space-y-2">
-                                    <Label htmlFor="teamScore">Team Score</Label>
-                                    <Input
-                                        id="teamScore"
-                                        type="number"
-                                        min="0"
-                                        value={teamScore}
-                                        onChange={(e) => setTeamScore(parseInt(e.target.value) || 0)}
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="opponentScore">Opponent Score</Label>
-                                    <Input
-                                        id="opponentScore"
-                                        type="number"
-                                        min="0"
-                                        value={opponentScore}
-                                        onChange={(e) => setOpponentScore(parseInt(e.target.value) || 0)}
-                                    />
-                                </div>
-
+                            {/* Result and Score */}
+                            <div className="grid gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="result">Result</Label>
                                     <Select
-                                        value={result}
-                                        onValueChange={(value: any) => setResult(value)}
+                                        value={formData.result || "none"}
+                                        onValueChange={(value) =>
+                                            handleChange("result", value === "none" ? undefined : value)
+                                        }
                                     >
                                         <SelectTrigger id="result">
                                             <SelectValue placeholder="Select result" />
                                         </SelectTrigger>
                                         <SelectContent>
+                                            <SelectItem value="none">Not set</SelectItem>
                                             <SelectItem value="win">Win</SelectItem>
                                             <SelectItem value="loss">Loss</SelectItem>
                                             <SelectItem value="draw">Draw</SelectItem>
+                                            <SelectItem value="forfeit">Forfeit</SelectItem>
                                         </SelectContent>
                                     </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="score">Score</Label>
+                                    <Input
+                                        id="score"
+                                        value={formData.score}
+                                        onChange={(e) => handleChange("score", e.target.value)}
+                                        placeholder="e.g., 2-1"
+                                    />
                                 </div>
                             </div>
 

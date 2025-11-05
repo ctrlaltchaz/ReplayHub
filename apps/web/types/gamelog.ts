@@ -82,6 +82,8 @@ export interface CreateMatchDto {
     endedAt?: string;
     vodUrl?: string;
     notes?: string;
+    result?: MatchResult;
+    score?: string;
 }
 
 export interface UpdateMatchDto {
