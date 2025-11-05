@@ -36,17 +36,23 @@ export class GlobalUsersService {
 
         // Fetch organizations for each orgUser by tenantId
         const orgUserTenantIds = user.orgUsers.map(ou => ou.tenantId);
+        console.log('Fetching organizations for tenant IDs:', orgUserTenantIds);
         const organizations = await this.prisma.organisation.findMany({
             where: {
                 id: { in: orgUserTenantIds },
             },
         });
+        console.log('Found organizations:', organizations.map(o => ({ id: o.id, name: o.name, slug: o.slug })));
 
         // Map organizations to orgUsers
-        const orgUsersWithOrganization = user.orgUsers.map(orgUser => ({
-            ...orgUser,
-            organisation: organizations.find(org => org.id === orgUser.tenantId),
-        }));
+        const orgUsersWithOrganization = user.orgUsers.map(orgUser => {
+            const org = organizations.find(org => org.id === orgUser.tenantId);
+            console.log(`Mapping orgUser ${orgUser.id} (tenantId: ${orgUser.tenantId}) to org:`, org ? `${org.name} (${org.id})` : 'NOT FOUND');
+            return {
+                ...orgUser,
+                organisation: org,
+            };
+        });
 
         // Return user without password hash
         const { passwordHash: _, orgUsers, ...userResponse } = user;
