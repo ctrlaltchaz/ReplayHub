@@ -2,11 +2,12 @@
 
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { ArrowLeft, Loader2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, Loader2, Trash2 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ChecklistExecutionView } from '../components/ChecklistExecutionView';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { EditChecklistDialog } from '../components/EditChecklistDialog';
 import { useChecklist } from '../hooks/useChecklist';
 import { useDeleteChecklist } from '../hooks/useDeleteChecklist';
 
@@ -17,6 +18,7 @@ export default function ChecklistDetailPage() {
     const checklistId = params?.checklistId as string;
     const { toast } = useToast();
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [showEditDialog, setShowEditDialog] = useState(false);
 
     const { data: checklist, isLoading, error } = useChecklist(slug, checklistId);
     const deleteChecklist = useDeleteChecklist(slug);
@@ -66,12 +68,24 @@ export default function ChecklistDetailPage() {
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Back to Checklists
                 </Button>
-                <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete Checklist
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setShowEditDialog(true)}>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={() => setShowDeleteDialog(true)}>
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
+                    </Button>
+                </div>
             </div>
             <ChecklistExecutionView checklist={checklist} orgSlug={slug} />
+            <EditChecklistDialog
+                open={showEditDialog}
+                onOpenChange={setShowEditDialog}
+                orgSlug={slug}
+                checklist={checklist}
+            />
             <ConfirmDialog
                 open={showDeleteDialog}
                 onOpenChange={setShowDeleteDialog}
