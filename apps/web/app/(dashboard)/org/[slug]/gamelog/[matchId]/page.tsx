@@ -288,16 +288,16 @@ export default function MatchDetailPage() {
                                 Approve
                             </Button>
                         )}
-                    {canApprove && match.status === "approved" && (
-                        <Button
-                            variant="outline"
-                            onClick={() => setShowUnapproveDialog(true)}
-                            disabled={unapproveMatch.isPending}
-                        >
-                            <XCircle className="h-4 w-4 mr-2" />
-                            Unapprove
-                        </Button>
-                    )}                        {/* Export Actions */}
+                        {canApprove && match.status === "approved" && (
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowUnapproveDialog(true)}
+                                disabled={unapproveMatch.isPending}
+                            >
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Unapprove
+                            </Button>
+                        )}                        {/* Export Actions */}
                         {match.status === "approved" && (
                             <>
                                 <Button variant="outline" onClick={handleDownloadPDF}>

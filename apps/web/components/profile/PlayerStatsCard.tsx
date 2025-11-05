@@ -228,7 +228,7 @@ export function PlayerStatsCard({ playerId, slug, showPrivacyToggle = false, sta
                 )}
 
                 {/* Game Breakdown */}
-                {Object.keys(stats.gameBreakdown).length > 0 && (
+                {stats.gameBreakdown && Object.keys(stats.gameBreakdown).length > 0 && (
                     <div className="space-y-3">
                         <h3 className="font-semibold text-sm">Performance by Game</h3>
                         {Object.entries(stats.gameBreakdown).map(([game, breakdown]) => (
@@ -267,7 +267,7 @@ export function PlayerStatsCard({ playerId, slug, showPrivacyToggle = false, sta
                 )}
 
                 {/* Recent Performance */}
-                {stats.recentPerformance.length > 0 && (
+                {stats.recentPerformance && stats.recentPerformance.length > 0 && (
                     <div className="space-y-3">
                         <h3 className="font-semibold text-sm">Recent Matches</h3>
                         <div className="space-y-2">
