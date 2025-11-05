@@ -205,28 +205,29 @@ export default function GamelogPage() {
                             >
                                 <CardContent className="p-6">
                                     <div className="flex items-center justify-between">
-                                        <div className="space-y-2 flex-1">
-                                            <div className="flex items-center gap-3">
-                                                <h3 className="font-semibold text-lg">
-                                                    vs {match.opponent}
-                                                </h3>
-                                                {match.result && (
-                                                    <Badge
-                                                        variant="secondary"
-                                                        className={getResultBadge(match.result)}
-                                                    >
-                                                        {match.result.toUpperCase()}
-                                                    </Badge>
+                                    <div className="space-y-2 flex-1">
+                                        <div className="flex items-center gap-3">
+                                            <h3 className="font-semibold text-lg">
+                                                {match.team?.name && (
+                                                    <span className="text-muted-foreground">{match.team.name} </span>
                                                 )}
+                                                vs {match.opponent}
+                                            </h3>
+                                            {match.result && (
                                                 <Badge
                                                     variant="secondary"
-                                                    className={getStatusBadge(match.status)}
+                                                    className={getResultBadge(match.result)}
                                                 >
-                                                    {match.status}
+                                                    {match.result.toUpperCase()}
                                                 </Badge>
-                                            </div>
-
-                                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                            )}
+                                            <Badge
+                                                variant="secondary"
+                                                className={getStatusBadge(match.status)}
+                                            >
+                                                {match.status}
+                                            </Badge>
+                                        </div>                                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                                 {match.score && (
                                                     <span className="flex items-center gap-1">
                                                         <Trophy className="h-4 w-4" />
