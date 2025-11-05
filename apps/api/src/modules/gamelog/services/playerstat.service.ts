@@ -121,6 +121,8 @@ export class PlayerStatService {
                     lineupId: match.lineupId,
                     role: dto.role,
                     statsJson: dto.statsJson,
+                    rating: dto.rating,
+                    isMvp: dto.isMvp || false,
                 },
                 include: {
                     player: true,
@@ -247,6 +249,8 @@ export class PlayerStatService {
                             lineupId: match.lineupId,
                             role: statDto.role,
                             statsJson: statDto.statsJson,
+                            rating: statDto.rating,
+                            isMvp: statDto.isMvp || false,
                         },
                         include: {
                             player: true,

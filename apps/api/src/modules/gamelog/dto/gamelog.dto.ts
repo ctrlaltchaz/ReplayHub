@@ -344,6 +344,18 @@ export class CreatePlayerStatDto {
     @IsObject()
     statsJson: Record<string, any>;
 
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    @Max(10)
+    rating?: number;
+
+    @ApiPropertyOptional({ default: false })
+    @IsOptional()
+    @IsBoolean()
+    isMvp?: boolean = false;
+
     @ApiPropertyOptional({ default: false })
     @IsOptional()
     @IsBoolean()
