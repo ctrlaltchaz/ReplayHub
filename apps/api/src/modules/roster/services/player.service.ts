@@ -828,25 +828,30 @@ export class PlayerService {
         }
 
         // Get all player stats for this player
-        const stats = await this.prisma.playerStat.findMany({
-            where: {
-                tenantId,
-                playerId
-            },
-            include: {
-                match: {
-                    include: {
-                        team: true
-                    }
+        let stats;
+        try {
+            stats = await this.prisma.playerStat.findMany({
+                where: {
+                    tenantId,
+                    playerId
                 },
-                mapGame: true
-            },
-            orderBy: {
-                createdAt: 'desc'
-            }
-        });
-
-        console.log('[getPlayerGameStats] Stats query result:', { count: stats.length });
+                include: {
+                    match: {
+                        include: {
+                            team: true
+                        }
+                    },
+                    mapGame: true
+                },
+                orderBy: {
+                    createdAt: 'desc'
+                }
+            });
+            console.log('[getPlayerGameStats] Stats query result:', { count: stats.length });
+        } catch (error) {
+            console.error('[getPlayerGameStats] Query ERROR:', error);
+            throw error;
+        }
 
         if (stats.length === 0) {
             console.log('[getPlayerGameStats] Returning null - no stats found');
