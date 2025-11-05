@@ -60,6 +60,8 @@ export default function MatchDetailPage() {
 
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [deleteConfirmation, setDeleteConfirmation] = useState("");
+    const [showUnapproveDialog, setShowUnapproveDialog] = useState(false);
+    const [unapproveReason, setUnapproveReason] = useState("");
 
     const { data: match, isLoading, error } = useMatch(slug, matchId);
     const submitMatch = useSubmitMatch(slug, matchId);
@@ -104,8 +106,19 @@ export default function MatchDetailPage() {
     };
 
     const handleUnapprove = async () => {
+        if (!unapproveReason.trim()) {
+            toast({
+                title: "Reason Required",
+                description: "Please provide a reason for unapproving this match",
+                variant: "destructive",
+            });
+            return;
+        }
+
         try {
-            await unapproveMatch.mutateAsync();
+            await unapproveMatch.mutateAsync(unapproveReason);
+            setShowUnapproveDialog(false);
+            setUnapproveReason("");
             toast({
                 title: "Success",
                 description: "Match unapproved",
@@ -275,18 +288,16 @@ export default function MatchDetailPage() {
                                 Approve
                             </Button>
                         )}
-                        {canApprove && match.status === "approved" && (
-                            <Button
-                                variant="outline"
-                                onClick={handleUnapprove}
-                                disabled={unapproveMatch.isPending}
-                            >
-                                <XCircle className="h-4 w-4 mr-2" />
-                                Unapprove
-                            </Button>
-                        )}
-
-                        {/* Export Actions */}
+                    {canApprove && match.status === "approved" && (
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowUnapproveDialog(true)}
+                            disabled={unapproveMatch.isPending}
+                        >
+                            <XCircle className="h-4 w-4 mr-2" />
+                            Unapprove
+                        </Button>
+                    )}                        {/* Export Actions */}
                         {match.status === "approved" && (
                             <>
                                 <Button variant="outline" onClick={handleDownloadPDF}>
@@ -618,6 +629,53 @@ export default function MatchDetailPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Unapprove Confirmation Dialog */}
+            <AlertDialog open={showUnapproveDialog} onOpenChange={setShowUnapproveDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Unapprove Match</AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-4">
+                                <p className="text-sm">
+                                    Please provide a reason for unapproving this match. This will change the match status back to &quot;submitted&quot;.
+                                </p>
+                                <div className="space-y-2">
+                                    <Label htmlFor="unapprove-reason">Reason</Label>
+                                    <Input
+                                        id="unapprove-reason"
+                                        value={unapproveReason}
+                                        onChange={(e) => setUnapproveReason(e.target.value)}
+                                        placeholder="e.g., Incorrect score reported, missing player stats..."
+                                    />
+                                </div>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setUnapproveReason("")}>
+                            Cancel
+                        </AlertDialogCancel>
+                        <Button
+                            variant="outline"
+                            onClick={handleUnapprove}
+                            disabled={!unapproveReason.trim() || unapproveMatch.isPending}
+                        >
+                            {unapproveMatch.isPending ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Unapproving...
+                                </>
+                            ) : (
+                                <>
+                                    <XCircle className="h-4 w-4 mr-2" />
+                                    Unapprove Match
+                                </>
+                            )}
+                        </Button>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             {/* Delete Confirmation Dialog */}
             <AlertDialog

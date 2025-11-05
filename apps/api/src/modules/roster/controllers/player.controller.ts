@@ -244,12 +244,12 @@ export class PlayerController {
     ) {
         const globalUserId = req.globalUser?.id;
         const stats = await this.playerService.getPlayerGameStats(req.tenant!.id, playerId, globalUserId);
-        
+
         // Return empty object if no stats instead of null to avoid JSON parsing issues
         if (stats === null) {
             return {};
         }
-        
+
         return stats;
     }
 

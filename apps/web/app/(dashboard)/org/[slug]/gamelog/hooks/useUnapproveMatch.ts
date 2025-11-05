@@ -5,8 +5,8 @@ export function useUnapproveMatch(slug: string, matchId: string) {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async () => {
-            return apiPost(`/org/${slug}/gamelog/matches/${matchId}/unapprove`, {});
+        mutationFn: async (reason: string) => {
+            return apiPost(`/org/${slug}/gamelog/matches/${matchId}/unapprove`, { reason });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({

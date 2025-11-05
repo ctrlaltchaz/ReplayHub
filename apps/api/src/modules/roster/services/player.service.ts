@@ -795,7 +795,7 @@ export class PlayerService {
 
     async getPlayerGameStats(tenantId: string, playerId: string, requestingUserId?: string) {
         console.log('[getPlayerGameStats] Called with:', { tenantId, playerId, requestingUserId });
-        
+
         // Verify player exists and get statsVisible setting
         const player = await this.prisma.player.findFirst({
             where: { id: playerId, tenantId },
