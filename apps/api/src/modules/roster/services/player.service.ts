@@ -794,6 +794,8 @@ export class PlayerService {
     }
 
     async getPlayerGameStats(tenantId: string, playerId: string, requestingUserId?: string) {
+        console.log('[getPlayerGameStats] Called with:', { tenantId, playerId, requestingUserId });
+        
         // Verify player exists and get statsVisible setting
         const player = await this.prisma.player.findFirst({
             where: { id: playerId, tenantId },
@@ -804,6 +806,8 @@ export class PlayerService {
             }
         });
 
+        console.log('[getPlayerGameStats] Player found:', player ? { id: player.id, gamerTag: player.gamerTag, statsVisible: player.statsVisible, orgUserId: player.orgUserId } : null);
+
         if (!player) {
             throw new NotFoundException('Player not found');
         }
@@ -813,9 +817,12 @@ export class PlayerService {
             // Allow player to view their own stats
             const isOwnPlayer = player.orgUser?.globalUserId === requestingUserId;
 
+            console.log('[getPlayerGameStats] Stats private check:', { statsVisible: player.statsVisible, isOwnPlayer });
+
             if (!isOwnPlayer) {
                 // TODO: Add admin/coach bypass check here
                 // For now, return null if stats are private and not own player
+                console.log('[getPlayerGameStats] Returning null - stats are private');
                 return null;
             }
         }
@@ -839,7 +846,10 @@ export class PlayerService {
             }
         });
 
+        console.log('[getPlayerGameStats] Stats query result:', { count: stats.length });
+
         if (stats.length === 0) {
+            console.log('[getPlayerGameStats] Returning null - no stats found');
             return null;
         }
 
