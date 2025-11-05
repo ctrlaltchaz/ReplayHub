@@ -10,95 +10,100 @@ export class PdfExportService {
     constructor(private prisma: PrismaService) { }
 
     async generateMatchReport(tenantId: string, matchId: string): Promise<MatchReportExport> {
-        // Get match data with all related information
-        const match = await this.prisma.match.findFirst({
-            where: { id: matchId, tenantId },
-            include: {
-                team: true,
-                lineup: {
-                    include: {
-                        slots: {
-                            include: {
-                                player: true
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+
+            // Get match data with all related information
+            const match = await tx.match.findFirst({
+                where: { id: matchId, tenantId },
+                include: {
+                    team: true,
+                    lineup: {
+                        include: {
+                            slots: {
+                                include: {
+                                    player: true
+                                }
                             }
                         }
-                    }
-                },
-                maps: {
-                    orderBy: { gameIdx: 'asc' },
-                    include: {
-                        playerStats: {
-                            include: {
-                                player: true
+                    },
+                    maps: {
+                        orderBy: { gameIdx: 'asc' },
+                        include: {
+                            playerStats: {
+                                include: {
+                                    player: true
+                                }
                             }
                         }
-                    }
-                },
-                playerStats: {
-                    include: {
-                        player: true,
-                        mapGame: true
-                    }
-                },
-                createdByUser: true
+                    },
+                    playerStats: {
+                        include: {
+                            player: true,
+                            mapGame: true
+                        }
+                    },
+                    createdByUser: true
+                }
+            });
+
+            if (!match) {
+                throw new NotFoundException('Match not found');
             }
-        });
 
-        if (!match) {
-            throw new NotFoundException('Match not found');
-        }
+            // Ensure export directory exists
+            const exportDir = path.join(process.cwd(), 'data', tenantId, 'exports');
+            await fs.ensureDir(exportDir);
 
-        // Ensure export directory exists
-        const exportDir = path.join(process.cwd(), 'data', tenantId, 'exports');
-        await fs.ensureDir(exportDir);
+            const fileName = `match-report-${matchId}.pdf`;
+            const filePath = path.join(exportDir, fileName);
 
-        const fileName = `match-report-${matchId}.pdf`;
-        const filePath = path.join(exportDir, fileName);
+            // Generate HTML content
+            const htmlContent = this.generateMatchReportHtml(match);
 
-        // Generate HTML content
-        const htmlContent = this.generateMatchReportHtml(match);
+            // Launch browser and generate PDF
+            const browser = await playwright.chromium.launch({ headless: true });
+            const page = await browser.newPage();
 
-        // Launch browser and generate PDF
-        const browser = await playwright.chromium.launch({ headless: true });
-        const page = await browser.newPage();
+            await page.setContent(htmlContent, { waitUntil: 'networkidle' });
 
-        await page.setContent(htmlContent, { waitUntil: 'networkidle' });
-
-        // Generate PDF with custom styling
-        await page.pdf({
-            path: filePath,
-            format: 'A4',
-            margin: {
-                top: '1in',
-                right: '0.5in',
-                bottom: '1in',
-                left: '0.5in'
-            },
-            printBackground: true,
-            displayHeaderFooter: true,
-            headerTemplate: `
+            // Generate PDF with custom styling
+            await page.pdf({
+                path: filePath,
+                format: 'A4',
+                margin: {
+                    top: '1in',
+                    right: '0.5in',
+                    bottom: '1in',
+                    left: '0.5in'
+                },
+                printBackground: true,
+                displayHeaderFooter: true,
+                headerTemplate: `
         <div style="font-size: 10px; color: #666; width: 100%; text-align: center; padding: 10px;">
           Match Report - ${match.opponent} vs ${match.team.name}
         </div>
       `,
-            footerTemplate: `
+                footerTemplate: `
         <div style="font-size: 10px; color: #666; width: 100%; text-align: center; padding: 10px;">
           Generated on <span class="date"></span> - Page <span class="pageNumber"></span> of <span class="totalPages"></span>
         </div>
       `
+            });
+
+            await browser.close();
+
+            // Get file size
+            const stats = await fs.stat(filePath);
+
+            return {
+                match: this.formatMatchForExport(match),
+                filePath: `/data/${tenantId}/exports/${fileName}`,
+                fileSize: stats.size,
+                exportedAt: new Date().toISOString()
+            };
         });
-
-        await browser.close();
-
-        // Get file size
-        const stats = await fs.stat(filePath);
-
-        return {
-            match: this.formatMatchForExport(match),
-            filePath: `/data/${tenantId}/exports/${fileName}`,
-            fileSize: stats.size,
-            exportedAt: new Date().toISOString()
-        };
     }
 
     private generateMatchReportHtml(match: any): string {

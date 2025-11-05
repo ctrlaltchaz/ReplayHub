@@ -16,57 +16,62 @@ export class CsvExportService {
     constructor(private prisma: PrismaService) { }
 
     async exportMatchStats(tenantId: string, matchId: string): Promise<CsvExportResult> {
-        // Get match data with all player statistics
-        const match = await this.prisma.match.findFirst({
-            where: { id: matchId, tenantId },
-            include: {
-                team: true,
-                playerStats: {
-                    include: {
-                        player: true,
-                        mapGame: true
-                    },
-                    orderBy: [
-                        { mapGame: { gameIdx: 'asc' } },
-                        { player: { gamerTag: 'asc' } }
-                    ]
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+
+            // Get match data with all player statistics
+            const match = await tx.match.findFirst({
+                where: { id: matchId, tenantId },
+                include: {
+                    team: true,
+                    playerStats: {
+                        include: {
+                            player: true,
+                            mapGame: true
+                        },
+                        orderBy: [
+                            { mapGame: { gameIdx: 'asc' } },
+                            { player: { gamerTag: 'asc' } }
+                        ]
+                    }
                 }
+            });
+
+            if (!match) {
+                throw new NotFoundException('Match not found');
             }
+
+            // Ensure export directory exists
+            const exportDir = path.join(process.cwd(), 'data', tenantId, 'exports');
+            await fs.ensureDir(exportDir);
+
+            const fileName = `match-stats-${matchId}.csv`;
+            const filePath = path.join(exportDir, fileName);
+
+            // Transform player stats into flat CSV format
+            const csvData = this.transformStatsForCsv(match);
+
+            // Define CSV fields
+            const fields = this.getCsvFields(match.team?.game);
+
+            // Generate CSV
+            const json2csvParser = new Parser({ fields });
+            const csv = json2csvParser.parse(csvData);
+
+            // Write to file
+            await fs.writeFile(filePath, csv, 'utf-8');
+
+            // Get file size
+            const stats = await fs.stat(filePath);
+
+            return {
+                filePath: `/data/${tenantId}/exports/${fileName}`,
+                fileSize: stats.size,
+                recordCount: csvData.length,
+                exportedAt: new Date().toISOString()
+            };
         });
-
-        if (!match) {
-            throw new NotFoundException('Match not found');
-        }
-
-        // Ensure export directory exists
-        const exportDir = path.join(process.cwd(), 'data', tenantId, 'exports');
-        await fs.ensureDir(exportDir);
-
-        const fileName = `match-stats-${matchId}.csv`;
-        const filePath = path.join(exportDir, fileName);
-
-        // Transform player stats into flat CSV format
-        const csvData = this.transformStatsForCsv(match);
-
-        // Define CSV fields
-        const fields = this.getCsvFields(match.team?.game);
-
-        // Generate CSV
-        const json2csvParser = new Parser({ fields });
-        const csv = json2csvParser.parse(csvData);
-
-        // Write to file
-        await fs.writeFile(filePath, csv, 'utf-8');
-
-        // Get file size
-        const stats = await fs.stat(filePath);
-
-        return {
-            filePath: `/data/${tenantId}/exports/${fileName}`,
-            fileSize: stats.size,
-            recordCount: csvData.length,
-            exportedAt: new Date().toISOString()
-        };
     }
 
     async exportAggregatedStats(tenantId: string, options: {
@@ -76,48 +81,53 @@ export class CsvExportService {
         to?: Date;
         tournament?: string;
     } = {}): Promise<CsvExportResult> {
-        // Build query filters
-        const where: any = { tenantId };
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-        if (options.teamId) where.teamId = options.teamId;
-        if (options.from || options.to) {
-            where.startedAt = {};
-            if (options.from) where.startedAt.gte = options.from;
-            if (options.to) where.startedAt.lte = options.to;
-        }
-        if (options.tournament) {
-            where.tournament = { contains: options.tournament, mode: 'insensitive' };
-        }
+            // Build query filters
+            const where: any = { tenantId };
 
-        // Get all player stats matching criteria
-        const playerStats = await this.prisma.playerStat.findMany({
-            where: {
-                tenantId,
-                match: where
-            },
-            include: {
-                player: true,
-                match: {
-                    include: {
-                        team: true
-                    }
+            if (options.teamId) where.teamId = options.teamId;
+            if (options.from || options.to) {
+                where.startedAt = {};
+                if (options.from) where.startedAt.gte = options.from;
+                if (options.to) where.startedAt.lte = options.to;
+            }
+            if (options.tournament) {
+                where.tournament = { contains: options.tournament, mode: 'insensitive' };
+            }
+
+            // Get all player stats matching criteria
+            const playerStats = await tx.playerStat.findMany({
+                where: {
+                    tenantId,
+                    match: where
                 },
-                mapGame: true
-            },
-            orderBy: [
-                { match: { startedAt: 'desc' } },
-                { mapGame: { gameIdx: 'asc' } },
-                { player: { gamerTag: 'asc' } }
-            ]
+                include: {
+                    player: true,
+                    match: {
+                        include: {
+                            team: true
+                        }
+                    },
+                    mapGame: true
+                },
+                orderBy: [
+                    { match: { startedAt: 'desc' } },
+                    { mapGame: { gameIdx: 'asc' } },
+                    { player: { gamerTag: 'asc' } }
+                ]
+            });
+
+            if (options.playerId) {
+                // Filter by specific player
+                const filteredStats = playerStats.filter(stat => stat.playerId === options.playerId);
+                return this.exportStatsArray(tenantId, filteredStats, 'player-aggregated-stats');
+            }
+
+            return this.exportStatsArray(tenantId, playerStats, 'aggregated-stats');
         });
-
-        if (options.playerId) {
-            // Filter by specific player
-            const filteredStats = playerStats.filter(stat => stat.playerId === options.playerId);
-            return this.exportStatsArray(tenantId, filteredStats, 'player-aggregated-stats');
-        }
-
-        return this.exportStatsArray(tenantId, playerStats, 'aggregated-stats');
     }
 
     private async exportStatsArray(tenantId: string, playerStats: any[], filePrefix: string): Promise<CsvExportResult> {
