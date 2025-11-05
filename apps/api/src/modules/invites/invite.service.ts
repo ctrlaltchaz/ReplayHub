@@ -19,175 +19,183 @@ export class InviteService {
         createInviteDto: CreateInviteDto,
         invitedById: string,
     ): Promise<{ invite: InviteListDto; token: string }> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        // Default to EMAIL method if not specified
-        const method = createInviteDto.method || InviteMethod.EMAIL;
+            // Default to EMAIL method if not specified
+            const method = createInviteDto.method || InviteMethod.EMAIL;
 
-        // Validate email is provided for EMAIL method
-        if (method === InviteMethod.EMAIL && !createInviteDto.email) {
-            throw new BadRequestException('Email is required for EMAIL invite method');
-        }
+            // Validate email is provided for EMAIL method
+            if (method === InviteMethod.EMAIL && !createInviteDto.email) {
+                throw new BadRequestException('Email is required for EMAIL invite method');
+            }
 
-        // Check if user already exists in this org (only for EMAIL method)
-        if (method === InviteMethod.EMAIL && createInviteDto.email) {
-            const existingUser = await this.prisma.orgUser.findUnique({
-                where: {
-                    tenantId_email: {
+            // Check if user already exists in this org (only for EMAIL method)
+            if (method === InviteMethod.EMAIL && createInviteDto.email) {
+                const existingUser = await tx.orgUser.findUnique({
+                    where: {
+                        tenantId_email: {
+                            tenantId,
+                            email: createInviteDto.email,
+                        },
+                    },
+                });
+
+                if (existingUser) {
+                    throw new ConflictException('User already exists in this organisation');
+                }
+
+                // Check if there's already a pending invite
+                const existingInvite = await tx.orgInvite.findFirst({
+                    where: {
                         tenantId,
                         email: createInviteDto.email,
+                        acceptedAt: null,
+                        expiresAt: {
+                            gt: new Date(),
+                        },
                     },
+                });
+
+                if (existingInvite) {
+                    throw new ConflictException('Pending invite already exists for this email');
+                }
+            }
+
+            // Validate roles exist
+            const roles = await tx.role.findMany({
+                where: {
+                    tenantId,
+                    name: { in: createInviteDto.roles },
                 },
             });
 
-            if (existingUser) {
-                throw new ConflictException('User already exists in this organisation');
+            if (roles.length !== createInviteDto.roles.length) {
+                const foundRoles = roles.map(r => r.name);
+                const missingRoles = createInviteDto.roles.filter(role => !foundRoles.includes(role));
+                throw new BadRequestException(`Invalid roles: ${missingRoles.join(', ')}`);
             }
 
-            // Check if there's already a pending invite
-            const existingInvite = await this.prisma.orgInvite.findFirst({
+            // Generate secure invite token (URL-safe)
+            const token = crypto.randomBytes(32).toString('base64url');
+            const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+            // Create invite
+            const invite = await tx.orgInvite.create({
+                data: {
+                    tenantId,
+                    email: createInviteDto.email || null,
+                    inviteMethod: method as any,
+                    invitedById,
+                    rolesJson: createInviteDto.roles,
+                    token,
+                    tokenHash,
+                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+                },
+            });
+
+            // Get inviter and organization info
+            const inviter = await tx.orgUser.findUnique({
+                where: { id: invitedById },
+                select: { displayName: true },
+            });
+
+            const org = await tx.organisation.findUnique({
+                where: { id: tenantId },
+                select: {
+                    name: true,
+                    branding: true,
+                },
+            });
+
+            // Send email if method is EMAIL (after transaction completes)
+            setImmediate(() => {
+                if (method === InviteMethod.EMAIL && createInviteDto.email) {
+                    (async () => {
+                        try {
+                            const branding = org?.branding as any;
+                            const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite/${token}`;
+
+                            // Build full URL for logo if it's a relative path
+                            let logoUrl = branding?.logoUrl || branding?.logo;
+                            if (logoUrl && logoUrl.startsWith('/')) {
+                                const apiUrl = process.env.API_URL || process.env.FRONTEND_URL?.replace('app.', 'api.') || 'http://localhost:3001';
+                                logoUrl = `${apiUrl}${logoUrl}`;
+                            }
+
+                            await this.emailService.sendInviteEmail({
+                                to: createInviteDto.email,
+                                organizationName: org?.name || 'Organization',
+                                organizationLogo: logoUrl,
+                                inviterName: inviter?.displayName || 'Team Member',
+                                roles: createInviteDto.roles,
+                                inviteUrl,
+                                expiresAt: invite.expiresAt,
+                            });
+                        } catch (error) {
+                            console.error('Failed to send invite email:', error);
+                            // Don't throw - invite was created successfully, email is best-effort
+                        }
+                    })();
+                }
+            });
+
+            return {
+                invite: {
+                    id: invite.id,
+                    email: invite.email || 'Link Invite',
+                    roles: invite.rolesJson as string[],
+                    invitedBy: inviter?.displayName || 'Unknown',
+                    expiresAt: invite.expiresAt,
+                    createdAt: invite.createdAt,
+                },
+                token, // Return raw token for link generation
+            };
+        });
+    }
+
+    async getPendingInvites(tenantId: string): Promise<InviteListDto[]> {
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+
+            const invites = await tx.orgInvite.findMany({
                 where: {
                     tenantId,
-                    email: createInviteDto.email,
                     acceptedAt: null,
                     expiresAt: {
                         gt: new Date(),
                     },
                 },
+                orderBy: { createdAt: 'desc' },
             });
 
-            if (existingInvite) {
-                throw new ConflictException('Pending invite already exists for this email');
-            }
-        }
+            // Get inviter display names
+            const inviterIds = [...new Set(invites.map(invite => invite.invitedById))];
+            const inviters = await tx.orgUser.findMany({
+                where: {
+                    id: { in: inviterIds },
+                },
+                select: {
+                    id: true,
+                    displayName: true,
+                },
+            });
 
-        // Validate roles exist
-        const roles = await this.prisma.role.findMany({
-            where: {
-                tenantId,
-                name: { in: createInviteDto.roles },
-            },
-        });
+            const inviterMap = new Map(inviters.map(inviter => [inviter.id, inviter.displayName]));
 
-        if (roles.length !== createInviteDto.roles.length) {
-            const foundRoles = roles.map(r => r.name);
-            const missingRoles = createInviteDto.roles.filter(role => !foundRoles.includes(role));
-            throw new BadRequestException(`Invalid roles: ${missingRoles.join(', ')}`);
-        }
-
-        // Generate secure invite token (URL-safe)
-        const token = crypto.randomBytes(32).toString('base64url');
-        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-
-        // Create invite
-        const invite = await this.prisma.orgInvite.create({
-            data: {
-                tenantId,
-                email: createInviteDto.email || null,
-                inviteMethod: method as any,
-                invitedById,
-                rolesJson: createInviteDto.roles,
-                token,
-                tokenHash,
-                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-            },
-        });
-
-        // Get inviter and organization info
-        const inviter = await this.prisma.orgUser.findUnique({
-            where: { id: invitedById },
-            select: { displayName: true },
-        });
-
-        const org = await this.prisma.organisation.findUnique({
-            where: { id: tenantId },
-            select: {
-                name: true,
-                branding: true,
-            },
-        });
-
-        // Send email if method is EMAIL
-        if (method === InviteMethod.EMAIL && createInviteDto.email) {
-            try {
-                const branding = org?.branding as any;
-                const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite/${token}`;
-
-                // Build full URL for logo if it's a relative path
-                let logoUrl = branding?.logoUrl || branding?.logo;
-                if (logoUrl && logoUrl.startsWith('/')) {
-                    const apiUrl = process.env.API_URL || process.env.FRONTEND_URL?.replace('app.', 'api.') || 'http://localhost:3001';
-                    logoUrl = `${apiUrl}${logoUrl}`;
-                }
-
-                await this.emailService.sendInviteEmail({
-                    to: createInviteDto.email,
-                    organizationName: org?.name || 'Organization',
-                    organizationLogo: logoUrl,
-                    inviterName: inviter?.displayName || 'Team Member',
-                    roles: createInviteDto.roles,
-                    inviteUrl,
-                    expiresAt: invite.expiresAt,
-                });
-            } catch (error) {
-                console.error('Failed to send invite email:', error);
-                // Don't throw - invite was created successfully, email is best-effort
-            }
-        }
-
-        return {
-            invite: {
+            return invites.map(invite => ({
                 id: invite.id,
-                email: invite.email || 'Link Invite',
+                email: invite.email,
+                token: invite.token, // Include token for LINK invites
+                inviteMethod: (invite as any).inviteMethod,
                 roles: invite.rolesJson as string[],
-                invitedBy: inviter?.displayName || 'Unknown',
+                invitedBy: inviterMap.get(invite.invitedById) || 'Unknown',
                 expiresAt: invite.expiresAt,
                 createdAt: invite.createdAt,
-            },
-            token, // Return raw token for link generation
-        };
-    }
-
-    async getPendingInvites(tenantId: string): Promise<InviteListDto[]> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
-
-        const invites = await this.prisma.orgInvite.findMany({
-            where: {
-                tenantId,
-                acceptedAt: null,
-                expiresAt: {
-                    gt: new Date(),
-                },
-            },
-            orderBy: { createdAt: 'desc' },
+            }));
         });
-
-        // Get inviter display names
-        const inviterIds = [...new Set(invites.map(invite => invite.invitedById))];
-        const inviters = await this.prisma.orgUser.findMany({
-            where: {
-                id: { in: inviterIds },
-            },
-            select: {
-                id: true,
-                displayName: true,
-            },
-        });
-
-        const inviterMap = new Map(inviters.map(inviter => [inviter.id, inviter.displayName]));
-
-        return invites.map(invite => ({
-            id: invite.id,
-            email: invite.email,
-            token: invite.token, // Include token for LINK invites
-            inviteMethod: (invite as any).inviteMethod,
-            roles: invite.rolesJson as string[],
-            invitedBy: inviterMap.get(invite.invitedById) || 'Unknown',
-            expiresAt: invite.expiresAt,
-            createdAt: invite.createdAt,
-        }));
     }
 
     async getInviteInfo(token: string): Promise<{
@@ -267,60 +275,59 @@ export class InviteService {
             tenantId = org.id;
         }
 
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        // Hash the token to find the invite
-        const tokenHash = crypto.createHash('sha256').update(acceptInviteDto.token).digest('hex');
+            // Hash the token to find the invite
+            const tokenHash = crypto.createHash('sha256').update(acceptInviteDto.token).digest('hex');
 
-        const invite = await this.prisma.orgInvite.findFirst({
-            where: {
-                tenantId,
-                tokenHash,
-                acceptedAt: null,
-                expiresAt: {
-                    gt: new Date(),
-                },
-            },
-        });
-
-        if (!invite) {
-            throw new NotFoundException('Invalid or expired invite token');
-        }
-
-        // Check if user already exists
-        const existingUser = await this.prisma.orgUser.findUnique({
-            where: {
-                tenantId_email: {
+            const invite = await tx.orgInvite.findFirst({
+                where: {
                     tenantId,
-                    email: invite.email,
+                    tokenHash,
+                    acceptedAt: null,
+                    expiresAt: {
+                        gt: new Date(),
+                    },
                 },
-            },
-        });
+            });
 
-        if (existingUser) {
-            throw new ConflictException('User already exists in this organisation');
-        }
+            if (!invite) {
+                throw new NotFoundException('Invalid or expired invite token');
+            }
 
-        // Get roles to assign
-        const roleNames = invite.rolesJson as string[];
-        const roles = await this.prisma.role.findMany({
-            where: {
-                tenantId,
-                name: { in: roleNames },
-            },
-        });
+            // Check if user already exists
+            const existingUser = await tx.orgUser.findUnique({
+                where: {
+                    tenantId_email: {
+                        tenantId,
+                        email: invite.email,
+                    },
+                },
+            });
 
-        if (roles.length !== roleNames.length) {
-            throw new BadRequestException('Some roles no longer exist');
-        }
+            if (existingUser) {
+                throw new ConflictException('User already exists in this organisation');
+            }
 
-        // Create user and assign roles in a transaction
-        const result = await this.prisma.$transaction(async (tx) => {
-            // Hash password
+            // Get roles to assign
+            const roleNames = invite.rolesJson as string[];
+            const roles = await tx.role.findMany({
+                where: {
+                    tenantId,
+                    name: { in: roleNames },
+                },
+            });
+
+            if (roles.length !== roleNames.length) {
+                throw new BadRequestException('Some roles no longer exist');
+            }
+
             // Validate password strength
             this.validatePasswordStrength(acceptInviteDto.password);
 
+            // Hash password
             const passwordHash = await bcrypt.hash(acceptInviteDto.password, 12);
 
             // Create org user
@@ -350,39 +357,39 @@ export class InviteService {
                 },
             });
 
-            return orgUser;
+            return {
+                orgUser: {
+                    id: orgUser.id,
+                    email: orgUser.email,
+                    displayName: orgUser.displayName,
+                },
+            };
         });
-
-        return {
-            orgUser: {
-                id: result.id,
-                email: result.email,
-                displayName: result.displayName,
-            },
-        };
     }
 
     async revokeInvite(tenantId: string, inviteId: string): Promise<{ success: boolean }> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const invite = await this.prisma.orgInvite.findFirst({
-            where: {
-                id: inviteId,
-                tenantId,
-                acceptedAt: null,
-            },
+            const invite = await tx.orgInvite.findFirst({
+                where: {
+                    id: inviteId,
+                    tenantId,
+                    acceptedAt: null,
+                },
+            });
+
+            if (!invite) {
+                throw new NotFoundException('Invite not found or already accepted');
+            }
+
+            await tx.orgInvite.delete({
+                where: { id: inviteId },
+            });
+
+            return { success: true };
         });
-
-        if (!invite) {
-            throw new NotFoundException('Invite not found or already accepted');
-        }
-
-        await this.prisma.orgInvite.delete({
-            where: { id: inviteId },
-        });
-
-        return { success: true };
     }
 
     async registerFromInvite(
@@ -428,7 +435,7 @@ export class InviteService {
 
         const tenantId = invite.tenantId;
 
-        // Check if user already exists in this organization
+        // Check if user already exists in this organization (outside transaction)
         const existingOrgUser = await this.prisma.orgUser.findFirst({
             where: {
                 tenantId,
@@ -445,10 +452,10 @@ export class InviteService {
             where: { email: registerDto.email },
         });
 
-        // Hash password
         // Validate password strength
         this.validatePasswordStrength(registerDto.password);
 
+        // Hash password
         const passwordHash = await bcrypt.hash(registerDto.password, 12);
 
         // Create user accounts and accept invite in transaction
