@@ -112,7 +112,11 @@ export default function ChecklistsPage() {
                                         <h3 className="text-lg font-semibold">In Progress</h3>
                                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                                             {activeChecklists.map((checklist) => {
-                                                const totalItems = Array.isArray(checklist.template?.itemsJson) ? checklist.template.itemsJson.length : 0;
+                                                const totalItems = Array.isArray(checklist.template?.itemsJson) 
+                                                    ? checklist.template.itemsJson.length 
+                                                    : Array.isArray(checklist.itemsJson) 
+                                                    ? checklist.itemsJson.length 
+                                                    : 0;
                                                 const completedCount = checklist.completedItems.length;
                                                 const progress = totalItems > 0 ? (completedCount / totalItems) * 100 : 0;
                                                 const isDue = checklist.dueAt && new Date(checklist.dueAt) < new Date();
@@ -182,7 +186,11 @@ export default function ChecklistsPage() {
                                         <h3 className="text-lg font-semibold">Completed</h3>
                                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                                             {completedChecklists.map((checklist) => {
-                                                const totalItems = Array.isArray(checklist.template?.itemsJson) ? checklist.template.itemsJson.length : 0;
+                                                const totalItems = Array.isArray(checklist.template?.itemsJson) 
+                                                    ? checklist.template.itemsJson.length 
+                                                    : Array.isArray(checklist.itemsJson) 
+                                                    ? checklist.itemsJson.length 
+                                                    : 0;
 
                                                 return (
                                                     <Card

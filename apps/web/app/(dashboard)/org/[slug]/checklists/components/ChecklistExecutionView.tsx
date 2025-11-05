@@ -21,10 +21,13 @@ export function ChecklistExecutionView({ checklist, orgSlug }: ChecklistExecutio
     const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
     const items = useMemo(() => {
-        return Array.isArray(checklist.template?.itemsJson)
+        // Check standalone checklist items first, then template items
+        return Array.isArray(checklist.itemsJson)
+            ? checklist.itemsJson
+            : Array.isArray(checklist.template?.itemsJson)
             ? checklist.template.itemsJson
             : [];
-    }, [checklist.template?.itemsJson]);
+    }, [checklist.itemsJson, checklist.template?.itemsJson]);
 
     const itemsByCategory = useMemo(() => {
         const grouped = new Map<string, { item: ChecklistTemplateItem; index: number }[]>();
