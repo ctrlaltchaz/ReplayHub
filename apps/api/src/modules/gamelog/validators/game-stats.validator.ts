@@ -138,6 +138,13 @@ export const rlStatsSchema = baseStatsSchema.extend({
 
 // Generic/Other game stats (flexible schema)
 export const genericStatsSchema = baseStatsSchema.extend({
+    // Common FPS/MOBA stats (optional to support various games)
+    kills: z.number().min(0).optional(),
+    deaths: z.number().min(0).optional(),
+    assists: z.number().min(0).optional(),
+    damage: z.number().min(0).optional(),
+    healing: z.number().min(0).optional(),
+
     // Basic performance
     score: z.number().min(0).default(0),
     rank: z.number().min(1).optional(), // finishing position
