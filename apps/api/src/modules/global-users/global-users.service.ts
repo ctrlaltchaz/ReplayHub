@@ -7,6 +7,8 @@ export class GlobalUsersService {
     constructor(private prisma: PrismaService) { }
 
     async getUserProfile(userId: string) {
+        // Note: We intentionally bypass RLS here because this is a cross-tenant query
+        // fetching all orgUsers for a global user across multiple tenants
         const user = await this.prisma.globalUser.findUnique({
             where: { id: userId },
             include: {

@@ -7,111 +7,111 @@ import { MatchReportExport, MatchResponse } from '../../dto/gamelog.dto';
 
 @Injectable()
 export class PdfExportService {
-    constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) { }
 
-    async generateMatchReport(tenantId: string, matchId: string): Promise<MatchReportExport> {
-        return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+  async generateMatchReport(tenantId: string, matchId: string): Promise<MatchReportExport> {
+    return await this.prisma.$transaction(async (tx) => {
+      // Set tenant context for RLS
+      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-            // Get match data with all related information
-            const match = await tx.match.findFirst({
-                where: { id: matchId, tenantId },
+      // Get match data with all related information
+      const match = await tx.match.findFirst({
+        where: { id: matchId, tenantId },
+        include: {
+          team: true,
+          lineup: {
+            include: {
+              slots: {
                 include: {
-                    team: true,
-                    lineup: {
-                        include: {
-                            slots: {
-                                include: {
-                                    player: true
-                                }
-                            }
-                        }
-                    },
-                    maps: {
-                        orderBy: { gameIdx: 'asc' },
-                        include: {
-                            playerStats: {
-                                include: {
-                                    player: true
-                                }
-                            }
-                        }
-                    },
-                    playerStats: {
-                        include: {
-                            player: true,
-                            mapGame: true
-                        }
-                    },
-                    createdByUser: true
+                  player: true
                 }
-            });
-
-            if (!match) {
-                throw new NotFoundException('Match not found');
+              }
             }
+          },
+          maps: {
+            orderBy: { gameIdx: 'asc' },
+            include: {
+              playerStats: {
+                include: {
+                  player: true
+                }
+              }
+            }
+          },
+          playerStats: {
+            include: {
+              player: true,
+              mapGame: true
+            }
+          },
+          createdByUser: true
+        }
+      });
 
-            // Ensure export directory exists
-            const exportDir = path.join(process.cwd(), 'data', tenantId, 'exports');
-            await fs.ensureDir(exportDir);
+      if (!match) {
+        throw new NotFoundException('Match not found');
+      }
 
-            const fileName = `match-report-${matchId}.pdf`;
-            const filePath = path.join(exportDir, fileName);
+      // Ensure export directory exists
+      const exportDir = path.join(process.cwd(), 'data', tenantId, 'exports');
+      await fs.ensureDir(exportDir);
 
-            // Generate HTML content
-            const htmlContent = this.generateMatchReportHtml(match);
+      const fileName = `match-report-${matchId}.pdf`;
+      const filePath = path.join(exportDir, fileName);
 
-            // Launch browser and generate PDF
-            const browser = await playwright.chromium.launch({ headless: true });
-            const page = await browser.newPage();
+      // Generate HTML content
+      const htmlContent = this.generateMatchReportHtml(match);
 
-            await page.setContent(htmlContent, { waitUntil: 'networkidle' });
+      // Launch browser and generate PDF
+      const browser = await playwright.chromium.launch({ headless: true });
+      const page = await browser.newPage();
 
-            // Generate PDF with custom styling
-            await page.pdf({
-                path: filePath,
-                format: 'A4',
-                margin: {
-                    top: '1in',
-                    right: '0.5in',
-                    bottom: '1in',
-                    left: '0.5in'
-                },
-                printBackground: true,
-                displayHeaderFooter: true,
-                headerTemplate: `
+      await page.setContent(htmlContent, { waitUntil: 'networkidle' });
+
+      // Generate PDF with custom styling
+      await page.pdf({
+        path: filePath,
+        format: 'A4',
+        margin: {
+          top: '1in',
+          right: '0.5in',
+          bottom: '1in',
+          left: '0.5in'
+        },
+        printBackground: true,
+        displayHeaderFooter: true,
+        headerTemplate: `
         <div style="font-size: 10px; color: #666; width: 100%; text-align: center; padding: 10px;">
           Match Report - ${match.opponent} vs ${match.team.name}
         </div>
       `,
-                footerTemplate: `
+        footerTemplate: `
         <div style="font-size: 10px; color: #666; width: 100%; text-align: center; padding: 10px;">
           Generated on <span class="date"></span> - Page <span class="pageNumber"></span> of <span class="totalPages"></span>
         </div>
       `
-            });
+      });
 
-            await browser.close();
+      await browser.close();
 
-            // Get file size
-            const stats = await fs.stat(filePath);
+      // Get file size
+      const stats = await fs.stat(filePath);
 
-            return {
-                match: this.formatMatchForExport(match),
-                filePath: `/data/${tenantId}/exports/${fileName}`,
-                fileSize: stats.size,
-                exportedAt: new Date().toISOString()
-            };
-        });
-    }
+      return {
+        match: this.formatMatchForExport(match),
+        filePath: `/data/${tenantId}/exports/${fileName}`,
+        fileSize: stats.size,
+        exportedAt: new Date().toISOString()
+      };
+    });
+  }
 
-    private generateMatchReportHtml(match: any): string {
-        const matchDate = match.startedAt ? new Date(match.startedAt).toLocaleDateString() : 'TBD';
-        const duration = this.calculateMatchDuration(match);
-        const mvpPlayer = match.playerStats.find((stat: any) => stat.isMvp);
+  private generateMatchReportHtml(match: any): string {
+    const matchDate = match.startedAt ? new Date(match.startedAt).toLocaleDateString() : 'TBD';
+    const duration = this.calculateMatchDuration(match);
+    const mvpPlayer = match.playerStats.find((stat: any) => stat.isMvp);
 
-        return `
+    return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -447,124 +447,124 @@ export class PdfExportService {
       </body>
       </html>
     `;
+  }
+
+  private formatMatchForExport(match: any): MatchResponse {
+    return {
+      id: match.id,
+      tenantId: match.tenantId,
+      eventId: match.eventId,
+      teamId: match.teamId,
+      lineupId: match.lineupId,
+      opponent: match.opponent,
+      tournament: match.tournament,
+      stage: match.stage,
+      bestOf: match.bestOf || 1,
+      startedAt: match.startedAt?.toISOString(),
+      endedAt: match.endedAt?.toISOString(),
+      status: match.status,
+      result: match.result,
+      score: match.score,
+      vodUrl: match.vodUrl,
+      notes: match.notes,
+      createdBy: match.createdBy,
+      createdAt: match.createdAt?.toISOString(),
+      updatedAt: match.updatedAt?.toISOString()
+    };
+  }
+
+  private calculateMatchDuration(match: any): string {
+    if (!match.startedAt || !match.endedAt) {
+      return 'Unknown';
     }
 
-    private formatMatchForExport(match: any): MatchResponse {
-        return {
-            id: match.id,
-            tenantId: match.tenantId,
-            eventId: match.eventId,
-            teamId: match.teamId,
-            lineupId: match.lineupId,
-            opponent: match.opponent,
-            tournament: match.tournament,
-            stage: match.stage,
-            bestOf: match.bestOf || 1,
-            startedAt: match.startedAt?.toISOString(),
-            endedAt: match.endedAt?.toISOString(),
-            status: match.status,
-            result: match.result,
-            score: match.score,
-            vodUrl: match.vodUrl,
-            notes: match.notes,
-            createdBy: match.createdBy,
-            createdAt: match.createdAt?.toISOString(),
-            updatedAt: match.updatedAt?.toISOString()
-        };
+    const start = new Date(match.startedAt);
+    const end = new Date(match.endedAt);
+    const durationMs = end.getTime() - start.getTime();
+    const hours = Math.floor(durationMs / (1000 * 60 * 60));
+    const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  }
+
+  private getStatsHeaders(gameTitle: string): string[] {
+    const title = gameTitle?.toLowerCase() || '';
+
+    if (title.includes('valorant') || title.includes('val')) {
+      return ['K', 'D', 'A', 'Plants', 'Defuses', 'FK', 'ADR'];
     }
 
-    private calculateMatchDuration(match: any): string {
-        if (!match.startedAt || !match.endedAt) {
-            return 'Unknown';
-        }
-
-        const start = new Date(match.startedAt);
-        const end = new Date(match.endedAt);
-        const durationMs = end.getTime() - start.getTime();
-        const hours = Math.floor(durationMs / (1000 * 60 * 60));
-        const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
-
-        if (hours > 0) {
-            return `${hours}h ${minutes}m`;
-        }
-        return `${minutes}m`;
+    if (title.includes('lol') || title.includes('league')) {
+      return ['K', 'D', 'A', 'CS', 'Gold', 'Damage', 'Wards'];
     }
 
-    private getStatsHeaders(gameTitle: string): string[] {
-        const title = gameTitle?.toLowerCase() || '';
-
-        if (title.includes('valorant') || title.includes('val')) {
-            return ['K', 'D', 'A', 'Plants', 'Defuses', 'FK', 'ADR'];
-        }
-
-        if (title.includes('lol') || title.includes('league')) {
-            return ['K', 'D', 'A', 'CS', 'Gold', 'Damage', 'Wards'];
-        }
-
-        if (title.includes('overwatch') || title.includes('ow')) {
-            return ['Elims', 'Deaths', 'Damage', 'Healing', 'Obj Kills'];
-        }
-
-        if (title.includes('rocket') || title.includes('rl')) {
-            return ['Goals', 'Assists', 'Saves', 'Shots', 'Score'];
-        }
-
-        return ['Score'];
+    if (title.includes('overwatch') || title.includes('ow')) {
+      return ['Elims', 'Deaths', 'Damage', 'Healing', 'Obj Kills'];
     }
 
-    private getStatsValues(gameTitle: string, statsJson: any): string[] {
-        const title = gameTitle?.toLowerCase() || '';
-
-        if (title.includes('valorant') || title.includes('val')) {
-            return [
-                statsJson.kills || '0',
-                statsJson.deaths || '0',
-                statsJson.assists || '0',
-                statsJson.plants || '0',
-                statsJson.defuses || '0',
-                statsJson.firstKills || '0',
-                statsJson.adr ? Math.round(statsJson.adr).toString() : '0'
-            ];
-        }
-
-        if (title.includes('lol') || title.includes('league')) {
-            return [
-                statsJson.kills || '0',
-                statsJson.deaths || '0',
-                statsJson.assists || '0',
-                statsJson.cs || '0',
-                statsJson.gold || '0',
-                statsJson.damage || '0',
-                statsJson.wards || '0'
-            ];
-        }
-
-        if (title.includes('overwatch') || title.includes('ow')) {
-            return [
-                statsJson.eliminations || '0',
-                statsJson.deaths || '0',
-                statsJson.damage || '0',
-                statsJson.healing || '0',
-                statsJson.objectiveKills || '0'
-            ];
-        }
-
-        if (title.includes('rocket') || title.includes('rl')) {
-            return [
-                statsJson.goals || '0',
-                statsJson.assists || '0',
-                statsJson.saves || '0',
-                statsJson.shots || '0',
-                statsJson.score || '0'
-            ];
-        }
-
-        return [statsJson.score || '0'];
+    if (title.includes('rocket') || title.includes('rl')) {
+      return ['Goals', 'Assists', 'Saves', 'Shots', 'Score'];
     }
 
-    private getRatingClass(rating: number): string {
-        if (rating >= 1.5) return 'high';
-        if (rating >= 1.0) return 'medium';
-        return 'low';
+    return ['Score'];
+  }
+
+  private getStatsValues(gameTitle: string, statsJson: any): string[] {
+    const title = gameTitle?.toLowerCase() || '';
+
+    if (title.includes('valorant') || title.includes('val')) {
+      return [
+        statsJson.kills || '0',
+        statsJson.deaths || '0',
+        statsJson.assists || '0',
+        statsJson.plants || '0',
+        statsJson.defuses || '0',
+        statsJson.firstKills || '0',
+        statsJson.adr ? Math.round(statsJson.adr).toString() : '0'
+      ];
     }
+
+    if (title.includes('lol') || title.includes('league')) {
+      return [
+        statsJson.kills || '0',
+        statsJson.deaths || '0',
+        statsJson.assists || '0',
+        statsJson.cs || '0',
+        statsJson.gold || '0',
+        statsJson.damage || '0',
+        statsJson.wards || '0'
+      ];
+    }
+
+    if (title.includes('overwatch') || title.includes('ow')) {
+      return [
+        statsJson.eliminations || '0',
+        statsJson.deaths || '0',
+        statsJson.damage || '0',
+        statsJson.healing || '0',
+        statsJson.objectiveKills || '0'
+      ];
+    }
+
+    if (title.includes('rocket') || title.includes('rl')) {
+      return [
+        statsJson.goals || '0',
+        statsJson.assists || '0',
+        statsJson.saves || '0',
+        statsJson.shots || '0',
+        statsJson.score || '0'
+      ];
+    }
+
+    return [statsJson.score || '0'];
+  }
+
+  private getRatingClass(rating: number): string {
+    if (rating >= 1.5) return 'high';
+    if (rating >= 1.0) return 'medium';
+    return 'low';
+  }
 }
