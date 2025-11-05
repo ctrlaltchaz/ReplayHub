@@ -20,7 +20,7 @@ export class GlobalUsersService {
                 },
                 orgUsers: {
                     include: {
-                        organisation: true, // Now includes the organization via Prisma relation
+                        // Don't include organisation here - RLS blocks it
                         roles: {
                             include: {
                                 role: true,
@@ -35,9 +35,27 @@ export class GlobalUsersService {
             throw new Error('User not found');
         }
 
+        // Manually fetch organizations for each orgUser by tenantId
+        // This bypasses RLS since organisations table doesn't have RLS enabled
+        const orgUserTenantIds = user.orgUsers.map(ou => ou.tenantId);
+        const organizations = await this.prisma.organisation.findMany({
+            where: {
+                id: { in: orgUserTenantIds },
+            },
+        });
+
+        // Map organizations to orgUsers
+        const orgUsersWithOrganization = user.orgUsers.map(orgUser => ({
+            ...orgUser,
+            organisation: organizations.find(org => org.id === orgUser.tenantId),
+        }));
+
         // Return user without password hash
-        const { passwordHash: _, ...userResponse } = user;
-        return userResponse;
+        const { passwordHash: _, orgUsers, ...userResponse } = user;
+        return {
+            ...userResponse,
+            orgUsers: orgUsersWithOrganization,
+        };
     } async updateUserProfile(userId: string, updateProfileDto: UpdateProfileDto) {
         const user = await this.prisma.globalUser.update({
             where: { id: userId },
