@@ -722,8 +722,7 @@ export default function ManageStatsPage() {
                                                                     key={map.id}
                                                                     value={map.id}
                                                                 >
-                                                                    Map #{map.mapNumber} -{" "}
-                                                                    {map.mapName}
+                                                                    {map.title}
                                                                 </SelectItem>
                                                             ))}
                                                         </SelectContent>
