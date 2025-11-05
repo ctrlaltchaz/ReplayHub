@@ -38,27 +38,17 @@ export class GlobalUsersService {
         // Manually fetch organizations for each orgUser by tenantId
         // This bypasses RLS since organisations table doesn't have RLS enabled
         const orgUserTenantIds = user.orgUsers.map(ou => ou.tenantId);
-        console.log('[getUserProfile] Fetching organizations for tenant IDs:', orgUserTenantIds);
-        
         const organizations = await this.prisma.organisation.findMany({
             where: {
                 id: { in: orgUserTenantIds },
             },
         });
-        console.log('[getUserProfile] Found organizations:', organizations.map(o => ({ id: o.id, name: o.name })));
 
         // Map organizations to orgUsers
-        const orgUsersWithOrganization = user.orgUsers.map(orgUser => {
-            const org = organizations.find(org => org.id === orgUser.tenantId);
-            console.log(`[getUserProfile] Mapping orgUser ${orgUser.id} (tenant: ${orgUser.tenantId}) -> org: ${org ? org.name : 'NOT FOUND'}`);
-            return {
-                ...orgUser,
-                organisation: org,
-            };
-        });
-        console.log('[getUserProfile] Final orgUsers count:', orgUsersWithOrganization.length);
-
-        // Return user without password hash
+        const orgUsersWithOrganization = user.orgUsers.map(orgUser => ({
+            ...orgUser,
+            organisation: organizations.find(org => org.id === orgUser.tenantId),
+        }));        // Return user without password hash
         const { passwordHash: _, orgUsers, ...userResponse } = user;
         return {
             ...userResponse,
