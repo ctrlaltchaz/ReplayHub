@@ -852,7 +852,7 @@ export class PlayerService {
                     }
                 });
                 console.log('[getPlayerGameStats] Stats query result:', { count: stats.length });
-                
+
                 // Filter out stats where match is null (RLS blocked or deleted)
                 stats = stats.filter(s => s.match !== null);
                 console.log('[getPlayerGameStats] Stats after filtering null matches:', { count: stats.length });

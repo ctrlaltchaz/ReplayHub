@@ -305,68 +305,78 @@ export class ChecklistService {
     // Checklist Runs
 
     async createRun(tenantId: string, checklistId: string, createRunDto: CreateChecklistRunDto, runnerId: string, userId?: string) {
-        // Check if checklist exists
-        const checklist = await this.prisma.checklist.findFirst({
-            where: { id: checklistId, tenantId },
-            include: { template: true }
-        });
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-        if (!checklist) {
-            throw new NotFoundException('Checklist not found');
-        }
+            // Check if checklist exists
+            const checklist = await tx.checklist.findFirst({
+                where: { id: checklistId, tenantId },
+                include: { template: true }
+            });
 
-        // Permission check: runner can run if assignee=self or user has checklists.manage
-        // This permission logic will be handled in the controller with proper guards
-
-        // Validate result format matches template
-        const templateItems = checklist.template.itemsJson as any[];
-        const maxIdx = templateItems.length - 1;
-
-        for (const resultItem of createRunDto.resultJson) {
-            if (resultItem.idx < 0 || resultItem.idx > maxIdx) {
-                throw new BadRequestException(`Invalid item index: ${resultItem.idx}`);
+            if (!checklist) {
+                throw new NotFoundException('Checklist not found');
             }
-        }
 
-        // Update checklist status based on results
-        const allPassed = createRunDto.resultJson.every(item => item.pass);
-        const newStatus = allPassed ? 'done' : 'failed';
+            // Permission check: runner can run if assignee=self or user has checklists.manage
+            // This permission logic will be handled in the controller with proper guards
 
-        // Create run and update checklist in transaction
-        const result = await this.prisma.$transaction([
-            this.prisma.checklistRun.create({
+            // Validate result format matches template
+            const templateItems = checklist.template.itemsJson as any[];
+            const maxIdx = templateItems.length - 1;
+
+            for (const resultItem of createRunDto.resultJson) {
+                if (resultItem.idx < 0 || resultItem.idx > maxIdx) {
+                    throw new BadRequestException(`Invalid item index: ${resultItem.idx}`);
+                }
+            }
+
+            // Update checklist status based on results
+            const allPassed = createRunDto.resultJson.every(item => item.pass);
+            const newStatus = allPassed ? 'done' : 'failed';
+
+            // Create run
+            const run = await tx.checklistRun.create({
                 data: {
                     tenantId,
                     checklistId,
                     runnerId,
                     resultJson: createRunDto.resultJson as any
                 }
-            }),
-            this.prisma.checklist.update({
+            });
+
+            // Update checklist status
+            await tx.checklist.update({
                 where: { id: checklistId },
                 data: { status: newStatus }
-            })
-        ]);
+            });
 
-        return result[0]; // Return the run
+            return run;
+        });
     }
 
     async getRuns(tenantId: string, checklistId: string) {
-        // Check if checklist exists
-        const checklist = await this.prisma.checklist.findFirst({
-            where: { id: checklistId, tenantId }
-        });
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-        if (!checklist) {
-            throw new NotFoundException('Checklist not found');
-        }
+            // Check if checklist exists
+            const checklist = await tx.checklist.findFirst({
+                where: { id: checklistId, tenantId }
+            });
 
-        return this.prisma.checklistRun.findMany({
-            where: {
-                tenantId,
-                checklistId
-            },
-            orderBy: { runAt: 'desc' }
+            if (!checklist) {
+                throw new NotFoundException('Checklist not found');
+            }
+
+            return tx.checklistRun.findMany({
+                where: {
+                    tenantId,
+                    checklistId
+                },
+                orderBy: { runAt: 'desc' }
+            });
         });
     }
 }
