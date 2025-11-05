@@ -71,9 +71,24 @@ export default function PlayerStatsDetailPage() {
                 );
 
                 if (response.ok) {
-                    const data = await response.json();
-                    setStats(data);
-                    setIsPrivate(false);
+                    const text = await response.text();
+                    if (text) {
+                        try {
+                            const data = JSON.parse(text);
+                            // Check if stats object is empty or has no data
+                            if (!data || Object.keys(data).length === 0) {
+                                setStats(null);
+                            } else {
+                                setStats(data);
+                                setIsPrivate(false);
+                            }
+                        } catch (e) {
+                            console.error('Error parsing stats:', e);
+                            setStats(null);
+                        }
+                    } else {
+                        setStats(null);
+                    }
                 } else {
                     setStats(null);
                     // Check if player has stats private

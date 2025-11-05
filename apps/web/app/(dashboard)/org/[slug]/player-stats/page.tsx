@@ -69,11 +69,25 @@ export default function PlayerStatsPage() {
                             );
 
                             if (statsResponse.ok) {
-                                const stats = await statsResponse.json();
-                                return { ...player, stats };
+                                const text = await statsResponse.text();
+                                if (text) {
+                                    try {
+                                        const stats = JSON.parse(text);
+                                        // Check if stats object is empty or has no data
+                                        if (!stats || Object.keys(stats).length === 0 || stats.totalGames === 0) {
+                                            return { ...player, stats: null };
+                                        }
+                                        return { ...player, stats };
+                                    } catch (e) {
+                                        console.error('Error parsing stats:', e);
+                                        return { ...player, stats: null };
+                                    }
+                                }
+                                return { ...player, stats: null };
                             }
                             return { ...player, stats: null };
-                        } catch {
+                        } catch (error) {
+                            console.error('Error fetching stats:', error);
                             return { ...player, stats: null };
                         }
                     })
