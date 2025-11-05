@@ -88,86 +88,92 @@ export class PermissionService {
     ];
 
     async getPermissionRegistry(tenantId: string): Promise<PermissionDefinition[]> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const permissions = await this.prisma.permission.findMany({
-            where: { tenantId },
-            select: {
-                key: true,
-                group: true,
-                desc: true,
-            },
+            const permissions = await tx.permission.findMany({
+                where: { tenantId },
+                select: {
+                    key: true,
+                    group: true,
+                    desc: true,
+                },
+            });
+
+            return permissions.map(p => ({
+                key: p.key,
+                group: p.group || 'general',
+                description: p.desc || p.key,
+            }));
         });
-
-        return permissions.map(p => ({
-            key: p.key,
-            group: p.group || 'general',
-            description: p.desc || p.key,
-        }));
     }
 
     async seedDefaultPermissions(tenantId: string): Promise<{ created: number }> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        let created = 0;
+            let created = 0;
 
-        for (const permission of this.defaultPermissions) {
-            try {
-                await this.prisma.permission.create({
-                    data: {
-                        tenantId,
-                        key: permission.key,
-                        group: permission.group,
-                        desc: permission.description,
-                    },
-                });
-                created++;
-            } catch (error) {
-                // Permission already exists, skip
-                continue;
+            for (const permission of this.defaultPermissions) {
+                try {
+                    await tx.permission.create({
+                        data: {
+                            tenantId,
+                            key: permission.key,
+                            group: permission.group,
+                            desc: permission.description,
+                        },
+                    });
+                    created++;
+                } catch (error) {
+                    // Permission already exists, skip
+                    continue;
+                }
             }
-        }
 
-        return { created };
+            return { created };
+        });
     }
 
     async getUserPermissions(tenantId: string, orgUserId: string): Promise<string[]> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const userRoles = await this.prisma.orgUserRole.findMany({
-            where: {
-                tenantId,
-                orgUserId,
-            },
-            include: {
-                role: {
-                    include: {
-                        permissions: {
-                            include: {
-                                permission: {
-                                    select: {
-                                        key: true,
+            const userRoles = await tx.orgUserRole.findMany({
+                where: {
+                    tenantId,
+                    orgUserId,
+                },
+                include: {
+                    role: {
+                        include: {
+                            permissions: {
+                                include: {
+                                    permission: {
+                                        select: {
+                                            key: true,
+                                        },
                                     },
                                 },
                             },
                         },
                     },
                 },
-            },
-        });
-
-        // Flatten and deduplicate permissions
-        const permissions = new Set<string>();
-        userRoles.forEach(userRole => {
-            userRole.role.permissions.forEach(rolePermission => {
-                permissions.add(rolePermission.permission.key);
             });
-        });
 
-        return Array.from(permissions);
+            // Flatten and deduplicate permissions
+            const permissions = new Set<string>();
+            userRoles.forEach(userRole => {
+                userRole.role.permissions.forEach(rolePermission => {
+                    permissions.add(rolePermission.permission.key);
+                });
+            });
+
+            return Array.from(permissions);
+        });
     }
 
     async hasPermission(tenantId: string, orgUserId: string, requiredPermission: string): Promise<boolean> {

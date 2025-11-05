@@ -43,39 +43,38 @@ export class RoleService {
     constructor(private prisma: PrismaService) { }
 
     async createRole(tenantId: string, createRoleDto: CreateRoleDto): Promise<RoleWithPermissionsDto> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        // Check if role name already exists
-        const existingRole = await this.prisma.role.findUnique({
-            where: {
-                tenantId_name: {
-                    tenantId,
-                    name: createRoleDto.name,
+            // Check if role name already exists
+            const existingRole = await tx.role.findUnique({
+                where: {
+                    tenantId_name: {
+                        tenantId,
+                        name: createRoleDto.name,
+                    },
                 },
-            },
-        });
+            });
 
-        if (existingRole) {
-            throw new ConflictException('Role name already exists');
-        }
+            if (existingRole) {
+                throw new ConflictException('Role name already exists');
+            }
 
-        // Verify all permissions exist
-        const permissions = await this.prisma.permission.findMany({
-            where: {
-                tenantId,
-                key: { in: createRoleDto.permissions },
-            },
-        });
+            // Verify all permissions exist
+            const permissions = await tx.permission.findMany({
+                where: {
+                    tenantId,
+                    key: { in: createRoleDto.permissions },
+                },
+            });
 
-        if (permissions.length !== createRoleDto.permissions.length) {
-            const foundKeys = permissions.map(p => p.key);
-            const missing = createRoleDto.permissions.filter(key => !foundKeys.includes(key));
-            throw new BadRequestException(`Invalid permissions: ${missing.join(', ')}`);
-        }
+            if (permissions.length !== createRoleDto.permissions.length) {
+                const foundKeys = permissions.map(p => p.key);
+                const missing = createRoleDto.permissions.filter(key => !foundKeys.includes(key));
+                throw new BadRequestException(`Invalid permissions: ${missing.join(', ')}`);
+            }
 
-        // Create role with permissions in a transaction
-        const result = await this.prisma.$transaction(async (tx) => {
             // Create role
             const role = await tx.role.create({
                 data: {
@@ -95,7 +94,7 @@ export class RoleService {
             });
 
             // Return role with permissions
-            return tx.role.findUnique({
+            const result = await tx.role.findUnique({
                 where: { id: role.id },
                 include: {
                     permissions: {
@@ -105,88 +104,106 @@ export class RoleService {
                     },
                 },
             });
-        });
 
-        return this.mapRoleToDto(result!);
+            return this.mapRoleToDto(result!);
+        });
     }
 
     async getRoles(tenantId: string): Promise<RoleWithPermissionsDto[]> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const roles = await this.prisma.role.findMany({
-            where: { tenantId },
-            include: {
-                permissions: {
-                    include: {
-                        permission: true,
+            const roles = await tx.role.findMany({
+                where: { tenantId },
+                include: {
+                    permissions: {
+                        include: {
+                            permission: true,
+                        },
                     },
                 },
-            },
-            orderBy: { name: 'asc' },
-        });
+                orderBy: { name: 'asc' },
+            });
 
-        return roles.map(role => this.mapRoleToDto(role));
+            return roles.map(role => this.mapRoleToDto(role));
+        });
     }
 
     async getRoleById(tenantId: string, roleId: string): Promise<RoleWithPermissionsDto | null> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const role = await this.prisma.role.findFirst({
-            where: {
-                id: roleId,
-                tenantId,
-            },
-            include: {
-                permissions: {
-                    include: {
-                        permission: true,
-                    },
+            const role = await tx.role.findFirst({
+                where: {
+                    id: roleId,
+                    tenantId,
                 },
-                users: true, // Include users to get count
-            },
+                include: {
+                    permissions: {
+                        include: {
+                            permission: true,
+                        },
+                    },
+                    users: true, // Include users to get count
+                },
+            });
+
+            if (!role) return null;
+
+            // Get user count (includes both org users and global users with this role)
+            const userCount = await tx.orgUserRole.count({
+                where: {
+                    roleId: roleId,
+                    tenantId,
+                },
+            });
+
+            return this.mapRoleToDto(role, userCount);
         });
-
-        if (!role) return null;
-
-        // Get user count (includes both org users and global users with this role)
-        const userCount = await this.prisma.orgUserRole.count({
-            where: {
-                roleId: roleId,
-                tenantId,
-            },
-        });
-
-        return this.mapRoleToDto(role, userCount);
     }
 
     async updateRole(tenantId: string, roleId: string, updateRoleDto: UpdateRoleDto): Promise<RoleWithPermissionsDto> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const existingRole = await this.getRoleById(tenantId, roleId);
-        if (!existingRole) {
-            throw new NotFoundException('Role not found');
-        }
-
-        // Check if new name conflicts
-        if (updateRoleDto.name && updateRoleDto.name !== existingRole.name) {
-            const nameConflict = await this.prisma.role.findUnique({
+            // Check role exists
+            const existingRole = await tx.role.findFirst({
                 where: {
-                    tenantId_name: {
-                        tenantId,
-                        name: updateRoleDto.name,
+                    id: roleId,
+                    tenantId,
+                },
+                include: {
+                    permissions: {
+                        include: {
+                            permission: true,
+                        },
                     },
                 },
             });
 
-            if (nameConflict) {
-                throw new ConflictException('Role name already exists');
+            if (!existingRole) {
+                throw new NotFoundException('Role not found');
             }
-        }
 
-        const result = await this.prisma.$transaction(async (tx) => {
+            // Check if new name conflicts
+            if (updateRoleDto.name && updateRoleDto.name !== existingRole.name) {
+                const nameConflict = await tx.role.findUnique({
+                    where: {
+                        tenantId_name: {
+                            tenantId,
+                            name: updateRoleDto.name,
+                        },
+                    },
+                });
+
+                if (nameConflict) {
+                    throw new ConflictException('Role name already exists');
+                }
+            }
+
             // Update role basic info
             await tx.role.update({
                 where: { id: roleId },
@@ -231,7 +248,7 @@ export class RoleService {
             }
 
             // Return updated role
-            return tx.role.findUnique({
+            const result = await tx.role.findUnique({
                 where: { id: roleId },
                 include: {
                     permissions: {
@@ -241,252 +258,269 @@ export class RoleService {
                     },
                 },
             });
-        });
 
-        return this.mapRoleToDto(result!);
+            return this.mapRoleToDto(result!);
+        });
     }
 
     async deleteRole(tenantId: string, roleId: string): Promise<{ success: boolean }> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const role = await this.getRoleById(tenantId, roleId);
-        if (!role) {
-            throw new NotFoundException('Role not found');
-        }
+            // Check role exists
+            const role = await tx.role.findFirst({
+                where: {
+                    id: roleId,
+                    tenantId,
+                },
+            });
 
-        // Check if role is assigned to any users
-        const assignedUsers = await this.prisma.orgUserRole.count({
-            where: {
-                tenantId,
-                roleId,
-            },
+            if (!role) {
+                throw new NotFoundException('Role not found');
+            }
+
+            // Check if role is assigned to any users
+            const assignedUsers = await tx.orgUserRole.count({
+                where: {
+                    tenantId,
+                    roleId,
+                },
+            });
+
+            if (assignedUsers > 0) {
+                throw new BadRequestException('Cannot delete role that is assigned to users');
+            }
+
+            await tx.role.delete({
+                where: { id: roleId },
+            });
+
+            return { success: true };
         });
-
-        if (assignedUsers > 0) {
-            throw new BadRequestException('Cannot delete role that is assigned to users');
-        }
-
-        await this.prisma.role.delete({
-            where: { id: roleId },
-        });
-
-        return { success: true };
     }
 
     async seedDefaultRoles(tenantId: string): Promise<{ created: string[] }> {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const created: string[] = [];
+            const created: string[] = [];
 
-        // Define default roles
-        const defaultRoles = [
-            {
-                name: 'ops_admin',
-                description: 'Operations Administrator - Full access to all features',
-                permissions: [
-                    'calendar.view', 'calendar.manage',
-                    'events.view', 'events.create', 'events.edit', 'events.delete', 'events.manage',
-                    'runsheet.view', 'runsheet.edit', 'runsheet.approve',
-                    'checklists.run', 'checklists.manage',
-                    'inventory.view', 'inventory.update', 'inventory.book',
-                    'assets.upload', 'assets.approve', 'assets.manage',
-                    'roster.view', 'roster.manage', 'team.create', 'team.select_lineup',
-                    'players.view', 'players.edit_profile_self', 'players.edit_admin',
-                    'achievements.create', 'achievements.approve',
-                    'gamelog.view', 'gamelog.manage', 'gamelog.approve',
-                    'stats.record', 'stats.edit', 'stats.approve',
-                    'reports.view', 'reports.export',
-                    'org.settings.view', 'org.settings.manage',
-                ],
-            },
-            {
-                name: 'producer',
-                description: 'Event Producer - Manage events, runsheets, and rosters',
-                permissions: [
-                    'calendar.view', 'calendar.manage',
-                    'events.view', 'events.create', 'events.edit', 'events.manage',
-                    'runsheet.view', 'runsheet.edit',
-                    'checklists.manage',
-                    'roster.view', 'roster.manage', 'team.create',
-                    'players.view',
-                    'gamelog.view', 'gamelog.manage',
-                    'stats.record', 'stats.edit',
-                    'reports.view', 'reports.export',
-                ],
-            },
-            {
-                name: 'tech',
-                description: 'Technical Operator - Execute runsheets and manage inventory',
-                permissions: [
-                    'calendar.view',
-                    'events.create',
-                    'runsheet.view',
-                    'checklists.run',
-                    'inventory.view', 'inventory.update',
-                    'assets.upload',
-                    'players.view',
-                ],
-            },
-            {
-                name: 'viewer',
-                description: 'Read-only access to most features',
-                permissions: [
-                    'calendar.view',
-                    'runsheet.view',
-                    'inventory.view',
-                    'roster.view',
-                    'players.view',
-                    'gamelog.view',
-                    'reports.view',
-                    'org.settings.view',
-                ],
-            },
-        ];
+            // Define default roles
+            const defaultRoles = [
+                {
+                    name: 'ops_admin',
+                    description: 'Operations Administrator - Full access to all features',
+                    permissions: [
+                        'calendar.view', 'calendar.manage',
+                        'events.view', 'events.create', 'events.edit', 'events.delete', 'events.manage',
+                        'runsheet.view', 'runsheet.edit', 'runsheet.approve',
+                        'checklists.run', 'checklists.manage',
+                        'inventory.view', 'inventory.update', 'inventory.book',
+                        'assets.upload', 'assets.approve', 'assets.manage',
+                        'roster.view', 'roster.manage', 'team.create', 'team.select_lineup',
+                        'players.view', 'players.edit_profile_self', 'players.edit_admin',
+                        'achievements.create', 'achievements.approve',
+                        'gamelog.view', 'gamelog.manage', 'gamelog.approve',
+                        'stats.record', 'stats.edit', 'stats.approve',
+                        'reports.view', 'reports.export',
+                        'org.settings.view', 'org.settings.manage',
+                    ],
+                },
+                {
+                    name: 'producer',
+                    description: 'Event Producer - Manage events, runsheets, and rosters',
+                    permissions: [
+                        'calendar.view', 'calendar.manage',
+                        'events.view', 'events.create', 'events.edit', 'events.manage',
+                        'runsheet.view', 'runsheet.edit',
+                        'checklists.manage',
+                        'roster.view', 'roster.manage', 'team.create',
+                        'players.view',
+                        'gamelog.view', 'gamelog.manage',
+                        'stats.record', 'stats.edit',
+                        'reports.view', 'reports.export',
+                    ],
+                },
+                {
+                    name: 'tech',
+                    description: 'Technical Operator - Execute runsheets and manage inventory',
+                    permissions: [
+                        'calendar.view',
+                        'events.create',
+                        'runsheet.view',
+                        'checklists.run',
+                        'inventory.view', 'inventory.update',
+                        'assets.upload',
+                        'players.view',
+                    ],
+                },
+                {
+                    name: 'viewer',
+                    description: 'Read-only access to most features',
+                    permissions: [
+                        'calendar.view',
+                        'runsheet.view',
+                        'inventory.view',
+                        'roster.view',
+                        'players.view',
+                        'gamelog.view',
+                        'reports.view',
+                        'org.settings.view',
+                    ],
+                },
+            ];
 
-        for (const roleData of defaultRoles) {
-            try {
-                await this.createRole(tenantId, roleData);
-                created.push(roleData.name);
-            } catch (error) {
-                // Role might already exist, continue
-                continue;
+            for (const roleData of defaultRoles) {
+                try {
+                    await this.createRole(tenantId, roleData);
+                    created.push(roleData.name);
+                } catch (error) {
+                    // Role might already exist, continue
+                    continue;
+                }
             }
-        }
 
-        return { created };
+            return { created };
+        });
     }
 
     /**
      * Assign roles to a user
      */
     async assignRoles(tenantId: string, assignRoleDto: AssignRoleDto, assignedByUserId: string) {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        // Verify user exists and belongs to tenant
-        const orgUser = await this.prisma.orgUser.findUnique({
-            where: {
-                id: assignRoleDto.orgUserId,
-                tenantId,
-            },
+            // Verify user exists and belongs to tenant
+            const orgUser = await tx.orgUser.findUnique({
+                where: {
+                    id: assignRoleDto.orgUserId,
+                    tenantId,
+                },
+            });
+
+            if (!orgUser) {
+                throw new NotFoundException('User not found in this organization');
+            }
+
+            // Verify all roles exist and belong to tenant
+            const roles = await tx.role.findMany({
+                where: {
+                    id: { in: assignRoleDto.roleIds },
+                    tenantId,
+                },
+            });
+
+            if (roles.length !== assignRoleDto.roleIds.length) {
+                throw new BadRequestException('One or more roles not found in this organization');
+            }
+
+            // Check for existing assignments to avoid duplicates
+            const existingAssignments = await tx.orgUserRole.findMany({
+                where: {
+                    orgUserId: assignRoleDto.orgUserId,
+                    roleId: { in: assignRoleDto.roleIds },
+                    tenantId,
+                },
+            });
+
+            const existingRoleIds = existingAssignments.map(assignment => assignment.roleId);
+            const newRoleIds = assignRoleDto.roleIds.filter(roleId => !existingRoleIds.includes(roleId));
+
+            if (newRoleIds.length === 0) {
+                throw new ConflictException('All roles are already assigned to this user');
+            }
+
+            // Create new role assignments
+            const assignments = await Promise.all(
+                newRoleIds.map(roleId =>
+                    tx.orgUserRole.create({
+                        data: {
+                            tenantId,
+                            orgUserId: assignRoleDto.orgUserId,
+                            roleId,
+                        },
+                    })
+                )
+            );
+
+            return {
+                message: `Successfully assigned ${assignments.length} roles to user`,
+                assignedRoles: newRoleIds,
+                skippedRoles: existingRoleIds
+            };
         });
-
-        if (!orgUser) {
-            throw new NotFoundException('User not found in this organization');
-        }
-
-        // Verify all roles exist and belong to tenant
-        const roles = await this.prisma.role.findMany({
-            where: {
-                id: { in: assignRoleDto.roleIds },
-                tenantId,
-            },
-        });
-
-        if (roles.length !== assignRoleDto.roleIds.length) {
-            throw new BadRequestException('One or more roles not found in this organization');
-        }
-
-        // Check for existing assignments to avoid duplicates
-        const existingAssignments = await this.prisma.orgUserRole.findMany({
-            where: {
-                orgUserId: assignRoleDto.orgUserId,
-                roleId: { in: assignRoleDto.roleIds },
-                tenantId,
-            },
-        });
-
-        const existingRoleIds = existingAssignments.map(assignment => assignment.roleId);
-        const newRoleIds = assignRoleDto.roleIds.filter(roleId => !existingRoleIds.includes(roleId));
-
-        if (newRoleIds.length === 0) {
-            throw new ConflictException('All roles are already assigned to this user');
-        }
-
-        // Create new role assignments
-        const assignments = await this.prisma.$transaction(
-            newRoleIds.map(roleId =>
-                this.prisma.orgUserRole.create({
-                    data: {
-                        tenantId,
-                        orgUserId: assignRoleDto.orgUserId,
-                        roleId,
-                    },
-                })
-            )
-        );
-
-        return {
-            message: `Successfully assigned ${assignments.length} roles to user`,
-            assignedRoles: newRoleIds,
-            skippedRoles: existingRoleIds
-        };
     }
 
     /**
      * Remove roles from a user
      */
     async removeRoles(tenantId: string, removeRoleDto: RemoveRoleDto, removedByUserId: string) {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        // Verify user exists and belongs to tenant
-        const orgUser = await this.prisma.orgUser.findUnique({
-            where: {
-                id: removeRoleDto.orgUserId,
-                tenantId,
-            },
+            // Verify user exists and belongs to tenant
+            const orgUser = await tx.orgUser.findUnique({
+                where: {
+                    id: removeRoleDto.orgUserId,
+                    tenantId,
+                },
+            });
+
+            if (!orgUser) {
+                throw new NotFoundException('User not found in this organization');
+            }
+
+            // Remove role assignments
+            const result = await tx.orgUserRole.deleteMany({
+                where: {
+                    orgUserId: removeRoleDto.orgUserId,
+                    roleId: { in: removeRoleDto.roleIds },
+                    tenantId,
+                },
+            });
+
+            return {
+                message: `Successfully removed ${result.count} role assignments`,
+                removedCount: result.count
+            };
         });
-
-        if (!orgUser) {
-            throw new NotFoundException('User not found in this organization');
-        }
-
-        // Remove role assignments
-        const result = await this.prisma.orgUserRole.deleteMany({
-            where: {
-                orgUserId: removeRoleDto.orgUserId,
-                roleId: { in: removeRoleDto.roleIds },
-                tenantId,
-            },
-        });
-
-        return {
-            message: `Successfully removed ${result.count} role assignments`,
-            removedCount: result.count
-        };
     }
 
     /**
      * Get user's roles
      */
     async getUserRoles(tenantId: string, orgUserId: string) {
-        // Set tenant context
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const userRoles = await this.prisma.orgUserRole.findMany({
-            where: {
-                orgUserId,
-                tenantId,
-            },
-            include: {
-                role: {
-                    include: {
-                        permissions: {
-                            include: {
-                                permission: true,
+            const userRoles = await tx.orgUserRole.findMany({
+                where: {
+                    orgUserId,
+                    tenantId,
+                },
+                include: {
+                    role: {
+                        include: {
+                            permissions: {
+                                include: {
+                                    permission: true,
+                                },
                             },
                         },
                     },
                 },
-            },
-        });
+            });
 
-        return {
-            roles: userRoles.map(userRole => this.mapRoleToDto(userRole.role))
-        };
+            return {
+                roles: userRoles.map(userRole => this.mapRoleToDto(userRole.role))
+            };
+        });
     }
 
     private mapRoleToDto(role: any, userCount?: number): RoleWithPermissionsDto {
