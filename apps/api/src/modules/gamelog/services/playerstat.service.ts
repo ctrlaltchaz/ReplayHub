@@ -239,6 +239,12 @@ export class PlayerStatService {
             const results = await Promise.all(
                 validatedStats.map(statDto => {
                     const player = players.find(p => p.id === statDto.playerId);
+                    console.log('💾 Creating PlayerStat with:', {
+                        playerId: statDto.playerId,
+                        rating: statDto.rating,
+                        isMvp: statDto.isMvp,
+                        statsJson: statDto.statsJson
+                    });
                     return tx.playerStat.create({
                         data: {
                             tenantId,
@@ -260,7 +266,9 @@ export class PlayerStatService {
                 })
             );
 
-            return results.map(stat => this.formatPlayerStatResponse(stat));
+            const formatted = results.map(stat => this.formatPlayerStatResponse(stat));
+            console.log('✅ Bulk create returning:', formatted.map(s => ({ id: s.id, rating: s.rating, isMvp: s.isMvp })));
+            return formatted;
         });
     }
 

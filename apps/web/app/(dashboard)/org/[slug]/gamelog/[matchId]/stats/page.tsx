@@ -164,8 +164,9 @@ export default function ManageStatsPage() {
                     healing: stat.statsJson.healing,
                 },
             }));
+            console.log('📤 Submitting stats:', JSON.stringify(statsToSend, null, 2));
             const result = await bulkCreateStats.mutateAsync({ stats: statsToSend });
-            console.log('Stats saved successfully:', result);
+            console.log('✅ Stats saved successfully:', JSON.stringify(result, null, 2));
             toast({
                 title: "Success",
                 description: "Player statistics saved successfully",
@@ -207,7 +208,10 @@ export default function ManageStatsPage() {
     };
 
     const handleEditStat = (stat: any) => {
-        console.log('Loading stat for editing:', stat);
+        console.log('📝 Loading stat for editing:', JSON.stringify(stat, null, 2));
+        console.log('  - stat.rating:', stat.rating);
+        console.log('  - stat.isMvp:', stat.isMvp);
+        console.log('  - stat.statsJson:', stat.statsJson);
         setEditingStat({
             id: stat.id,
             playerId: stat.playerId,
