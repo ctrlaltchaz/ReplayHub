@@ -1,9 +1,9 @@
 import { Body, Controller, Get, Put, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
+import { PrismaService } from '../../database/prisma.service';
 import { SessionGuard } from '../global-auth/guards/session.guard';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { GlobalUsersService } from './global-users.service';
-import { PrismaService } from '../../database/prisma.service';
 
 @Controller('global/users')
 @UseGuards(SessionGuard)
@@ -22,7 +22,7 @@ export class GlobalUsersController {
     @Get('debug-org/:tenantId')
     async debugOrg(@Req() req: Request) {
         const { tenantId } = req.params as any;
-        
+
         // Try to find the organization
         const org = await this.prisma.organisation.findUnique({
             where: { id: tenantId },

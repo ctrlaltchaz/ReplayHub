@@ -38,7 +38,7 @@ export class GlobalUsersService {
         // Return user without password hash
         const { passwordHash: _, ...userResponse } = user;
         return userResponse;
-    }    async updateUserProfile(userId: string, updateProfileDto: UpdateProfileDto) {
+    } async updateUserProfile(userId: string, updateProfileDto: UpdateProfileDto) {
         const user = await this.prisma.globalUser.update({
             where: { id: userId },
             data: {
