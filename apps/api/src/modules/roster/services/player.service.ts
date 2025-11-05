@@ -796,158 +796,167 @@ export class PlayerService {
     async getPlayerGameStats(tenantId: string, playerId: string, requestingUserId?: string) {
         console.log('[getPlayerGameStats] Called with:', { tenantId, playerId, requestingUserId });
 
-        // Verify player exists and get statsVisible setting
-        const player = await this.prisma.player.findFirst({
-            where: { id: playerId, tenantId },
-            include: {
-                orgUser: {
-                    select: { globalUserId: true }
-                }
-            }
-        });
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-        console.log('[getPlayerGameStats] Player found:', player ? { id: player.id, gamerTag: player.gamerTag, statsVisible: player.statsVisible, orgUserId: player.orgUserId } : null);
-
-        if (!player) {
-            throw new NotFoundException('Player not found');
-        }
-
-        // Check if stats are private
-        if (player.statsVisible === false) {
-            // Allow player to view their own stats
-            const isOwnPlayer = player.orgUser?.globalUserId === requestingUserId;
-
-            console.log('[getPlayerGameStats] Stats private check:', { statsVisible: player.statsVisible, isOwnPlayer });
-
-            if (!isOwnPlayer) {
-                // TODO: Add admin/coach bypass check here
-                // For now, return null if stats are private and not own player
-                console.log('[getPlayerGameStats] Returning null - stats are private');
-                return null;
-            }
-        }
-
-        // Get all player stats for this player
-        let stats;
-        try {
-            stats = await this.prisma.playerStat.findMany({
-                where: {
-                    tenantId,
-                    playerId
-                },
+            // Verify player exists and get statsVisible setting
+            const player = await tx.player.findFirst({
+                where: { id: playerId, tenantId },
                 include: {
-                    match: {
-                        include: {
-                            team: true
-                        }
-                    },
-                    mapGame: true
-                },
-                orderBy: {
-                    createdAt: 'desc'
+                    orgUser: {
+                        select: { globalUserId: true }
+                    }
                 }
             });
-            console.log('[getPlayerGameStats] Stats query result:', { count: stats.length });
-        } catch (error) {
-            console.error('[getPlayerGameStats] Query ERROR:', error);
-            throw error;
-        }
 
-        if (stats.length === 0) {
-            console.log('[getPlayerGameStats] Returning null - no stats found');
-            return null;
-        }
+            console.log('[getPlayerGameStats] Player found:', player ? { id: player.id, gamerTag: player.gamerTag, statsVisible: player.statsVisible, orgUserId: player.orgUserId } : null);
 
-        // Calculate aggregated statistics
-        const totalGames = stats.length;
-        const totalMvps = stats.filter(s => s.isMvp).length;
-        const avgRating = stats.reduce((sum, s) => sum + (s.rating || 0), 0) / totalGames;
-
-        // Get unique matches
-        const uniqueMatches = new Set(stats.map(s => s.matchId));
-        const totalMatches = uniqueMatches.size;
-
-        // Calculate game-specific stats
-        const gameStats: Record<string, any> = {};
-
-        stats.forEach(stat => {
-            const gameTitle = stat.mapGame?.title || stat.match?.team?.game || 'Unknown';
-
-            if (!gameStats[gameTitle]) {
-                gameStats[gameTitle] = {
-                    gamesPlayed: 0,
-                    totalKills: 0,
-                    totalDeaths: 0,
-                    totalAssists: 0,
-                    mvps: 0,
-                    avgRating: 0,
-                    ratingSum: 0
-                };
+            if (!player) {
+                throw new NotFoundException('Player not found');
             }
 
-            const gs = gameStats[gameTitle];
-            gs.gamesPlayed++;
-            gs.mvps += stat.isMvp ? 1 : 0;
-            gs.ratingSum += stat.rating || 0;
+            // Check if stats are private
+            if (player.statsVisible === false) {
+                // Allow player to view their own stats
+                const isOwnPlayer = player.orgUser?.globalUserId === requestingUserId;
 
-            // Extract common stats from statsJson
-            const json = stat.statsJson as any;
-            if (json) {
-                gs.totalKills += json.kills || json.eliminations || 0;
-                gs.totalDeaths += json.deaths || 0;
-                gs.totalAssists += json.assists || 0;
-            }
-        });
+                console.log('[getPlayerGameStats] Stats private check:', { statsVisible: player.statsVisible, isOwnPlayer });
 
-        // Calculate averages for each game
-        Object.keys(gameStats).forEach(gameTitle => {
-            const gs = gameStats[gameTitle];
-            gs.avgRating = parseFloat((gs.ratingSum / gs.gamesPlayed).toFixed(2));
-            gs.kda = gs.totalDeaths > 0
-                ? parseFloat(((gs.totalKills + gs.totalAssists) / gs.totalDeaths).toFixed(2))
-                : parseFloat((gs.totalKills + gs.totalAssists).toFixed(2));
-            delete gs.ratingSum; // Remove intermediate calculation
-        });
-
-        // Get recent matches (last 5)
-        const recentMatches = await this.prisma.match.findMany({
-            where: {
-                tenantId,
-                id: { in: Array.from(uniqueMatches) as string[] }
-            },
-            include: {
-                team: true,
-                playerStats: {
-                    where: { playerId },
-                    include: { mapGame: true }
+                if (!isOwnPlayer) {
+                    // TODO: Add admin/coach bypass check here
+                    // For now, return null if stats are private and not own player
+                    console.log('[getPlayerGameStats] Returning null - stats are private');
+                    return null;
                 }
-            },
-            orderBy: {
-                startedAt: 'desc'
-            },
-            take: 5
+            }
+
+            // Get all player stats for this player
+            let stats;
+            try {
+                stats = await tx.playerStat.findMany({
+                    where: {
+                        tenantId,
+                        playerId
+                    },
+                    include: {
+                        match: {
+                            include: {
+                                team: true
+                            }
+                        },
+                        mapGame: true
+                    },
+                    orderBy: {
+                        createdAt: 'desc'
+                    }
+                });
+                console.log('[getPlayerGameStats] Stats query result:', { count: stats.length });
+                
+                // Filter out stats where match is null (RLS blocked or deleted)
+                stats = stats.filter(s => s.match !== null);
+                console.log('[getPlayerGameStats] Stats after filtering null matches:', { count: stats.length });
+            } catch (error) {
+                console.error('[getPlayerGameStats] Query ERROR:', error);
+                throw error;
+            }
+
+            if (stats.length === 0) {
+                console.log('[getPlayerGameStats] Returning null - no stats found');
+                return null;
+            }
+
+            // Calculate aggregated statistics
+            const totalGames = stats.length;
+            const totalMvps = stats.filter(s => s.isMvp).length;
+            const avgRating = stats.reduce((sum, s) => sum + (s.rating || 0), 0) / totalGames;
+
+            // Get unique matches
+            const uniqueMatches = new Set(stats.map(s => s.matchId));
+            const totalMatches = uniqueMatches.size;
+
+            // Calculate game-specific stats
+            const gameStats: Record<string, any> = {};
+
+            stats.forEach(stat => {
+                const gameTitle = stat.mapGame?.title || stat.match?.team?.game || 'Unknown';
+
+                if (!gameStats[gameTitle]) {
+                    gameStats[gameTitle] = {
+                        gamesPlayed: 0,
+                        totalKills: 0,
+                        totalDeaths: 0,
+                        totalAssists: 0,
+                        mvps: 0,
+                        avgRating: 0,
+                        ratingSum: 0
+                    };
+                }
+
+                const gs = gameStats[gameTitle];
+                gs.gamesPlayed++;
+                gs.mvps += stat.isMvp ? 1 : 0;
+                gs.ratingSum += stat.rating || 0;
+
+                // Extract common stats from statsJson
+                const json = stat.statsJson as any;
+                if (json) {
+                    gs.totalKills += json.kills || json.eliminations || 0;
+                    gs.totalDeaths += json.deaths || 0;
+                    gs.totalAssists += json.assists || 0;
+                }
+            });
+
+            // Calculate averages for each game
+            Object.keys(gameStats).forEach(gameTitle => {
+                const gs = gameStats[gameTitle];
+                gs.avgRating = parseFloat((gs.ratingSum / gs.gamesPlayed).toFixed(2));
+                gs.kda = gs.totalDeaths > 0
+                    ? parseFloat(((gs.totalKills + gs.totalAssists) / gs.totalDeaths).toFixed(2))
+                    : parseFloat((gs.totalKills + gs.totalAssists).toFixed(2));
+                delete gs.ratingSum; // Remove intermediate calculation
+            });
+
+            // Get recent matches (last 5)
+            const recentMatches = await tx.match.findMany({
+                where: {
+                    tenantId,
+                    id: { in: Array.from(uniqueMatches) as string[] }
+                },
+                include: {
+                    team: true,
+                    playerStats: {
+                        where: { playerId },
+                        include: { mapGame: true }
+                    }
+                },
+                orderBy: {
+                    startedAt: 'desc'
+                },
+                take: 5
+            });
+
+            const recentPerformance = recentMatches.map((match: any) => ({
+                matchId: match.id,
+                teamName: match.team?.name,
+                opponent: match.opponent,
+                result: match.result,
+                date: match.startedAt,
+                avgRating: match.playerStats?.length > 0
+                    ? parseFloat((match.playerStats.reduce((sum: number, s: any) => sum + (s.rating || 0), 0) / match.playerStats.length).toFixed(2))
+                    : 0,
+                mvp: match.playerStats?.some((s: any) => s.isMvp) || false
+            }));
+
+            return {
+                playerId,
+                totalGames,
+                totalMatches,
+                totalMvps,
+                avgRating: parseFloat(avgRating.toFixed(2)),
+                gameBreakdown: gameStats,
+                recentPerformance
+            };
         });
-
-        const recentPerformance = recentMatches.map((match: any) => ({
-            matchId: match.id,
-            teamName: match.team?.name,
-            opponent: match.opponent,
-            result: match.result,
-            date: match.startedAt,
-            avgRating: match.playerStats?.length > 0
-                ? parseFloat((match.playerStats.reduce((sum: number, s: any) => sum + (s.rating || 0), 0) / match.playerStats.length).toFixed(2))
-                : 0,
-            mvp: match.playerStats?.some((s: any) => s.isMvp) || false
-        }));
-
-        return {
-            playerId,
-            totalGames,
-            totalMatches,
-            totalMvps,
-            avgRating: parseFloat(avgRating.toFixed(2)),
-            gameBreakdown: gameStats,
-            recentPerformance
-        };
     }
 }
