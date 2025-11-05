@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class GlobalUsersService {
@@ -53,9 +52,9 @@ export class GlobalUsersService {
 
         // Fetch roles for each orgUser (also needs to bypass RLS)
         const orgUserIds = orgUsers.map(ou => ou.id);
-        
+
         // If no orgUsers, return empty array for roles
-        const orgUserRoles = orgUserIds.length > 0 
+        const orgUserRoles = orgUserIds.length > 0
             ? await this.prisma.$queryRaw<any[]>`
                 SELECT 
                     our.id,
@@ -67,7 +66,7 @@ export class GlobalUsersService {
                     r.organization_id as "role_organizationId"
                 FROM org_user_roles our
                 INNER JOIN roles r ON our.role_id = r.id
-                WHERE our.org_user_id IN (${Prisma.join(orgUserIds)})
+                WHERE our.org_user_id = ANY(SELECT unnest(${orgUserIds}::uuid[]))
             `
             : [];
 
