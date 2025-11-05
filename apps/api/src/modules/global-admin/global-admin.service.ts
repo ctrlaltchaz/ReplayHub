@@ -517,506 +517,524 @@ export class GlobalAdminService {
 
     // Organization Users Management
     async getOrganisationUsers(orgId: string) {
-        // Set tenant context for RLS
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
 
-        const users = await this.prisma.orgUser.findMany({
-            where: { tenantId: orgId },
-            include: {
-                roles: {
-                    include: {
-                        role: {
-                            include: {
-                                permissions: {
-                                    include: {
-                                        permission: true
+            const users = await tx.orgUser.findMany({
+                where: { tenantId: orgId },
+                include: {
+                    roles: {
+                        include: {
+                            role: {
+                                include: {
+                                    permissions: {
+                                        include: {
+                                            permission: true
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
-            },
-            orderBy: { createdAt: 'desc' }
-        });
+                },
+                orderBy: { createdAt: 'desc' }
+            });
 
-        return users.map(user => ({
-            id: user.id,
-            email: user.email,
-            displayName: user.displayName,
-            isActive: user.isActive,
-            joinedAt: user.createdAt,
-            roles: user.roles.map(ur => ({
-                id: ur.role.id,
-                name: ur.role.name,
-                permissions: ur.role.permissions.map(rp => ({
-                    id: rp.permission.id,
-                    key: rp.permission.key,
-                    group: rp.permission.group,
-                    description: rp.permission.desc
+            return users.map(user => ({
+                id: user.id,
+                email: user.email,
+                displayName: user.displayName,
+                isActive: user.isActive,
+                joinedAt: user.createdAt,
+                roles: user.roles.map(ur => ({
+                    id: ur.role.id,
+                    name: ur.role.name,
+                    permissions: ur.role.permissions.map(rp => ({
+                        id: rp.permission.id,
+                        key: rp.permission.key,
+                        group: rp.permission.group,
+                        description: rp.permission.desc
+                    }))
                 }))
-            }))
-        }));
+            }));
+        });
     }
 
     async createOrganisationUser(orgId: string, dto: CreateOrganisationUserDto) {
-        // Set tenant context for RLS
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
-
-        // Check if user already exists
-        const existingUser = await this.prisma.orgUser.findFirst({
-            where: {
-                email: dto.email,
-                tenantId: orgId
-            }
-        });
-
-        if (existingUser) {
-            throw new BadRequestException('User with this email already exists in the organization');
-        }
-
-        let user;
-        let globalUser = null;
-
-        // If globalUserId is provided, link existing global user
-        if (dto.globalUserId) {
-            globalUser = await this.prisma.globalUser.findUnique({
-                where: { id: dto.globalUserId }
-            });
-
-            if (!globalUser) {
-                throw new BadRequestException('Global user not found');
-            }
-
-            // Create OrgUser linked to the global user
-            user = await this.prisma.orgUser.create({
-                data: {
-                    email: globalUser.email,
-                    displayName: globalUser.name || globalUser.email,
-                    tenantId: orgId,
-                    isActive: dto.isActive ?? true,
-                    passwordHash: globalUser.passwordHash, // Use same password as global user
-                    globalUserId: globalUser.id // Link to global user
-                }
-            });
-
-            // CRITICAL: Create organisationAdmin record so global user can access org endpoints
-            const existingAdmin = await this.prisma.organisationAdmin.findFirst({
-                where: {
-                    organisationId: orgId,
-                    globalUserId: globalUser.id
-                }
-            });
-
-            if (!existingAdmin) {
-                await this.prisma.organisationAdmin.create({
-                    data: {
-                        organisationId: orgId,
-                        globalUserId: globalUser.id,
-                        role: 'admin' // Default role for added users
-                    }
-                });
-                console.log(`[GlobalAdminService] Created organisationAdmin record for ${globalUser.email} in org ${orgId}`);
-            }
-        } else {
-            // Create new standalone user
-            if (!dto.firstName || !dto.lastName) {
-                throw new BadRequestException('First name and last name are required for new users');
-            }
-
-            user = await this.prisma.orgUser.create({
-                data: {
-                    email: dto.email,
-                    displayName: `${dto.firstName} ${dto.lastName}`,
-                    tenantId: orgId,
-                    isActive: dto.isActive ?? true,
-                    // If password provided, hash it, otherwise generate a random one
-                    passwordHash: dto.password
-                        ? await bcrypt.hash(dto.password, 10)
-                        : await bcrypt.hash(Math.random().toString(36), 10)
-                }
-            });
-        }
-
-        // Assign roles if provided
-        if (dto.roleIds && dto.roleIds.length > 0) {
-            await this.prisma.orgUserRole.createMany({
-                data: dto.roleIds.map((roleId: string) => ({
-                    orgUserId: user.id,
-                    roleId,
-                    tenantId: orgId
-                }))
-            });
-        }
-
-        // Log action
-        await this.prisma.auditLog.create({
-            data: {
-                tenantId: orgId,
-                action: 'CREATE',
-                entityType: 'ORG_USER',
-                entityId: user.id,
-                orgUserId: user.id,
-                details: JSON.stringify({
-                    email: dto.email,
-                    roles: dto.roleIds
-                })
-            }
-        });
-
-        return user;
-    }
-
-    async updateOrganisationUser(orgId: string, userId: string, dto: UpdateOrganisationUserDto) {
-        // Set tenant context for RLS
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
-
-        // Update user
-        const displayName = dto.firstName && dto.lastName
-            ? `${dto.firstName} ${dto.lastName}`
-            : undefined;
-
-        const user = await this.prisma.orgUser.update({
-            where: {
-                id: userId,
-                tenantId: orgId
-            },
-            data: {
-                ...(displayName && { displayName }),
-                ...(dto.isActive !== undefined && { isActive: dto.isActive })
-            }
-        });
-
-        // Update roles if provided
-        if (dto.roleIds !== undefined) {
-            // Remove existing roles
-            await this.prisma.orgUserRole.deleteMany({
-                where: {
-                    orgUserId: userId,
-                    tenantId: orgId
-                }
-            });
-
-            // Add new roles
-            if (dto.roleIds.length > 0) {
-                await this.prisma.orgUserRole.createMany({
-                    data: dto.roleIds.map((roleId: string) => ({
-                        orgUserId: userId,
-                        roleId,
-                        tenantId: orgId
-                    }))
-                });
-            }
-        }
-
-        // Log action
-        await this.prisma.auditLog.create({
-            data: {
-                tenantId: orgId,
-                action: 'UPDATE',
-                entityType: 'ORG_USER',
-                entityId: userId,
-                orgUserId: userId,
-                details: JSON.stringify(dto)
-            }
-        });
-
-        return user;
-    }
-
-    async deleteOrganisationUser(orgId: string, userId: string) {
-        // Set tenant context for RLS
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
-
-        // Remove user roles first
-        await this.prisma.orgUserRole.deleteMany({
-            where: {
-                orgUserId: userId,
-                tenantId: orgId
-            }
-        });
-
-        // Delete user
-        const user = await this.prisma.orgUser.delete({
-            where: {
-                id: userId,
-                tenantId: orgId
-            }
-        });
-
-        // Log action
-        await this.prisma.auditLog.create({
-            data: {
-                tenantId: orgId,
-                action: 'DELETE',
-                entityType: 'ORG_USER',
-                entityId: userId,
-                orgUserId: userId,
-                details: JSON.stringify({
-                    email: user.email
-                })
-            }
-        });
-
-        return { success: true };
-    }
-
-    // Organization Roles Management
-    async getOrganisationRoles(orgId: string) {
-        // Set tenant context for RLS
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
-
-        const roles = await this.prisma.role.findMany({
-            where: { tenantId: orgId },
-            include: {
-                permissions: {
-                    include: {
-                        permission: true
-                    }
-                },
-                users: true
-            },
-            orderBy: { createdAt: 'desc' }
-        });
-
-        return roles.map(role => ({
-            id: role.id,
-            name: role.name,
-            description: role.desc,
-            userCount: role.users.length,
-            createdAt: role.createdAt,
-            updatedAt: role.updatedAt,
-            permissions: role.permissions.map(rp => ({
-                id: rp.permission.id,
-                key: rp.permission.key,
-                group: rp.permission.group,
-                description: rp.permission.desc
-            }))
-        }));
-    }
-
-    async createOrganisationRole(orgId: string, dto: CreateOrganisationRoleDto) {
-        try {
-            console.log(`[DEBUG] Creating role for org: ${orgId}`, dto);
-
+        return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
 
-            // Create role
-            const role = await this.prisma.role.create({
-                data: {
-                    name: dto.name,
-                    desc: dto.description,
+            // Check if user already exists
+            const existingUser = await tx.orgUser.findFirst({
+                where: {
+                    email: dto.email,
                     tenantId: orgId
                 }
             });
 
-            console.log(`[DEBUG] Created role:`, role);
+            if (existingUser) {
+                throw new BadRequestException('User with this email already exists in the organization');
+            }
 
-            // Assign permissions if provided
-            if (dto.permissionIds && dto.permissionIds.length > 0) {
-                console.log(`[DEBUG] Assigning ${dto.permissionIds.length} permissions to role`);
-                await this.prisma.rolePermission.createMany({
-                    data: dto.permissionIds.map((permissionId: string) => ({
-                        roleId: role.id,
-                        permissionId,
+            let user;
+            let globalUser = null;
+
+            // If globalUserId is provided, link existing global user
+            if (dto.globalUserId) {
+                globalUser = await tx.globalUser.findUnique({
+                    where: { id: dto.globalUserId }
+                });
+
+                if (!globalUser) {
+                    throw new BadRequestException('Global user not found');
+                }
+
+                // Create OrgUser linked to the global user
+                user = await tx.orgUser.create({
+                    data: {
+                        email: globalUser.email,
+                        displayName: globalUser.name || globalUser.email,
+                        tenantId: orgId,
+                        isActive: dto.isActive ?? true,
+                        passwordHash: globalUser.passwordHash, // Use same password as global user
+                        globalUserId: globalUser.id // Link to global user
+                    }
+                });
+
+                // CRITICAL: Create organisationAdmin record so global user can access org endpoints
+                const existingAdmin = await tx.organisationAdmin.findFirst({
+                    where: {
+                        organisationId: orgId,
+                        globalUserId: globalUser.id
+                    }
+                });
+
+                if (!existingAdmin) {
+                    await tx.organisationAdmin.create({
+                        data: {
+                            organisationId: orgId,
+                            globalUserId: globalUser.id,
+                            role: 'admin' // Default role for added users
+                        }
+                    });
+                    console.log(`[GlobalAdminService] Created organisationAdmin record for ${globalUser.email} in org ${orgId}`);
+                }
+            } else {
+                // Create new standalone user
+                if (!dto.firstName || !dto.lastName) {
+                    throw new BadRequestException('First name and last name are required for new users');
+                }
+
+                user = await tx.orgUser.create({
+                    data: {
+                        email: dto.email,
+                        displayName: `${dto.firstName} ${dto.lastName}`,
+                        tenantId: orgId,
+                        isActive: dto.isActive ?? true,
+                        // If password provided, hash it, otherwise generate a random one
+                        passwordHash: dto.password
+                            ? await bcrypt.hash(dto.password, 10)
+                            : await bcrypt.hash(Math.random().toString(36), 10)
+                    }
+                });
+            }
+
+            // Assign roles if provided
+            if (dto.roleIds && dto.roleIds.length > 0) {
+                await tx.orgUserRole.createMany({
+                    data: dto.roleIds.map((roleId: string) => ({
+                        orgUserId: user.id,
+                        roleId,
                         tenantId: orgId
                     }))
                 });
             }
 
             // Log action
-            await this.prisma.auditLog.create({
+            await tx.auditLog.create({
                 data: {
                     tenantId: orgId,
                     action: 'CREATE',
-                    entityType: 'ROLE',
-                    entityId: role.id,
+                    entityType: 'ORG_USER',
+                    entityId: user.id,
+                    orgUserId: user.id,
                     details: JSON.stringify({
-                        name: dto.name,
-                        permissions: dto.permissionIds
+                        email: dto.email,
+                        roles: dto.roleIds
                     })
                 }
             });
 
-            console.log(`[DEBUG] Role creation completed successfully`);
-            return role;
-        } catch (error) {
-            console.error(`[ERROR] Failed to create role for org ${orgId}:`, error);
-            throw error;
-        }
+            return user;
+        });
+    }
+
+    async updateOrganisationUser(orgId: string, userId: string, dto: UpdateOrganisationUserDto) {
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+
+            // Update user
+            const displayName = dto.firstName && dto.lastName
+                ? `${dto.firstName} ${dto.lastName}`
+                : undefined;
+
+            const user = await tx.orgUser.update({
+                where: {
+                    id: userId,
+                    tenantId: orgId
+                },
+                data: {
+                    ...(displayName && { displayName }),
+                    ...(dto.isActive !== undefined && { isActive: dto.isActive })
+                }
+            });
+
+            // Update roles if provided
+            if (dto.roleIds !== undefined) {
+                // Remove existing roles
+                await tx.orgUserRole.deleteMany({
+                    where: {
+                        orgUserId: userId,
+                        tenantId: orgId
+                    }
+                });
+
+                // Add new roles
+                if (dto.roleIds.length > 0) {
+                    await tx.orgUserRole.createMany({
+                        data: dto.roleIds.map((roleId: string) => ({
+                            orgUserId: userId,
+                            roleId,
+                            tenantId: orgId
+                        }))
+                    });
+                }
+            }
+
+            // Log action
+            await tx.auditLog.create({
+                data: {
+                    tenantId: orgId,
+                    action: 'UPDATE',
+                    entityType: 'ORG_USER',
+                    entityId: userId,
+                    orgUserId: userId,
+                    details: JSON.stringify(dto)
+                }
+            });
+
+            return user;
+        });
+    }
+
+    async deleteOrganisationUser(orgId: string, userId: string) {
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+
+            // Remove user roles first
+            await tx.orgUserRole.deleteMany({
+                where: {
+                    orgUserId: userId,
+                    tenantId: orgId
+                }
+            });
+
+            // Delete user
+            const user = await tx.orgUser.delete({
+                where: {
+                    id: userId,
+                    tenantId: orgId
+                }
+            });
+
+            // Log action
+            await tx.auditLog.create({
+                data: {
+                    tenantId: orgId,
+                    action: 'DELETE',
+                    entityType: 'ORG_USER',
+                    entityId: userId,
+                    orgUserId: userId,
+                    details: JSON.stringify({
+                        email: user.email
+                    })
+                }
+            });
+
+            return { success: true };
+        });
+    }
+
+    // Organization Roles Management
+    async getOrganisationRoles(orgId: string) {
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+
+            const roles = await tx.role.findMany({
+                where: { tenantId: orgId },
+                include: {
+                    permissions: {
+                        include: {
+                            permission: true
+                        }
+                    },
+                    users: true
+                },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            return roles.map(role => ({
+                id: role.id,
+                name: role.name,
+                description: role.desc,
+                userCount: role.users.length,
+                createdAt: role.createdAt,
+                updatedAt: role.updatedAt,
+                permissions: role.permissions.map(rp => ({
+                    id: rp.permission.id,
+                    key: rp.permission.key,
+                    group: rp.permission.group,
+                    description: rp.permission.desc
+                }))
+            }));
+        });
+    }
+
+    async createOrganisationRole(orgId: string, dto: CreateOrganisationRoleDto) {
+        return await this.prisma.$transaction(async (tx) => {
+            try {
+                console.log(`[DEBUG] Creating role for org: ${orgId}`, dto);
+
+                // Set tenant context for RLS
+                await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+
+                // Create role
+                const role = await tx.role.create({
+                    data: {
+                        name: dto.name,
+                        desc: dto.description,
+                        tenantId: orgId
+                    }
+                });
+
+                console.log(`[DEBUG] Created role:`, role);
+
+                // Assign permissions if provided
+                if (dto.permissionIds && dto.permissionIds.length > 0) {
+                    console.log(`[DEBUG] Assigning ${dto.permissionIds.length} permissions to role`);
+                    await tx.rolePermission.createMany({
+                        data: dto.permissionIds.map((permissionId: string) => ({
+                            roleId: role.id,
+                            permissionId,
+                            tenantId: orgId
+                        }))
+                    });
+                }
+
+                // Log action
+                await tx.auditLog.create({
+                    data: {
+                        tenantId: orgId,
+                        action: 'CREATE',
+                        entityType: 'ROLE',
+                        entityId: role.id,
+                        details: JSON.stringify({
+                            name: dto.name,
+                            permissions: dto.permissionIds
+                        })
+                    }
+                });
+
+                console.log(`[DEBUG] Role creation completed successfully`);
+                return role;
+            } catch (error) {
+                console.error(`[ERROR] Failed to create role for org ${orgId}:`, error);
+                throw error;
+            }
+        });
     }
 
     async updateOrganisationRole(orgId: string, roleId: string, dto: UpdateOrganisationRoleDto) {
-        // Set tenant context for RLS
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
 
-        // Check if role is system role
-        const existingRole = await this.prisma.role.findFirst({
-            where: {
-                id: roleId,
-                tenantId: orgId
+            // Check if role is system role
+            const existingRole = await tx.role.findFirst({
+                where: {
+                    id: roleId,
+                    tenantId: orgId
+                }
+            });
+
+            if (!existingRole) {
+                throw new BadRequestException('Role not found');
             }
-        });
 
-        if (!existingRole) {
-            throw new BadRequestException('Role not found');
-        }
+            // For now, we don't have system roles concept in the schema
+            // This check can be added later if needed
 
-        // For now, we don't have system roles concept in the schema
-        // This check can be added later if needed
+            // Update role
+            const role = await tx.role.update({
+                where: {
+                    id: roleId,
+                    tenantId: orgId
+                },
+                data: {
+                    name: dto.name,
+                    desc: dto.description
+                }
+            });
 
-        // Update role
-        const role = await this.prisma.role.update({
-            where: {
-                id: roleId,
-                tenantId: orgId
-            },
-            data: {
-                name: dto.name,
-                desc: dto.description
+            // Update permissions if provided
+            if (dto.permissionIds !== undefined) {
+                // Remove existing permissions
+                await tx.rolePermission.deleteMany({
+                    where: {
+                        roleId,
+                        tenantId: orgId
+                    }
+                });
+
+                // Add new permissions
+                if (dto.permissionIds.length > 0) {
+                    await tx.rolePermission.createMany({
+                        data: dto.permissionIds.map((permissionId: string) => ({
+                            roleId,
+                            permissionId,
+                            tenantId: orgId
+                        }))
+                    });
+                }
             }
-        });
 
-        // Update permissions if provided
-        if (dto.permissionIds !== undefined) {
-            // Remove existing permissions
-            await this.prisma.rolePermission.deleteMany({
+            // Log action
+            await tx.auditLog.create({
+                data: {
+                    tenantId: orgId,
+                    action: 'UPDATE',
+                    entityType: 'ROLE',
+                    entityId: roleId,
+                    details: JSON.stringify(dto)
+                }
+            });
+
+            return role;
+        });
+    }
+
+    async deleteOrganisationRole(orgId: string, roleId: string) {
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+
+            // Check if role is system role
+            const existingRole = await tx.role.findFirst({
+                where: {
+                    id: roleId,
+                    tenantId: orgId
+                }
+            });
+
+            if (!existingRole) {
+                throw new BadRequestException('Role not found');
+            }
+
+            // For now, we don't have system roles concept in the schema
+            // This check can be added later if needed
+
+            // Remove role from users
+            await tx.orgUserRole.deleteMany({
                 where: {
                     roleId,
                     tenantId: orgId
                 }
             });
 
-            // Add new permissions
-            if (dto.permissionIds.length > 0) {
-                await this.prisma.rolePermission.createMany({
-                    data: dto.permissionIds.map((permissionId: string) => ({
-                        roleId,
-                        permissionId,
-                        tenantId: orgId
-                    }))
-                });
-            }
-        }
+            // Remove role permissions
+            await tx.rolePermission.deleteMany({
+                where: {
+                    roleId,
+                    tenantId: orgId
+                }
+            });
 
-        // Log action
-        await this.prisma.auditLog.create({
-            data: {
-                tenantId: orgId,
-                action: 'UPDATE',
-                entityType: 'ROLE',
-                entityId: roleId,
-                details: JSON.stringify(dto)
-            }
+            // Delete role
+            await tx.role.delete({
+                where: {
+                    id: roleId,
+                    tenantId: orgId
+                }
+            });
+
+            // Log action
+            await tx.auditLog.create({
+                data: {
+                    tenantId: orgId,
+                    action: 'DELETE',
+                    entityType: 'ROLE',
+                    entityId: roleId,
+                    details: JSON.stringify({
+                        name: existingRole.name
+                    })
+                }
+            });
+
+            return { success: true };
         });
-
-        return role;
-    }
-
-    async deleteOrganisationRole(orgId: string, roleId: string) {
-        // Set tenant context for RLS
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
-
-        // Check if role is system role
-        const existingRole = await this.prisma.role.findFirst({
-            where: {
-                id: roleId,
-                tenantId: orgId
-            }
-        });
-
-        if (!existingRole) {
-            throw new BadRequestException('Role not found');
-        }
-
-        // For now, we don't have system roles concept in the schema
-        // This check can be added later if needed
-
-        // Remove role from users
-        await this.prisma.orgUserRole.deleteMany({
-            where: {
-                roleId,
-                tenantId: orgId
-            }
-        });
-
-        // Remove role permissions
-        await this.prisma.rolePermission.deleteMany({
-            where: {
-                roleId,
-                tenantId: orgId
-            }
-        });
-
-        // Delete role
-        await this.prisma.role.delete({
-            where: {
-                id: roleId,
-                tenantId: orgId
-            }
-        });
-
-        // Log action
-        await this.prisma.auditLog.create({
-            data: {
-                tenantId: orgId,
-                action: 'DELETE',
-                entityType: 'ROLE',
-                entityId: roleId,
-                details: JSON.stringify({
-                    name: existingRole.name
-                })
-            }
-        });
-
-        return { success: true };
     }
 
     async getOrganisationPermissions(orgId: string) {
-        try {
-            console.log(`[DEBUG] Getting permissions for org: ${orgId}`);
+        return await this.prisma.$transaction(async (tx) => {
+            try {
+                console.log(`[DEBUG] Getting permissions for org: ${orgId}`);
 
-            // Set tenant context for RLS
-            await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+                // Set tenant context for RLS
+                await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
 
-            let permissions = await this.prisma.permission.findMany({
-                where: { tenantId: orgId },
-                orderBy: [
-                    { group: 'asc' },
-                    { key: 'asc' }
-                ]
-            });
-
-            console.log(`[DEBUG] Found ${permissions.length} permissions`);
-
-            // If no permissions exist, create default permissions
-            if (permissions.length === 0) {
-                console.log(`[DEBUG] Creating default permissions for org: ${orgId}`);
-                await this.createDefaultPermissions(orgId);
-                permissions = await this.prisma.permission.findMany({
+                let permissions = await tx.permission.findMany({
                     where: { tenantId: orgId },
                     orderBy: [
                         { group: 'asc' },
                         { key: 'asc' }
                     ]
                 });
-                console.log(`[DEBUG] Created ${permissions.length} default permissions`);
+
+                console.log(`[DEBUG] Found ${permissions.length} permissions`);
+
+                // If no permissions exist, create default permissions
+                if (permissions.length === 0) {
+                    console.log(`[DEBUG] Creating default permissions for org: ${orgId}`);
+                    await this.createDefaultPermissions(orgId);
+                    permissions = await tx.permission.findMany({
+                        where: { tenantId: orgId },
+                        orderBy: [
+                            { group: 'asc' },
+                            { key: 'asc' }
+                        ]
+                    });
+                    console.log(`[DEBUG] Created ${permissions.length} default permissions`);
+                }
+
+                const result = permissions.map(permission => ({
+                    id: permission.id,
+                    key: permission.key,
+                    group: permission.group,
+                    description: permission.desc
+                }));
+
+                console.log(`[DEBUG] Returning permissions:`, result);
+                return result;
+            } catch (error) {
+                console.error(`[ERROR] Failed to get permissions for org ${orgId}:`, error);
+                throw error;
             }
-
-            const result = permissions.map(permission => ({
-                id: permission.id,
-                key: permission.key,
-                group: permission.group,
-                description: permission.desc
-            }));
-
-            console.log(`[DEBUG] Returning permissions:`, result);
-            return result;
-        } catch (error) {
-            console.error(`[ERROR] Failed to get permissions for org ${orgId}:`, error);
-            throw error;
-        }
+        });
     }
 
     private async createDefaultPermissions(orgId: string) {
