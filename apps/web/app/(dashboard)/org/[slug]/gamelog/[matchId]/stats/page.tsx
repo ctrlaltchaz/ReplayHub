@@ -150,17 +150,18 @@ export default function ManageStatsPage() {
 
         try {
             // Transform data to match backend expectations
-            const statsToSend = newStats.map(({ tempId, rating, isMvp, statsJson, ...stat }) => ({
-                ...stat,
-                role: statsJson.role,
+            const statsToSend = newStats.map(({ tempId, ...stat }) => ({
+                playerId: stat.playerId,
+                mapGameId: stat.mapGameId,
+                role: stat.statsJson.role,
+                rating: stat.rating,
+                isMvp: stat.isMvp,
                 statsJson: {
-                    kills: statsJson.kills,
-                    deaths: statsJson.deaths,
-                    assists: statsJson.assists,
-                    damage: statsJson.damage,
-                    healing: statsJson.healing,
-                    rating: rating,
-                    isMvp: isMvp,
+                    kills: stat.statsJson.kills,
+                    deaths: stat.statsJson.deaths,
+                    assists: stat.statsJson.assists,
+                    damage: stat.statsJson.damage,
+                    healing: stat.statsJson.healing,
                 },
             }));
             const result = await bulkCreateStats.mutateAsync({ stats: statsToSend });
