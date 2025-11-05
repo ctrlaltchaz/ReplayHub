@@ -7,8 +7,7 @@ export class GlobalUsersService {
     constructor(private prisma: PrismaService) { }
 
     async getUserProfile(userId: string) {
-        // Note: We intentionally bypass RLS here because this is a cross-tenant query
-        // fetching all orgUsers for a global user across multiple tenants
+        // First, get the user with just the basic relations that don't have RLS
         const user = await this.prisma.globalUser.findUnique({
             where: { id: userId },
             include: {
@@ -18,15 +17,6 @@ export class GlobalUsersService {
                         organisation: true,
                     },
                 },
-                orgUsers: {
-                    include: {
-                        roles: {
-                            include: {
-                                role: true,
-                            },
-                        },
-                    },
-                },
             },
         });
 
@@ -34,25 +24,76 @@ export class GlobalUsersService {
             throw new Error('User not found');
         }
 
-        // Fetch organizations for each orgUser by tenantId
-        const orgUserTenantIds = user.orgUsers.map(ou => ou.tenantId);
+        // Fetch orgUsers with a raw query to bypass RLS (cross-tenant query)
+        const orgUsers = await this.prisma.$queryRaw<any[]>`
+            SELECT 
+                ou.id,
+                ou.tenant_id as "tenantId",
+                ou.global_user_id as "globalUserId",
+                ou.email,
+                ou.display_name as "displayName",
+                ou.password_hash as "passwordHash",
+                ou.is_active as "isActive",
+                ou.totp_secret as "totpSecret",
+                ou.is_totp_enabled as "isTotpEnabled",
+                ou.created_at as "createdAt",
+                ou.updated_at as "updatedAt"
+            FROM org_users ou
+            WHERE ou.global_user_id = ${userId}::uuid
+        `;
+
+        // Fetch organizations for each orgUser
+        const orgUserTenantIds = orgUsers.map(ou => ou.tenantId);
         const organizations = await this.prisma.organisation.findMany({
             where: {
                 id: { in: orgUserTenantIds },
             },
         });
 
-        // Map organizations to orgUsers
-        const orgUsersWithOrganization = user.orgUsers.map(orgUser => ({
-            ...orgUser,
-            organisation: organizations.find(org => org.id === orgUser.tenantId),
-        }));
+        // Fetch roles for each orgUser (also needs to bypass RLS)
+        const orgUserIds = orgUsers.map(ou => ou.id);
+        const orgUserRoles = await this.prisma.$queryRaw<any[]>`
+            SELECT 
+                our.id,
+                our.org_user_id as "orgUserId",
+                our.role_id as "roleId",
+                our.assigned_at as "assignedAt",
+                r.id as "role_id",
+                r.name as "role_name",
+                r.organization_id as "role_organizationId"
+            FROM org_user_roles our
+            INNER JOIN roles r ON our.role_id = r.id
+            WHERE our.org_user_id = ANY(${orgUserIds}::uuid[])
+        `;
+
+        // Map roles to orgUsers
+        const orgUsersWithDetails = orgUsers.map(orgUser => {
+            const roles = orgUserRoles
+                .filter(r => r.orgUserId === orgUser.id)
+                .map(r => ({
+                    id: r.id,
+                    orgUserId: r.orgUserId,
+                    roleId: r.roleId,
+                    assignedAt: r.assignedAt,
+                    role: {
+                        id: r.role_id,
+                        name: r.role_name,
+                        organizationId: r.role_organizationId,
+                    },
+                }));
+
+            return {
+                ...orgUser,
+                roles,
+                organisation: organizations.find(org => org.id === orgUser.tenantId),
+            };
+        });
 
         // Return user without password hash
-        const { passwordHash: _, orgUsers, ...userResponse } = user;
+        const { passwordHash: _, ...userResponse } = user;
         return {
             ...userResponse,
-            orgUsers: orgUsersWithOrganization,
+            orgUsers: orgUsersWithDetails,
         };
     }
 
