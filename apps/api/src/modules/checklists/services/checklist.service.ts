@@ -147,51 +147,64 @@ export class ChecklistService {
     // Checklists
 
     async createChecklist(tenantId: string, createChecklistDto: CreateChecklistDto) {
-        return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+        try {
+            console.log('[createChecklist] Starting with:', { tenantId, dto: createChecklistDto });
+            
+            return await this.prisma.$transaction(async (tx) => {
+                // Set tenant context for RLS
+                console.log('[createChecklist] Setting RLS context...');
+                await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+                console.log('[createChecklist] RLS context set successfully');
 
-            // If templateId is provided, validate template exists
-            if (createChecklistDto.templateId) {
-                const template = await tx.checklistTemplate.findFirst({
-                    where: { id: createChecklistDto.templateId, tenantId }
-                });
+                // If templateId is provided, validate template exists
+                if (createChecklistDto.templateId) {
+                    console.log('[createChecklist] Looking for template:', createChecklistDto.templateId);
+                    const template = await tx.checklistTemplate.findFirst({
+                        where: { id: createChecklistDto.templateId, tenantId }
+                    });
 
-                if (!template) {
-                    throw new NotFoundException('Checklist template not found');
+                    if (!template) {
+                        throw new NotFoundException('Checklist template not found');
+                    }
+
+                    console.log('[createChecklist] Creating checklist from template...');
+                    return tx.checklist.create({
+                        data: {
+                            tenantId,
+                            templateId: createChecklistDto.templateId,
+                            scopeRef: createChecklistDto.scopeRef,
+                            dueAt: createChecklistDto.dueAt ? new Date(createChecklistDto.dueAt) : null,
+                            assigneeId: createChecklistDto.assigneeId
+                        },
+                        include: {
+                            template: true
+                        }
+                    });
                 }
 
+                // Standalone checklist without template
+                console.log('[createChecklist] Validating standalone checklist fields...');
+                if (!createChecklistDto.title || !createChecklistDto.scope || !createChecklistDto.itemsJson) {
+                    throw new BadRequestException('Title, scope, and items are required for standalone checklists');
+                }
+
+                console.log('[createChecklist] Creating standalone checklist...');
                 return tx.checklist.create({
                     data: {
                         tenantId,
-                        templateId: createChecklistDto.templateId,
+                        title: createChecklistDto.title,
+                        scope: createChecklistDto.scope,
+                        itemsJson: createChecklistDto.itemsJson as any,
                         scopeRef: createChecklistDto.scopeRef,
                         dueAt: createChecklistDto.dueAt ? new Date(createChecklistDto.dueAt) : null,
                         assigneeId: createChecklistDto.assigneeId
-                    },
-                    include: {
-                        template: true
                     }
                 });
-            }
-
-            // Standalone checklist without template
-            if (!createChecklistDto.title || !createChecklistDto.scope || !createChecklistDto.itemsJson) {
-                throw new BadRequestException('Title, scope, and items are required for standalone checklists');
-            }
-
-            return tx.checklist.create({
-                data: {
-                    tenantId,
-                    title: createChecklistDto.title,
-                    scope: createChecklistDto.scope,
-                    itemsJson: createChecklistDto.itemsJson as any,
-                    scopeRef: createChecklistDto.scopeRef,
-                    dueAt: createChecklistDto.dueAt ? new Date(createChecklistDto.dueAt) : null,
-                    assigneeId: createChecklistDto.assigneeId
-                }
             });
-        });
+        } catch (error) {
+            console.error('[createChecklist] ERROR:', error);
+            throw error;
+        }
     }
 
     async findChecklists(tenantId: string, query: ChecklistQueryDto) {
