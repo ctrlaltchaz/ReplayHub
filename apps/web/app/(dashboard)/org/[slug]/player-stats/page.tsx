@@ -73,8 +73,8 @@ export default function PlayerStatsPage() {
                                 if (text) {
                                     try {
                                         const stats = JSON.parse(text);
-                                        // Check if stats object is empty or has no data
-                                        if (!stats || Object.keys(stats).length === 0 || stats.totalGames === 0) {
+                                        // Check if stats object is empty (backend returns {} for no stats)
+                                        if (!stats || Object.keys(stats).length === 0) {
                                             return { ...player, stats: null };
                                         }
                                         return { ...player, stats };
