@@ -113,6 +113,7 @@ model Organisation {
   owner    GlobalUser          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   admins   OrganisationAdmin[]
   invites  OrgInvite[]
+  orgUsers OrgUser[]           @relation("OrgUserToOrganisation")
 
   @@map("organisations")
 }
@@ -160,6 +161,7 @@ model OrgUser {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   // Relations
+  organisation      Organisation @relation("OrgUserToOrganisation", fields: [tenantId], references: [id], onDelete: Cascade)
   globalUser        GlobalUser?  @relation("OrgUserToGlobalUser", fields: [globalUserId], references: [id], onDelete: SetNull)
   roles             OrgUserRole[]
   auditLogs         AuditLog[]
