@@ -14,86 +14,85 @@ import {
 export class InventoryService {
     constructor(private readonly prisma: PrismaService) { }
 
-    // Set tenant context for RLS
-    private async setTenantContext(tenantId: string) {
-        await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
-    }
-
     // INVENTORY ITEMS
 
     async createItem(tenantId: string, dto: CreateInventoryItemDto) {
-        await this.setTenantContext(tenantId);
+        return await this.prisma.$transaction(async (tx) => {
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        try {
-            return await this.prisma.inventoryItem.create({
-                data: {
-                    tenantId,
-                    ...dto,
-                },
-            });
-        } catch (error: any) {
-            if (error.code === 'P2002' && error.meta?.target?.includes('tag')) {
-                throw new ConflictException(`Inventory item with tag '${dto.tag}' already exists`);
+            try {
+                return await tx.inventoryItem.create({
+                    data: {
+                        tenantId,
+                        ...dto,
+                    },
+                });
+            } catch (error: any) {
+                if (error.code === 'P2002' && error.meta?.target?.includes('tag')) {
+                    throw new ConflictException(`Inventory item with tag '${dto.tag}' already exists`);
+                }
+                throw error;
             }
-            throw error;
-        }
+        });
     }
 
     async findItems(tenantId: string, query: QueryInventoryItemsDto) {
-        await this.setTenantContext(tenantId);
+        return await this.prisma.$transaction(async (tx) => {
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-        const where: any = { tenantId };
+            const where: any = { tenantId };
 
-        // Apply filters
-        if (query.type) {
-            where.type = query.type;
-        }
+            // Apply filters
+            if (query.type) {
+                where.type = query.type;
+            }
 
-        if (query.status) {
-            where.status = query.status;
-        }
+            if (query.status) {
+                where.status = query.status;
+            }
 
-        if (query.q) {
-            where.OR = [
-                { name: { contains: query.q, mode: 'insensitive' } },
-                { tag: { contains: query.q, mode: 'insensitive' } },
-                { serial: { contains: query.q, mode: 'insensitive' } },
-                { location: { contains: query.q, mode: 'insensitive' } },
-                { notes: { contains: query.q, mode: 'insensitive' } }
-            ];
-        }
+            if (query.q) {
+                where.OR = [
+                    { name: { contains: query.q, mode: 'insensitive' } },
+                    { tag: { contains: query.q, mode: 'insensitive' } },
+                    { serial: { contains: query.q, mode: 'insensitive' } },
+                    { location: { contains: query.q, mode: 'insensitive' } },
+                    { notes: { contains: query.q, mode: 'insensitive' } }
+                ];
+            }
 
-        // Cursor-based pagination
-        const orderBy = { createdAt: 'desc' as const };
-        const take = Math.min(query.limit || 50, 100);
+            // Cursor-based pagination
+            const orderBy = { createdAt: 'desc' as const };
+            const take = Math.min(query.limit || 50, 100);
 
-        const findManyArgs: any = {
-            where,
-            orderBy,
-            take: take + 1, // Take one extra to check if there's a next page
-        };
+            const findManyArgs: any = {
+                where,
+                orderBy,
+                take: take + 1, // Take one extra to check if there's a next page
+            };
 
-        if (query.cursor) {
-            findManyArgs.cursor = { id: query.cursor };
-            findManyArgs.skip = 1; // Skip the cursor item
-        }
+            if (query.cursor) {
+                findManyArgs.cursor = { id: query.cursor };
+                findManyArgs.skip = 1; // Skip the cursor item
+            }
 
-        const items = await this.prisma.inventoryItem.findMany(findManyArgs);
+            const items = await tx.inventoryItem.findMany(findManyArgs);
 
-        const hasNextPage = items.length > take;
-        if (hasNextPage) {
-            items.pop(); // Remove the extra item
-        }
+            const hasNextPage = items.length > take;
+            if (hasNextPage) {
+                items.pop(); // Remove the extra item
+            }
 
-        const nextCursor = hasNextPage ? items[items.length - 1]?.id : null;
+            const nextCursor = hasNextPage ? items[items.length - 1]?.id : null;
 
-        return {
-            data: items,
-            pagination: {
-                hasNextPage,
-                nextCursor,
-            },
-        };
+            return {
+                data: items,
+                pagination: {
+                    hasNextPage,
+                    nextCursor,
+                },
+            };
+        });
     }
 
     async findItemById(tenantId: string, itemId: string) {
