@@ -314,17 +314,15 @@ export default function MatchDetailPage() {
                         {/* Edit/Delete Actions */}
                         {canManage && (
                             <>
-                                {match.status === "draft" && (
-                                    <Button
-                                        variant="outline"
-                                        onClick={() =>
-                                            router.push(`/org/${slug}/gamelog/${matchId}/edit`)
-                                        }
-                                    >
-                                        <Edit className="h-4 w-4 mr-2" />
-                                        Edit
-                                    </Button>
-                                )}
+                                <Button
+                                    variant="outline"
+                                    onClick={() =>
+                                        router.push(`/org/${slug}/gamelog/${matchId}/edit`)
+                                    }
+                                >
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit
+                                </Button>
                                 <Button
                                     variant="destructive"
                                     onClick={() => setShowDeleteDialog(true)}

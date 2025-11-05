@@ -149,7 +149,7 @@ export class ChecklistService {
     async createChecklist(tenantId: string, createChecklistDto: CreateChecklistDto) {
         try {
             console.log('[createChecklist] Starting with:', JSON.stringify({ tenantId, dto: createChecklistDto }, null, 2));
-            
+
             return await this.prisma.$transaction(async (tx) => {
                 // Set tenant context for RLS
                 console.log('[createChecklist] Setting RLS context...');

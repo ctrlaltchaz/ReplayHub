@@ -71,10 +71,10 @@ export function EditChecklistDialog({ open, onOpenChange, orgSlug, checklist }: 
 
         // Don't allow editing template-based checklists
         if (checklist.templateId) {
-            toast({ 
-                title: 'Cannot Edit', 
-                description: 'Template-based checklists cannot be edited. Edit the template instead.', 
-                variant: 'destructive' 
+            toast({
+                title: 'Cannot Edit',
+                description: 'Template-based checklists cannot be edited. Edit the template instead.',
+                variant: 'destructive'
             });
             return;
         }
@@ -117,7 +117,7 @@ export function EditChecklistDialog({ open, onOpenChange, orgSlug, checklist }: 
                 {isTemplateBased && (
                     <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
                         <p className="text-sm text-amber-800 dark:text-amber-200">
-                            This checklist is based on a template and cannot be directly edited. 
+                            This checklist is based on a template and cannot be directly edited.
                             To make changes, edit the template instead.
                         </p>
                     </div>
@@ -125,18 +125,18 @@ export function EditChecklistDialog({ open, onOpenChange, orgSlug, checklist }: 
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
                         <Label htmlFor="title">Checklist Title</Label>
-                        <Input 
-                            id="title" 
-                            value={title} 
-                            onChange={(e) => setTitle(e.target.value)} 
-                            placeholder="Event Setup Checklist" 
+                        <Input
+                            id="title"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            placeholder="Event Setup Checklist"
                             disabled={isTemplateBased}
                         />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="scope">Scope</Label>
-                        <Select 
-                            value={scope} 
+                        <Select
+                            value={scope}
                             onValueChange={(val) => setScope(val as ChecklistScope)}
                             disabled={isTemplateBased}
                         >
@@ -162,27 +162,27 @@ export function EditChecklistDialog({ open, onOpenChange, orgSlug, checklist }: 
                             <div key={index} className="border rounded-lg p-4 space-y-3">
                                 <div className="flex items-start gap-2">
                                     <div className="flex-1 space-y-3">
-                                        <Input 
-                                            value={item.text} 
-                                            onChange={(e) => updateItem(index, { text: e.target.value })} 
-                                            placeholder="Item description" 
+                                        <Input
+                                            value={item.text}
+                                            onChange={(e) => updateItem(index, { text: e.target.value })}
+                                            placeholder="Item description"
                                             disabled={isTemplateBased}
                                         />
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
                                                 <Label className="text-xs">Category</Label>
-                                                <Input 
-                                                    value={item.category || ''} 
-                                                    onChange={(e) => updateItem(index, { category: e.target.value })} 
-                                                    placeholder="Setup, Teardown" 
-                                                    className="mt-1" 
+                                                <Input
+                                                    value={item.category || ''}
+                                                    onChange={(e) => updateItem(index, { category: e.target.value })}
+                                                    placeholder="Setup, Teardown"
+                                                    className="mt-1"
                                                     disabled={isTemplateBased}
                                                 />
                                             </div>
                                             <div>
                                                 <Label className="text-xs">Assigned To</Label>
-                                                <Select 
-                                                    value={item.assignedTo || 'unassigned'} 
+                                                <Select
+                                                    value={item.assignedTo || 'unassigned'}
                                                     onValueChange={(val) => updateItem(index, { assignedTo: val === 'unassigned' ? undefined : val })}
                                                     disabled={isTemplateBased}
                                                 >
@@ -199,8 +199,8 @@ export function EditChecklistDialog({ open, onOpenChange, orgSlug, checklist }: 
                                             </div>
                                             <div>
                                                 <Label className="text-xs">Priority</Label>
-                                                <Select 
-                                                    value={item.priority || 'medium'} 
+                                                <Select
+                                                    value={item.priority || 'medium'}
                                                     onValueChange={(val) => updateItem(index, { priority: val as ChecklistPriority })}
                                                     disabled={isTemplateBased}
                                                 >
@@ -214,32 +214,32 @@ export function EditChecklistDialog({ open, onOpenChange, orgSlug, checklist }: 
                                             </div>
                                             <div>
                                                 <Label className="text-xs">Est. Time (min)</Label>
-                                                <Input 
-                                                    type="number" 
-                                                    min="1" 
-                                                    value={item.estimatedMinutes || ''} 
-                                                    onChange={(e) => updateItem(index, { estimatedMinutes: parseInt(e.target.value) || undefined })} 
-                                                    placeholder="5" 
-                                                    className="mt-1" 
+                                                <Input
+                                                    type="number"
+                                                    min="1"
+                                                    value={item.estimatedMinutes || ''}
+                                                    onChange={(e) => updateItem(index, { estimatedMinutes: parseInt(e.target.value) || undefined })}
+                                                    placeholder="5"
+                                                    className="mt-1"
                                                     disabled={isTemplateBased}
                                                 />
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <div className="flex items-center gap-2">
-                                                <Checkbox 
-                                                    id={`required-${index}`} 
-                                                    checked={item.required} 
-                                                    onCheckedChange={(checked) => updateItem(index, { required: !!checked })} 
+                                                <Checkbox
+                                                    id={`required-${index}`}
+                                                    checked={item.required}
+                                                    onCheckedChange={(checked) => updateItem(index, { required: !!checked })}
                                                     disabled={isTemplateBased}
                                                 />
                                                 <Label htmlFor={`required-${index}`} className="text-sm font-normal">Required</Label>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <Checkbox 
-                                                    id={`evidence-${index}`} 
-                                                    checked={item.evidence} 
-                                                    onCheckedChange={(checked) => updateItem(index, { evidence: !!checked })} 
+                                                <Checkbox
+                                                    id={`evidence-${index}`}
+                                                    checked={item.evidence}
+                                                    onCheckedChange={(checked) => updateItem(index, { evidence: !!checked })}
                                                     disabled={isTemplateBased}
                                                 />
                                                 <Label htmlFor={`evidence-${index}`} className="text-sm font-normal">Evidence Required</Label>
@@ -247,11 +247,11 @@ export function EditChecklistDialog({ open, onOpenChange, orgSlug, checklist }: 
                                         </div>
                                     </div>
                                     {!isTemplateBased && (
-                                        <Button 
-                                            type="button" 
-                                            variant="ghost" 
-                                            size="sm" 
-                                            onClick={() => removeItem(index)} 
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => removeItem(index)}
                                             disabled={items.length === 1}
                                         >
                                             <Trash2 className="w-4 h-4" />

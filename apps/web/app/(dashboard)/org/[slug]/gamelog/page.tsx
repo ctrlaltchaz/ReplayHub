@@ -15,7 +15,7 @@ import { useAuth } from "@/context/AuthContext";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import type { Match, MatchesQueryParams } from "@/types/gamelog";
 import { format, parseISO } from "date-fns";
-import { Award, Download, FileText, Filter, Loader2, Plus, Search, Trophy, X } from "lucide-react";
+import { Award, Download, Edit, FileText, Filter, Loader2, Plus, Search, Trophy, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMatchesList } from "./hooks/useMatchesList";
@@ -249,6 +249,19 @@ export default function GamelogPage() {
                                         </div>
 
                                         <div className="flex items-center gap-2">
+                                            {canManage && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        router.push(`/org/${slug}/gamelog/${match.id}/edit`);
+                                                    }}
+                                                >
+                                                    <Edit className="h-4 w-4 mr-1" />
+                                                    Edit
+                                                </Button>
+                                            )}
                                             {match.status === "approved" && (
                                                 <Button
                                                     variant="outline"

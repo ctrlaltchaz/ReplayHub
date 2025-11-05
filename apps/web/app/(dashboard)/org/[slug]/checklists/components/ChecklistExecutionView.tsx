@@ -25,8 +25,8 @@ export function ChecklistExecutionView({ checklist, orgSlug }: ChecklistExecutio
         return Array.isArray(checklist.itemsJson)
             ? checklist.itemsJson
             : Array.isArray(checklist.template?.itemsJson)
-            ? checklist.template.itemsJson
-            : [];
+                ? checklist.template.itemsJson
+                : [];
     }, [checklist.itemsJson, checklist.template?.itemsJson]);
 
     const itemsByCategory = useMemo(() => {
@@ -177,8 +177,8 @@ export function ChecklistExecutionView({ checklist, orgSlug }: ChecklistExecutio
                                             <div className="flex-1 space-y-2">
                                                 <p
                                                     className={`text-sm ${isCompleted
-                                                            ? 'line-through text-muted-foreground'
-                                                            : ''
+                                                        ? 'line-through text-muted-foreground'
+                                                        : ''
                                                         }`}
                                                 >
                                                     {item.text}
