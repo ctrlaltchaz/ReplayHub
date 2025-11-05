@@ -17,238 +17,288 @@ export class ChecklistService {
     // Checklist Templates
 
     async createTemplate(tenantId: string, createTemplateDto: CreateChecklistTemplateDto, createdBy: string) {
-        return this.prisma.checklistTemplate.create({
-            data: {
-                tenantId,
-                title: createTemplateDto.title,
-                scope: createTemplateDto.scope,
-                itemsJson: createTemplateDto.itemsJson as any,
-                createdBy
-            }
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+
+            return tx.checklistTemplate.create({
+                data: {
+                    tenantId,
+                    title: createTemplateDto.title,
+                    scope: createTemplateDto.scope,
+                    itemsJson: createTemplateDto.itemsJson as any,
+                    createdBy
+                }
+            });
         });
     }
 
     async findTemplates(tenantId: string, query: ChecklistTemplateQueryDto) {
-        const where: any = { tenantId };
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-        if (query.scope) {
-            where.scope = query.scope;
-        }
+            const where: any = { tenantId };
 
-        if (query.cursor) {
-            where.id = { lt: query.cursor };
-        }
-
-        const limit = Math.min(query.limit || 20, 100);
-
-        const items = await this.prisma.checklistTemplate.findMany({
-            where,
-            orderBy: { createdAt: 'desc' },
-            take: limit + 1
-        });
-
-        const hasMore = items.length > limit;
-        const templates = hasMore ? items.slice(0, -1) : items;
-        const nextCursor = hasMore ? templates[templates.length - 1].id : null;
-
-        return {
-            data: templates,
-            pagination: {
-                hasMore,
-                nextCursor
+            if (query.scope) {
+                where.scope = query.scope;
             }
-        };
+
+            if (query.cursor) {
+                where.id = { lt: query.cursor };
+            }
+
+            const limit = Math.min(query.limit || 20, 100);
+
+            const items = await tx.checklistTemplate.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                take: limit + 1
+            });
+
+            const hasMore = items.length > limit;
+            const templates = hasMore ? items.slice(0, -1) : items;
+            const nextCursor = hasMore ? templates[templates.length - 1].id : null;
+
+            return {
+                data: templates,
+                pagination: {
+                    hasMore,
+                    nextCursor
+                }
+            };
+        });
     }
 
     async findTemplate(tenantId: string, id: string) {
-        const template = await this.prisma.checklistTemplate.findFirst({
-            where: { id, tenantId }
-        });
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-        if (!template) {
-            throw new NotFoundException('Checklist template not found');
-        }
-
-        return template;
-    }
-
-    async updateTemplate(tenantId: string, id: string, updateTemplateDto: UpdateChecklistTemplateDto) {
-        const existingTemplate = await this.prisma.checklistTemplate.findFirst({
-            where: { id, tenantId }
-        });
-
-        if (!existingTemplate) {
-            throw new NotFoundException('Checklist template not found');
-        }
-
-        return this.prisma.checklistTemplate.update({
-            where: { id },
-            data: {
-                title: updateTemplateDto.title,
-                scope: updateTemplateDto.scope,
-                itemsJson: updateTemplateDto.itemsJson as any,
-                version: existingTemplate.version + 1
-            }
-        });
-    }
-
-    async deleteTemplate(tenantId: string, id: string) {
-        const existingTemplate = await this.prisma.checklistTemplate.findFirst({
-            where: { id, tenantId }
-        });
-
-        if (!existingTemplate) {
-            throw new NotFoundException('Checklist template not found');
-        }
-
-        // Check if template is being used
-        const activeChecklists = await this.prisma.checklist.count({
-            where: {
-                tenantId,
-                templateId: id,
-                status: { in: ['pending', 'in_progress'] }
-            }
-        });
-
-        if (activeChecklists > 0) {
-            throw new BadRequestException('Cannot delete template with active checklists');
-        }
-
-        return this.prisma.checklistTemplate.delete({
-            where: { id }
-        });
-    }
-
-    // Checklists
-
-    async createChecklist(tenantId: string, createChecklistDto: CreateChecklistDto) {
-        // If templateId is provided, validate template exists
-        if (createChecklistDto.templateId) {
-            const template = await this.prisma.checklistTemplate.findFirst({
-                where: { id: createChecklistDto.templateId, tenantId }
+            const template = await tx.checklistTemplate.findFirst({
+                where: { id, tenantId }
             });
 
             if (!template) {
                 throw new NotFoundException('Checklist template not found');
             }
 
-            return this.prisma.checklist.create({
+            return template;
+        });
+    }
+
+    async updateTemplate(tenantId: string, id: string, updateTemplateDto: UpdateChecklistTemplateDto) {
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+
+            const existingTemplate = await tx.checklistTemplate.findFirst({
+                where: { id, tenantId }
+            });
+
+            if (!existingTemplate) {
+                throw new NotFoundException('Checklist template not found');
+            }
+
+            return tx.checklistTemplate.update({
+                where: { id },
+                data: {
+                    title: updateTemplateDto.title,
+                    scope: updateTemplateDto.scope,
+                    itemsJson: updateTemplateDto.itemsJson as any,
+                    version: existingTemplate.version + 1
+                }
+            });
+        });
+    }
+
+    async deleteTemplate(tenantId: string, id: string) {
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+
+            const existingTemplate = await tx.checklistTemplate.findFirst({
+                where: { id, tenantId }
+            });
+
+            if (!existingTemplate) {
+                throw new NotFoundException('Checklist template not found');
+            }
+
+            // Check if template is being used
+            const activeChecklists = await tx.checklist.count({
+                where: {
+                    tenantId,
+                    templateId: id,
+                    status: { in: ['pending', 'in_progress'] }
+                }
+            });
+
+            if (activeChecklists > 0) {
+                throw new BadRequestException('Cannot delete template with active checklists');
+            }
+
+            return tx.checklistTemplate.delete({
+                where: { id }
+            });
+        });
+    }
+
+    // Checklists
+
+    async createChecklist(tenantId: string, createChecklistDto: CreateChecklistDto) {
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+
+            // If templateId is provided, validate template exists
+            if (createChecklistDto.templateId) {
+                const template = await tx.checklistTemplate.findFirst({
+                    where: { id: createChecklistDto.templateId, tenantId }
+                });
+
+                if (!template) {
+                    throw new NotFoundException('Checklist template not found');
+                }
+
+                return tx.checklist.create({
+                    data: {
+                        tenantId,
+                        templateId: createChecklistDto.templateId,
+                        scopeRef: createChecklistDto.scopeRef,
+                        dueAt: createChecklistDto.dueAt ? new Date(createChecklistDto.dueAt) : null,
+                        assigneeId: createChecklistDto.assigneeId
+                    },
+                    include: {
+                        template: true
+                    }
+                });
+            }
+
+            // Standalone checklist without template
+            if (!createChecklistDto.title || !createChecklistDto.scope || !createChecklistDto.itemsJson) {
+                throw new BadRequestException('Title, scope, and items are required for standalone checklists');
+            }
+
+            return tx.checklist.create({
                 data: {
                     tenantId,
-                    templateId: createChecklistDto.templateId,
+                    title: createChecklistDto.title,
+                    scope: createChecklistDto.scope,
+                    itemsJson: createChecklistDto.itemsJson as any,
                     scopeRef: createChecklistDto.scopeRef,
                     dueAt: createChecklistDto.dueAt ? new Date(createChecklistDto.dueAt) : null,
                     assigneeId: createChecklistDto.assigneeId
-                },
-                include: {
-                    template: true
                 }
             });
-        }
-
-        // Standalone checklist without template
-        if (!createChecklistDto.title || !createChecklistDto.scope || !createChecklistDto.itemsJson) {
-            throw new BadRequestException('Title, scope, and items are required for standalone checklists');
-        }
-
-        return this.prisma.checklist.create({
-            data: {
-                tenantId,
-                title: createChecklistDto.title,
-                scope: createChecklistDto.scope,
-                itemsJson: createChecklistDto.itemsJson as any,
-                scopeRef: createChecklistDto.scopeRef,
-                dueAt: createChecklistDto.dueAt ? new Date(createChecklistDto.dueAt) : null,
-                assigneeId: createChecklistDto.assigneeId
-            }
         });
     }
 
     async findChecklists(tenantId: string, query: ChecklistQueryDto) {
-        const where: any = { tenantId };
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-        if (query.status) {
-            where.status = query.status;
-        }
+            const where: any = { tenantId };
 
-        if (query.scopeRef) {
-            where.scopeRef = query.scopeRef;
-        }
+            if (query.status) {
+                where.status = query.status;
+            }
 
-        if (query.assigneeId) {
-            where.assigneeId = query.assigneeId;
-        }
+            if (query.scopeRef) {
+                where.scopeRef = query.scopeRef;
+            }
 
-        return this.prisma.checklist.findMany({
-            where,
-            include: {
-                template: true
-            },
-            orderBy: { createdAt: 'desc' }
+            if (query.assigneeId) {
+                where.assigneeId = query.assigneeId;
+            }
+
+            return tx.checklist.findMany({
+                where,
+                include: {
+                    template: true
+                },
+                orderBy: { createdAt: 'desc' }
+            });
         });
     }
 
     async findChecklist(tenantId: string, id: string) {
-        const checklist = await this.prisma.checklist.findFirst({
-            where: { id, tenantId },
-            include: {
-                template: true,
-                runs: {
-                    orderBy: { runAt: 'desc' }
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+
+            const checklist = await tx.checklist.findFirst({
+                where: { id, tenantId },
+                include: {
+                    template: true,
+                    runs: {
+                        orderBy: { runAt: 'desc' }
+                    }
                 }
+            });
+
+            if (!checklist) {
+                throw new NotFoundException('Checklist not found');
             }
+
+            return checklist;
         });
-
-        if (!checklist) {
-            throw new NotFoundException('Checklist not found');
-        }
-
-        return checklist;
     }
 
     async updateChecklist(tenantId: string, id: string, updateChecklistDto: UpdateChecklistDto) {
-        const existingChecklist = await this.prisma.checklist.findFirst({
-            where: { id, tenantId }
-        });
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-        if (!existingChecklist) {
-            throw new NotFoundException('Checklist not found');
-        }
+            const existingChecklist = await tx.checklist.findFirst({
+                where: { id, tenantId }
+            });
 
-        const updateData: any = { ...updateChecklistDto };
-        if (updateChecklistDto.dueAt) {
-            updateData.dueAt = new Date(updateChecklistDto.dueAt);
-        }
-
-        return this.prisma.checklist.update({
-            where: { id },
-            data: updateData,
-            include: {
-                template: true
+            if (!existingChecklist) {
+                throw new NotFoundException('Checklist not found');
             }
+
+            const updateData: any = { ...updateChecklistDto };
+            if (updateChecklistDto.dueAt) {
+                updateData.dueAt = new Date(updateChecklistDto.dueAt);
+            }
+
+            return tx.checklist.update({
+                where: { id },
+                data: updateData,
+                include: {
+                    template: true
+                }
+            });
         });
     }
 
     async deleteChecklist(tenantId: string, id: string) {
-        const existingChecklist = await this.prisma.checklist.findFirst({
-            where: { id, tenantId }
-        });
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-        if (!existingChecklist) {
-            throw new NotFoundException('Checklist not found');
-        }
+            const existingChecklist = await tx.checklist.findFirst({
+                where: { id, tenantId }
+            });
 
-        // Delete associated runs first
-        await this.prisma.checklistRun.deleteMany({
-            where: {
-                tenantId,
-                checklistId: id
+            if (!existingChecklist) {
+                throw new NotFoundException('Checklist not found');
             }
-        });
 
-        // Delete the checklist
-        return this.prisma.checklist.delete({
-            where: { id }
+            // Delete associated runs first
+            await tx.checklistRun.deleteMany({
+                where: {
+                    tenantId,
+                    checklistId: id
+                }
+            });
+
+            // Delete the checklist
+            return tx.checklist.delete({
+                where: { id }
+            });
         });
     }
 
