@@ -74,7 +74,13 @@ export default function ManageMapsPage() {
     };
 
     const removeNewMap = (index: number) => {
-        setNewMaps(newMaps.filter((_, i) => i !== index));
+        const filtered = newMaps.filter((_, i) => i !== index);
+        // Recalculate gameIdx for remaining maps to maintain sequential order
+        const reindexed = filtered.map((map, idx) => ({
+            ...map,
+            gameIdx: (match?.maps?.length || 0) + idx + 1,
+        }));
+        setNewMaps(reindexed);
     };
 
     const handleSaveMaps = async () => {
@@ -99,8 +105,15 @@ export default function ManageMapsPage() {
             }
         }
 
+        // Ensure sequential gameIdx values starting from next available index
+        const baseIdx = match?.maps?.length || 0;
+        const mapsWithCorrectIndices = newMaps.map((map, idx) => ({
+            ...map,
+            gameIdx: baseIdx + idx + 1,
+        }));
+
         try {
-            await bulkCreateMaps.mutateAsync({ maps: newMaps });
+            await bulkCreateMaps.mutateAsync({ maps: mapsWithCorrectIndices });
             toast({
                 title: "Success",
                 description: "Map games saved successfully",
@@ -126,6 +139,20 @@ export default function ManageMapsPage() {
             });
             setDeleteDialogOpen(false);
             setMapToDelete(null);
+            
+            // After deleting, recalculate gameIdx for any unsaved new maps
+            // The match data will refresh automatically, but we need to update our new maps
+            if (newMaps.length > 0) {
+                // Wait a bit for the match to refresh, then recalculate
+                setTimeout(() => {
+                    const baseIdx = (match?.maps?.length || 0) - 1; // -1 because we just deleted one
+                    const reindexed = newMaps.map((map, idx) => ({
+                        ...map,
+                        gameIdx: baseIdx + idx + 1,
+                    }));
+                    setNewMaps(reindexed);
+                }, 500);
+            }
         } catch (error: any) {
             toast({
                 title: "Error",
