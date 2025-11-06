@@ -105,15 +105,29 @@ export default function ManageMapsPage() {
             }
         }
 
-        // Ensure sequential gameIdx values starting from next available index
-        const baseIdx = match?.maps?.length || 0;
-        const mapsWithCorrectIndices = newMaps.map((map, idx) => ({
-            ...map,
-            gameIdx: baseIdx + idx + 1,
+        // The API expects ALL maps (existing + new) in sequential order starting from 1
+        // It will delete all existing maps and replace them with this batch
+        const existingMapsAsDto = (match?.maps || []).map(map => ({
+            title: map.title,
+            mapName: map.mapName || undefined,
+            gameIdx: map.gameIdx,
+            ourScore: map.ourScore,
+            theirScore: map.theirScore,
+            durationSec: map.durationSec || undefined,
+            notes: map.notes || undefined,
         }));
 
+        // Combine existing and new maps, ensuring sequential indices from 1
+        const allMaps = [
+            ...existingMapsAsDto,
+            ...newMaps.map((map, idx) => ({
+                ...map,
+                gameIdx: existingMapsAsDto.length + idx + 1,
+            })),
+        ];
+
         try {
-            await bulkCreateMaps.mutateAsync({ maps: mapsWithCorrectIndices });
+            await bulkCreateMaps.mutateAsync({ maps: allMaps });
             toast({
                 title: "Success",
                 description: "Map games saved successfully",
@@ -140,19 +154,8 @@ export default function ManageMapsPage() {
             setDeleteDialogOpen(false);
             setMapToDelete(null);
             
-            // After deleting, recalculate gameIdx for any unsaved new maps
-            // The match data will refresh automatically, but we need to update our new maps
-            if (newMaps.length > 0) {
-                // Wait a bit for the match to refresh, then recalculate
-                setTimeout(() => {
-                    const baseIdx = (match?.maps?.length || 0) - 1; // -1 because we just deleted one
-                    const reindexed = newMaps.map((map, idx) => ({
-                        ...map,
-                        gameIdx: baseIdx + idx + 1,
-                    }));
-                    setNewMaps(reindexed);
-                }, 500);
-            }
+            // The match query will automatically refetch after delete
+            // No need to manually update newMaps indices - they'll be recalculated when saving
         } catch (error: any) {
             toast({
                 title: "Error",
