@@ -30,6 +30,8 @@ export const createMatchSchema = z.object({
     endedAt: z.string().datetime().optional(),
     vodUrl: z.string().url().optional(),
     notes: z.string().max(1000).optional(),
+    result: z.enum(['win', 'loss', 'draw', 'forfeit']).optional(),
+    score: z.string().max(20).optional(),
 });
 
 export const updateMatchSchema = createMatchSchema.partial().extend({
@@ -105,6 +107,16 @@ export class CreateMatchDto {
     @IsOptional()
     @IsString()
     notes?: string;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsEnum(['win', 'loss', 'draw', 'forfeit'])
+    result?: 'win' | 'loss' | 'draw' | 'forfeit';
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsString()
+    score?: string;
 }
 
 export class UpdateMatchDto {
