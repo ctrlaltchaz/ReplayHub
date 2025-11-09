@@ -571,3 +571,23 @@ body {
   min-height: 44px;
   min-width: 44px;
 }
+/* ========================================
+   MOBILE SELECT DROPDOWN FIX
+   Force dropdowns to fit within viewport on mobile
+   ======================================== */
+
+@media (max-width: 1023px) {
+  /* Target Radix Select Content */
+  [role="listbox"],
+  [data-radix-select-content] {
+    max-width: calc(100vw - 2rem) !important;
+    max-height: 50vh !important;
+    left: 1rem !important;
+    right: 1rem !important;
+  }
+
+  [data-radix-select-viewport] {
+    max-height: 50vh !important;
+    overflow-y: auto !important;
+  }
+}
