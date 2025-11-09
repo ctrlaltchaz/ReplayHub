@@ -29,9 +29,10 @@ interface NativeSelectProps {
     disabled?: boolean
     children: React.ReactNode
     placeholder?: string
+    required?: boolean
 }
 
-function NativeSelectWrapper({ value, onValueChange, disabled, children, placeholder }: NativeSelectProps) {
+function NativeSelectWrapper({ value, onValueChange, disabled, children, placeholder, required }: NativeSelectProps) {
     // Extract options from children
     const options: Array<{ value: string; label: string; disabled?: boolean }> = []
 
@@ -64,6 +65,7 @@ function NativeSelectWrapper({ value, onValueChange, disabled, children, placeho
                 value={value || ''}
                 onChange={(e) => onValueChange?.(e.target.value)}
                 disabled={disabled}
+                required={required}
                 className={cn(
                     "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none pr-8"
                 )}
@@ -92,9 +94,10 @@ interface SelectProps {
     children: React.ReactNode
     defaultValue?: string
     name?: string
+    required?: boolean
 }
 
-function Select({ value, onValueChange, disabled, children, defaultValue, name }: SelectProps) {
+function Select({ value, onValueChange, disabled, children, defaultValue, name, required }: SelectProps) {
     const isMobile = useIsMobile()
     const [placeholder, setPlaceholder] = React.useState<string>()
 
@@ -118,6 +121,7 @@ function Select({ value, onValueChange, disabled, children, defaultValue, name }
                 onValueChange={onValueChange}
                 disabled={disabled}
                 placeholder={placeholder}
+                required={required}
             >
                 {children}
             </NativeSelectWrapper>
@@ -132,6 +136,7 @@ function Select({ value, onValueChange, disabled, children, defaultValue, name }
             disabled={disabled}
             defaultValue={defaultValue}
             name={name}
+            required={required}
         >
             {children}
         </SelectPrimitive.Root>
