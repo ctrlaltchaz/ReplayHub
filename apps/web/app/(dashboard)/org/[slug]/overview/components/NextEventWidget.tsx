@@ -1,15 +1,15 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { GameLogo } from "@/components/events/GameLogo";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/context/AuthContext";
+import type { Event } from "@/hooks/events";
 import { apiGet } from "@/lib/api/client";
-import { format, formatDistanceToNow, isPast, isFuture } from "date-fns";
+import type { Player } from "@/types/roster";
+import { format, formatDistanceToNow, isFuture } from "date-fns";
 import { Calendar, Clock, MapPin, Radio, Trophy, Users, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { Event } from "@/hooks/events";
-import type { Player } from "@/types/roster";
 
 interface NextEventWidgetProps {
     slug: string;
@@ -68,14 +68,14 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
                 const relevantEvents = events.filter(event => {
                     // Check if event has a teamId that matches one of the player's teams
                     const hasMatchingTeam = event.teamId && teamIds.includes(event.teamId);
-                    
+
                     const eventStart = new Date(event.startAt);
                     return hasMatchingTeam && isFuture(eventStart);
                 });
 
                 // 5. Sort by start time and get the next one
                 if (relevantEvents.length > 0) {
-                    const sorted = relevantEvents.sort((a, b) => 
+                    const sorted = relevantEvents.sort((a, b) =>
                         new Date(a.startAt).getTime() - new Date(b.startAt).getTime()
                     );
                     setNextEvent(sorted[0]);
