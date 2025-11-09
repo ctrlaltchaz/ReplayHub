@@ -107,7 +107,7 @@ function Select({ value, onValueChange, disabled, children, defaultValue, name, 
             if (React.isValidElement(child) && child.type === SelectTrigger) {
                 React.Children.forEach(child.props.children, (triggerChild: any) => {
                     if (React.isValidElement(triggerChild) && triggerChild.type === SelectValue) {
-                        setPlaceholder(triggerChild.props?.placeholder)
+                        setPlaceholder((triggerChild.props as any)?.placeholder)
                     }
                 })
             }
