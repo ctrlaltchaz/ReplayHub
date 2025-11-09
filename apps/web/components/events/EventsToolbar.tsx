@@ -22,6 +22,8 @@ interface EventsToolbarProps {
     onGameTitleChange: (value: string | undefined) => void;
     productionLead?: string;
     onProductionLeadChange: (value: string | undefined) => void;
+    teamId?: string;
+    onTeamChange: (value: string | undefined) => void;
     dateRange: {
         from?: string;
         to?: string;
@@ -30,6 +32,7 @@ interface EventsToolbarProps {
     onCreateEvent: () => void;
     canCreateEvents?: boolean;
     productionLeads?: Array<{ id: string; name: string }>;
+    teams?: Array<{ id: string; name: string; game: string }>;
 }
 
 const EVENT_TYPES: Array<{ value: EventType; label: string }> = [
@@ -59,11 +62,14 @@ export function EventsToolbar({
     onGameTitleChange,
     productionLead,
     onProductionLeadChange,
+    teamId,
+    onTeamChange,
     dateRange,
     onDateRangeChange,
     onCreateEvent,
     canCreateEvents = true,
     productionLeads = [],
+    teams = [],
 }: EventsToolbarProps) {
     const [searchTerm, setSearchTerm] = useState(searchValue);
 
@@ -107,6 +113,7 @@ export function EventsToolbar({
         onEventTypeChange(undefined);
         onGameTitleChange(undefined);
         onProductionLeadChange(undefined);
+        onTeamChange(undefined);
         onDateRangeChange({ from: undefined, to: undefined });
     };
 
@@ -115,6 +122,7 @@ export function EventsToolbar({
         eventType ||
         gameTitle ||
         productionLead ||
+        teamId ||
         dateRange.from ||
         dateRange.to;
 
@@ -204,6 +212,28 @@ export function EventsToolbar({
                             {productionLeads.map((lead) => (
                                 <SelectItem key={lead.id} value={lead.id}>
                                     {lead.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )}
+
+                {/* Team Filter */}
+                {teams.length > 0 && (
+                    <Select
+                        value={teamId || "_all"}
+                        onValueChange={(value) =>
+                            onTeamChange(value === "_all" ? undefined : value)
+                        }
+                    >
+                        <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder="Team" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="_all">All Teams</SelectItem>
+                            {teams.map((team) => (
+                                <SelectItem key={team.id} value={team.id}>
+                                    {team.name} ({team.game})
                                 </SelectItem>
                             ))}
                         </SelectContent>

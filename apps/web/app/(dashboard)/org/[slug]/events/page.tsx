@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { type CreateEventData, type Event, type EventsQueryParams, type EventType, useEventsList } from '@/hooks/events';
+import { useTeams } from '@/hooks/rosters';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiDelete, apiGet, apiPut } from '@/lib/api/client';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
@@ -34,6 +35,7 @@ export default function EventsPage() {
     const canViewEvents = hasPermission(PERMISSIONS.EVENTS_VIEW);
 
     const { data: events, isLoading, error, refetch, isRefetching } = useEventsList(slug, filters);
+    const { data: teams = [] } = useTeams(slug, { status: 'active' });
 
     // Fetch production leads (org users) for dropdowns
     useEffect(() => {
@@ -73,6 +75,10 @@ export default function EventsPage() {
 
     const handleProductionLeadChange = (productionLead: string | undefined) => {
         setFilters(prev => ({ ...prev, productionLead }));
+    };
+
+    const handleTeamChange = (teamId: string | undefined) => {
+        setFilters(prev => ({ ...prev, teamId }));
     };
 
     const handleEventClick = (event: Event) => {
@@ -140,6 +146,9 @@ export default function EventsPage() {
                     onGameTitleChange={handleGameTitleChange}
                     productionLead={filters.productionLead}
                     onProductionLeadChange={handleProductionLeadChange}
+                    teamId={filters.teamId}
+                    onTeamChange={handleTeamChange}
+                    teams={teams}
                     productionLeads={productionLeads}
                     dateRange={{ from: filters.from, to: filters.to }}
                     onDateRangeChange={handleDateRangeChange}
