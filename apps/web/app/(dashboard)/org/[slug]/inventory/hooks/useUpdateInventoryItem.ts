@@ -7,7 +7,7 @@ export function useUpdateInventoryItem(orgSlug: string, itemId: string) {
         mutationFn: async (dto: UpdateInventoryItemDto) => {
             const url = getApiUrl(`/org/${orgSlug}/inventory/items/${itemId}`);
             const response = await fetch(url, {
-                method: 'PATCH',
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify(dto),

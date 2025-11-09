@@ -153,7 +153,7 @@ export default function ManageMapsPage() {
             });
             setDeleteDialogOpen(false);
             setMapToDelete(null);
-            
+
             // The match query will automatically refetch after delete
             // No need to manually update newMaps indices - they'll be recalculated when saving
         } catch (error: any) {
