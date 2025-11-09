@@ -6,7 +6,137 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-const Select = SelectPrimitive.Root
+// Hook to detect mobile devices
+function useIsMobile() {
+    const [isMobile, setIsMobile] = React.useState(false)
+
+    React.useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 1024)
+        }
+        checkMobile()
+        window.addEventListener('resize', checkMobile)
+        return () => window.removeEventListener('resize', checkMobile)
+    }, [])
+
+    return isMobile
+}
+
+// Native select for mobile
+interface NativeSelectProps {
+    value?: string
+    onValueChange?: (value: string) => void
+    disabled?: boolean
+    children: React.ReactNode
+    placeholder?: string
+}
+
+function NativeSelectWrapper({ value, onValueChange, disabled, children, placeholder }: NativeSelectProps) {
+    // Extract options from children
+    const options: Array<{ value: string; label: string; disabled?: boolean }> = []
+
+    const extractOptions = (node: React.ReactNode): void => {
+        React.Children.forEach(node, (child) => {
+            if (React.isValidElement(child)) {
+                // Check if it's a SelectItem
+                if (child.type === SelectItem) {
+                    options.push({
+                        value: child.props.value,
+                        label: typeof child.props.children === 'string'
+                            ? child.props.children
+                            : child.props.value,
+                        disabled: child.props.disabled
+                    })
+                }
+                // Recursively check children (for SelectContent, SelectGroup, etc.)
+                else if (child.props?.children) {
+                    extractOptions(child.props.children)
+                }
+            }
+        })
+    }
+
+    extractOptions(children)
+
+    return (
+        <div className="relative">
+            <select
+                value={value || ''}
+                onChange={(e) => onValueChange?.(e.target.value)}
+                disabled={disabled}
+                className={cn(
+                    "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none pr-8"
+                )}
+            >
+                {placeholder && <option value="">{placeholder}</option>}
+                {options.map((option) => (
+                    <option
+                        key={option.value}
+                        value={option.value}
+                        disabled={option.disabled}
+                    >
+                        {option.label}
+                    </option>
+                ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-3 h-4 w-4 opacity-50 pointer-events-none" />
+        </div>
+    )
+}
+
+// Main Select component that switches between native and Radix
+interface SelectProps {
+    value?: string
+    onValueChange?: (value: string) => void
+    disabled?: boolean
+    children: React.ReactNode
+    defaultValue?: string
+    name?: string
+}
+
+function Select({ value, onValueChange, disabled, children, defaultValue, name }: SelectProps) {
+    const isMobile = useIsMobile()
+    const [placeholder, setPlaceholder] = React.useState<string>()
+
+    // Extract placeholder from SelectValue if present
+    React.useEffect(() => {
+        React.Children.forEach(children, (child) => {
+            if (React.isValidElement(child) && child.type === SelectTrigger) {
+                React.Children.forEach(child.props.children, (triggerChild: any) => {
+                    if (React.isValidElement(triggerChild) && triggerChild.type === SelectValue) {
+                        setPlaceholder(triggerChild.props?.placeholder)
+                    }
+                })
+            }
+        })
+    }, [children])
+
+    if (isMobile) {
+        return (
+            <NativeSelectWrapper
+                value={value || defaultValue}
+                onValueChange={onValueChange}
+                disabled={disabled}
+                placeholder={placeholder}
+            >
+                {children}
+            </NativeSelectWrapper>
+        )
+    }
+
+    // Desktop: use Radix Select
+    return (
+        <SelectPrimitive.Root
+            value={value}
+            onValueChange={onValueChange}
+            disabled={disabled}
+            defaultValue={defaultValue}
+            name={name}
+        >
+            {children}
+        </SelectPrimitive.Root>
+    )
+}
 
 const SelectGroup = SelectPrimitive.Group
 
