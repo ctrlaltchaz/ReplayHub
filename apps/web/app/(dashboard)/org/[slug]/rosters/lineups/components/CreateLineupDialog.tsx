@@ -25,7 +25,7 @@ interface CreateLineupDialogProps {
     onOpenChange: (open: boolean) => void;
     onSubmit: (data: { eventId: string; teamId: string; title?: string }) => void;
     isLoading?: boolean;
-    events: Array<{ id: string; title: string; date: string }>;
+    events: Array<{ id: string; title: string; startAt: string }>;
     teams: Array<{ id: string; name: string; game: string }>;
 }
 
@@ -75,7 +75,7 @@ export function CreateLineupDialog({
                                 </SelectTrigger>
                                 <SelectContent>
                                     {events.map((event) => {
-                                        const eventDate = event.date ? new Date(event.date) : null;
+                                        const eventDate = event.startAt ? new Date(event.startAt) : null;
                                         const dateStr = eventDate && !isNaN(eventDate.getTime())
                                             ? eventDate.toLocaleDateString()
                                             : 'No date';

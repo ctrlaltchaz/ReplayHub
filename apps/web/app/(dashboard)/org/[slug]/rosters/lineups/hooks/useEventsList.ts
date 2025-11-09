@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 interface Event {
     id: string;
     title: string;
-    date: string;
+    startAt: string;
     eventType: string;
 }
 
