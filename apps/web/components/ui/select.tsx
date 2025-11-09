@@ -36,16 +36,25 @@ function NativeSelectWrapper({ value, onValueChange, disabled, children, placeho
     // Extract options from children
     const options: Array<{ value: string; label: string; disabled?: boolean }> = []
 
+    const extractTextContent = (node: React.ReactNode): string => {
+        if (typeof node === 'string') return node
+        if (typeof node === 'number') return String(node)
+        if (Array.isArray(node)) return node.map(extractTextContent).join('')
+        if (React.isValidElement(node)) {
+            return extractTextContent(node.props.children)
+        }
+        return ''
+    }
+
     const extractOptions = (node: React.ReactNode): void => {
         React.Children.forEach(node, (child) => {
             if (React.isValidElement(child)) {
                 // Check if it's a SelectItem
                 if (child.type === SelectItem) {
+                    const label = extractTextContent(child.props.children)
                     options.push({
                         value: child.props.value,
-                        label: typeof child.props.children === 'string'
-                            ? child.props.children
-                            : child.props.value,
+                        label: label || child.props.value,
                         disabled: child.props.disabled
                     })
                 }
