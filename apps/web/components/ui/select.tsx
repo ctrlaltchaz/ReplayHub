@@ -76,11 +76,14 @@ const SelectContent = React.forwardRef<
             ref={ref}
             className={cn(
                 "relative z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
-                // Mobile/tablet responsive: constrain to viewport with safe margins
-                "max-w-[calc(100vw-1rem)] max-h-[min(384px,calc(100vh-4rem))]",
-                "lg:max-w-none lg:max-h-96",
+                // Mobile/tablet responsive: aggressive constraints
+                "!max-w-[calc(100vw-2rem)] !max-h-[50vh]",
+                "lg:!max-w-none lg:!max-h-96",
+                // Center on mobile if needed
+                "left-[50%] !-translate-x-[50%]",
+                "lg:left-auto lg:!translate-x-0",
                 position === "popper" &&
-                "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
+                "lg:data-[side=bottom]:translate-y-1 lg:data-[side=left]:-translate-x-1 lg:data-[side=right]:translate-x-1 lg:data-[side=top]:-translate-y-1",
                 className
             )}
             position={position}
@@ -92,12 +95,10 @@ const SelectContent = React.forwardRef<
                     "p-1",
                     // Enable smooth scrolling on mobile with momentum
                     "overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]",
+                    "max-h-[50vh]",
                     position === "popper" &&
                     "w-full min-w-[var(--radix-select-trigger-width)]"
                 )}
-                style={{
-                    maxHeight: 'inherit'
-                }}
             >
                 {children}
             </SelectPrimitive.Viewport>
