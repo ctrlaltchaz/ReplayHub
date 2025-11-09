@@ -10,6 +10,7 @@ import { hasPermission, PERMISSIONS } from '@/lib/permissions/utils';
 import { AlertTriangle, Calendar, Lightbulb, Package, RefreshCw, Target, Trophy, Users } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { NextEventWidget } from './components/NextEventWidget';
 
 interface OrgOverview {
     totalEvents?: number;
@@ -206,6 +207,9 @@ export default function OverviewPage() {
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Next Event Widget for Players */}
+                <NextEventWidget slug={slug} />
 
                 {/* Stats Grid */}
                 <div>
