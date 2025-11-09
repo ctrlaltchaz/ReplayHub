@@ -5,6 +5,7 @@ import { Calendar, Filter, Plus, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 import {
     Select,
     SelectContent,
@@ -12,6 +13,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "../ui/select";
+import { Switch } from "../ui/switch";
 
 interface EventsToolbarProps {
     searchValue: string;
@@ -24,6 +26,8 @@ interface EventsToolbarProps {
     onProductionLeadChange: (value: string | undefined) => void;
     teamId?: string;
     onTeamChange: (value: string | undefined) => void;
+    showCompleted: boolean;
+    onShowCompletedChange: (value: boolean) => void;
     dateRange: {
         from?: string;
         to?: string;
@@ -64,6 +68,8 @@ export function EventsToolbar({
     onProductionLeadChange,
     teamId,
     onTeamChange,
+    showCompleted,
+    onShowCompletedChange,
     dateRange,
     onDateRangeChange,
     onCreateEvent,
@@ -249,6 +255,18 @@ export function EventsToolbar({
                     <Calendar className="h-4 w-4 mr-2" />
                     This Week
                 </Button>
+
+                {/* Show Completed Events Toggle */}
+                <div className="flex items-center gap-2 px-3 py-1.5 border rounded-md bg-background shrink-0">
+                    <Switch
+                        id="show-completed"
+                        checked={showCompleted}
+                        onCheckedChange={onShowCompletedChange}
+                    />
+                    <Label htmlFor="show-completed" className="text-sm cursor-pointer">
+                        Show Completed
+                    </Label>
+                </div>
 
                 {hasActiveFilters && (
                     <Button

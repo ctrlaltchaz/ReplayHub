@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import packageJson from "../../../../package.json";
 
 export function Footer() {
     const currentYear = new Date().getFullYear();
-    const appVersion = "1.0.0";
+    const appVersion = packageJson.version;
 
     return (
         <footer className="border-t bg-card mt-auto">

@@ -22,6 +22,7 @@ export default function EventsPage() {
     const { toast } = useToast();
 
     const [filters, setFilters] = useState<EventsQueryParams>({});
+    const [showCompleted, setShowCompleted] = useState(true);
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [showEditDialog, setShowEditDialog] = useState(false);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -150,13 +151,15 @@ export default function EventsPage() {
                     onTeamChange={handleTeamChange}
                     teams={teams}
                     productionLeads={productionLeads}
+                    showCompleted={showCompleted}
+                    onShowCompletedChange={setShowCompleted}
                     dateRange={{ from: filters.from, to: filters.to }}
                     onDateRangeChange={handleDateRangeChange}
                     onCreateEvent={() => setShowCreateDialog(true)}
                     canCreateEvents={canManageEvents}
                 />
                 <EventsTable
-                    events={events || []}
+                    events={(events || []).filter(event => showCompleted || event.status !== 'completed')}
                     isLoading={isLoading}
                     onRowClick={handleEventClick}
                     onEdit={handleEditClick}
