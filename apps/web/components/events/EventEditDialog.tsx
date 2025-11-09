@@ -167,7 +167,8 @@ export function EventEditDialog({ slug, event, open, onOpenChange, onSubmit, pro
 
             // Add optional string fields
             if (formData.gameTitle) submitData.gameTitle = formData.gameTitle;
-            if (formData.broadcastChannel) submitData.broadcastChannel = formData.broadcastChannel;
+            // Always include broadcastChannel to allow clearing it
+            submitData.broadcastChannel = formData.broadcastChannel || '';
             if (formData.location) submitData.location = formData.location;
             if (formData.graphicsPackage) submitData.graphicsPackage = formData.graphicsPackage;
             if (formData.notes) submitData.notes = formData.notes;
