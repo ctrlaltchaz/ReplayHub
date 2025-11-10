@@ -60,18 +60,34 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
 
                 // 2. Get team IDs for this player
                 const teamIds = currentPlayer.teams.map(tm => tm.teamId);
+                console.log('[NextEventWidget] Player teams:', teamIds);
 
-                // 3. Fetch upcoming events
-                const events = await apiGet<Event[]>(`/org/${slug}/events?status=upcoming`);
+                // 3. Fetch all events (not just upcoming status, as we'll filter by date)
+                const events = await apiGet<Event[]>(`/org/${slug}/events`);
+                console.log('[NextEventWidget] Total events fetched:', events.length);
 
-                // 4. Filter events that match player's teams and are in the future
+                // 4. Filter events that are in the future (regardless of teamId for now, or match player's teams)
+                const now = new Date();
                 const relevantEvents = events.filter(event => {
-                    // Check if event has a teamId that matches one of the player's teams
-                    const hasMatchingTeam = event.teamId && teamIds.includes(event.teamId);
-
                     const eventStart = new Date(event.startAt);
-                    return hasMatchingTeam && isFuture(eventStart);
+
+                    // Must be in the future
+                    if (!isFuture(eventStart)) return false;
+
+                    // If event has a teamId, check if it matches one of player's teams
+                    // If no teamId, include it (could be org-wide event)
+                    if (event.teamId) {
+                        return teamIds.includes(event.teamId);
+                    }
+
+                    // Include events without teamId (org-wide events)
+                    return true;
                 });
+
+                console.log('[NextEventWidget] Relevant future events:', relevantEvents.length);
+                if (relevantEvents.length > 0) {
+                    console.log('[NextEventWidget] First event:', relevantEvents[0]);
+                }
 
                 // 5. Sort by start time and get the next one
                 if (relevantEvents.length > 0) {
@@ -184,6 +200,11 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
     const EventIcon = eventTypeIcons[nextEvent.eventType as keyof typeof eventTypeIcons] || Calendar;
     const eventColorClass = eventTypeColors[nextEvent.eventType as keyof typeof eventTypeColors] || eventTypeColors.Other;
 
+    // Determine the title based on event type
+    const eventTypeLabel = nextEvent.eventType && nextEvent.eventType !== 'Other'
+        ? nextEvent.eventType
+        : 'Event';
+
     // Parse broadcast channels
     const channels = nextEvent.broadcastChannel?.split(',').map(c => c.trim()).filter(Boolean) || [];
 
@@ -192,7 +213,7 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 font-montserrat">
                     <EventIcon className="h-5 w-5 text-primary" />
-                    Your Next {nextEvent.eventType}
+                    Your Next {eventTypeLabel}
                 </CardTitle>
                 <CardDescription>
                     {formatDistanceToNow(eventStart, { addSuffix: true })}
