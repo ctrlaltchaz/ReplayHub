@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { apiGet } from '@/lib/api/client';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
 import { hasPermission, PERMISSIONS } from '@/lib/permissions/utils';
-import { AlertTriangle, Calendar, Lightbulb, Package, RefreshCw, Target, Trophy, Users } from 'lucide-react';
+import { AlertTriangle, Calendar, Lightbulb, Package, RefreshCw, Target, Trophy, Users, X } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { NextEventWidget } from './components/NextEventWidget';
@@ -54,6 +54,20 @@ export default function OverviewPage() {
     const [overview, setOverview] = useState<OrgOverview | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [showWelcomeCard, setShowWelcomeCard] = useState(true);
+
+    // Check if welcome card was dismissed (only for non-admin users)
+    useEffect(() => {
+        const dismissed = localStorage.getItem(`welcome-dismissed-${slug}`);
+        if (dismissed === 'true') {
+            setShowWelcomeCard(false);
+        }
+    }, [slug]);
+
+    const handleDismissWelcome = () => {
+        setShowWelcomeCard(false);
+        localStorage.setItem(`welcome-dismissed-${slug}`, 'true');
+    };
 
     const fetchOverview = async () => {
         try {
@@ -161,55 +175,70 @@ export default function OverviewPage() {
                     </p>
                 </div>
 
-                {/* Introduction Card */}
-                <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-transparent to-transparent">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-3 font-montserrat">
-                            <img
-                                src="https://assets.mckeonwebsolutions.com/replayhub/replaylogo.png"
-                                alt="ReplayHub"
-                                className="h-20 w-20 object-contain"
-                            />
-                            Welcome to ReplayHub
-                        </CardTitle>
-                        <CardDescription className="text-base mt-2">
-                            This platform helps you manage every aspect of your esports organization.
-                            Create and manage teams, schedule matches and tournaments, track your equipment inventory,
-                            handle incidents and reports, and keep your entire operation organized in one place.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex flex-wrap gap-2">
-                            {hasPermission(permissions, PERMISSIONS.ROSTERS_MANAGE) && (
-                                <Button asChild variant="default" size="sm">
-                                    <a href={`/org/${slug}/rosters`}>
-                                        <Trophy className="h-4 w-4 mr-2" />
-                                        Manage Teams
-                                    </a>
-                                </Button>
-                            )}
-                            {hasPermission(permissions, PERMISSIONS.EVENTS_CREATE) && (
-                                <Button asChild variant="outline" size="sm">
-                                    <a href={`/org/${slug}/events`}>
-                                        <Calendar className="h-4 w-4 mr-2" />
-                                        Schedule Events
-                                    </a>
-                                </Button>
-                            )}
-                            {hasPermission(permissions, PERMISSIONS.INVENTORY_VIEW) && (
-                                <Button asChild variant="outline" size="sm">
-                                    <a href={`/org/${slug}/inventory`}>
-                                        <Package className="h-4 w-4 mr-2" />
-                                        View Inventory
-                                    </a>
-                                </Button>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-
                 {/* Next Event Widget for Players */}
                 <NextEventWidget slug={slug} />
+
+                {/* Introduction Card - Dismissable for non-admins */}
+                {showWelcomeCard && (
+                    <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-transparent to-transparent relative">
+                        {/* Close button - only show for non-admins */}
+                        {!hasPermission(permissions, PERMISSIONS.ORG_USERS_MANAGE) && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-4 right-4 h-8 w-8 rounded-full"
+                                onClick={handleDismissWelcome}
+                                title="Dismiss welcome message"
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
+                        )}
+
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-3 font-montserrat">
+                                <img
+                                    src="https://assets.mckeonwebsolutions.com/replayhub/replaylogo.png"
+                                    alt="ReplayHub"
+                                    className="h-20 w-20 object-contain"
+                                />
+                                Welcome to ReplayHub
+                            </CardTitle>
+                            <CardDescription className="text-base mt-2">
+                                This platform helps you manage every aspect of your esports organization.
+                                Create and manage teams, schedule matches and tournaments, track your equipment inventory,
+                                handle incidents and reports, and keep your entire operation organized in one place.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex flex-wrap gap-2">
+                                {hasPermission(permissions, PERMISSIONS.ROSTERS_MANAGE) && (
+                                    <Button asChild variant="default" size="sm">
+                                        <a href={`/org/${slug}/rosters`}>
+                                            <Trophy className="h-4 w-4 mr-2" />
+                                            Manage Teams
+                                        </a>
+                                    </Button>
+                                )}
+                                {hasPermission(permissions, PERMISSIONS.EVENTS_CREATE) && (
+                                    <Button asChild variant="outline" size="sm">
+                                        <a href={`/org/${slug}/events`}>
+                                            <Calendar className="h-4 w-4 mr-2" />
+                                            Schedule Events
+                                        </a>
+                                    </Button>
+                                )}
+                                {hasPermission(permissions, PERMISSIONS.INVENTORY_VIEW) && (
+                                    <Button asChild variant="outline" size="sm">
+                                        <a href={`/org/${slug}/inventory`}>
+                                            <Package className="h-4 w-4 mr-2" />
+                                            View Inventory
+                                        </a>
+                                    </Button>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Stats Grid */}
                 <div>

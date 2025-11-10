@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import packageJson from "../../../../package.json";
 
 export function Footer() {
@@ -23,24 +22,30 @@ export function Footer() {
                     {/* Right side - Links and Hosted by */}
                     <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 text-sm">
                         <div className="flex gap-4">
-                            <Link
-                                href="/privacy"
+                            <a
+                                href="https://replayhub.app/privacy"
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="text-muted-foreground hover:text-foreground transition-colors"
                             >
                                 Privacy Policy
-                            </Link>
-                            <Link
-                                href="/terms"
+                            </a>
+                            <a
+                                href="https://replayhub.app/terms"
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="text-muted-foreground hover:text-foreground transition-colors"
                             >
                                 Terms of Service
-                            </Link>
-                            <Link
-                                href="/support"
+                            </a>
+                            <a
+                                href="https://replayhub.app/support"
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="text-muted-foreground hover:text-foreground transition-colors"
                             >
                                 Support
-                            </Link>
+                            </a>
                         </div>
                         <div className="text-muted-foreground">
                             Hosted by{" "}
