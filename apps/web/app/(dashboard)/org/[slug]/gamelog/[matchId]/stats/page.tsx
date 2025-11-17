@@ -381,6 +381,7 @@ export default function ManageStatsPage() {
                                         <TableHead className="text-center">A</TableHead>
                                         <TableHead className="text-center">K/D</TableHead>
                                         <TableHead className="text-center">Damage</TableHead>
+                                        <TableHead className="text-center">Healing</TableHead>
                                         <TableHead className="text-center">Rating</TableHead>
                                         <TableHead className="text-center">MVP</TableHead>
                                         <TableHead className="text-right">Actions</TableHead>
@@ -408,6 +409,9 @@ export default function ManageStatsPage() {
                                             </TableCell>
                                             <TableCell className="text-center">
                                                 {stat.statsJson?.damage ?? stat.damage ?? "-"}
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                {stat.statsJson?.healing ?? stat.healing ?? "-"}
                                             </TableCell>
                                             <TableCell className="text-center">
                                                 {stat.rating?.toFixed(2) ?? "-"}
