@@ -77,7 +77,7 @@ export function CreateLineupDialog({
                                     {events.map((event) => {
                                         const eventDate = event.startAt ? new Date(event.startAt) : null;
                                         const dateStr = eventDate && !isNaN(eventDate.getTime())
-                                            ? eventDate.toLocaleDateString()
+                                            ? eventDate.toLocaleDateString('en-GB')
                                             : 'No date';
                                         return (
                                             <SelectItem key={event.id} value={event.id}>

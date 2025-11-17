@@ -113,7 +113,7 @@ export function RunsheetEditDialog({
                                     <SelectItem value="_none">No event</SelectItem>
                                     {events.map((event: any) => (
                                         <SelectItem key={event.id} value={event.id}>
-                                            {event.name} {event.date ? `(${new Date(event.date).toLocaleDateString()})` : ''}
+                                            {event.name} {event.date ? `(${new Date(event.date).toLocaleDateString('en-GB')})` : ''}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
