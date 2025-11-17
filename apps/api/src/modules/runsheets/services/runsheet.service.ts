@@ -98,26 +98,50 @@ export class RunsheetService {
 
             const limit = Math.min(query.limit || 20, 100); // Max 100 items
 
+            console.log('[RUNSHEET SERVICE] Finding runsheets with tenantId:', tenantId);
+
             const items = await tx.runsheet.findMany({
                 where,
                 include: {
                     items: {
                         orderBy: { idx: 'asc' }
-                    },
-                    event: {
-                        select: {
-                            id: true,
-                            title: true,
-                            startAt: true
-                        }
                     }
                 },
                 orderBy: { createdAt: 'desc' },
                 take: limit + 1 // Take one extra to check if there are more
             });
 
-            const hasMore = items.length > limit;
-            const runsheets = hasMore ? items.slice(0, -1) : items;
+            // Manually fetch events for runsheets that have eventId
+            const eventIds = items.filter(r => r.eventId).map(r => r.eventId);
+            const events = eventIds.length > 0 ? await tx.event.findMany({
+                where: {
+                    id: { in: eventIds },
+                    tenantId
+                },
+                select: {
+                    id: true,
+                    title: true,
+                    startAt: true
+                }
+            }) : [];
+
+            // Map events to runsheets
+            const eventsMap = new Map(events.map(e => [e.id, e]));
+            const runsheetsWithEvents = items.map(runsheet => ({
+                ...runsheet,
+                event: runsheet.eventId ? eventsMap.get(runsheet.eventId) || null : null
+            }));
+
+            console.log('[RUNSHEET SERVICE] Found runsheets:', runsheetsWithEvents.map(r => ({
+                id: r.id,
+                title: r.title,
+                eventId: r.eventId,
+                hasEvent: !!r.event,
+                eventTitle: r.event?.title
+            })));
+
+            const hasMore = runsheetsWithEvents.length > limit;
+            const runsheets = hasMore ? runsheetsWithEvents.slice(0, -1) : runsheetsWithEvents;
             const nextCursor = hasMore ? runsheets[runsheets.length - 1].id : null;
 
             return {
