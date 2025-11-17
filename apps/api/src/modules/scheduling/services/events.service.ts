@@ -230,8 +230,8 @@ export class EventsService {
         e.title,
         e.event_type as "eventType",
         e.game_title as "gameTitle",
-        e.production_lead as "productionLead",
-        pl.display_name as "productionLeadName",
+        e.production_lead_global_user_id as "productionLead",
+        pl.name as "productionLeadName",
         e.broadcast_channel as "broadcastChannel",
         e.start_at as "startAt",
         e.call_time as "callTime",
@@ -255,7 +255,7 @@ export class EventsService {
         e.tenant_id as "tenantId",
         t.name as "teamName",
         l.title as "lineupName",
-        ou.display_name as "creatorName",
+        ou.name as "creatorName",
         COALESCE(
           json_agg(
             json_build_object(
@@ -268,14 +268,14 @@ export class EventsService {
           '[]'::json
         ) as resources
       FROM events e
-      LEFT JOIN org_users pl ON e.production_lead = pl.id AND pl.tenant_id = e.tenant_id
+      LEFT JOIN global_users pl ON e.production_lead_global_user_id = pl.id
       LEFT JOIN teams t ON e.team_id = t.id AND t.tenant_id = e.tenant_id
       LEFT JOIN lineups l ON e.lineup_id = l.id AND l.tenant_id = e.tenant_id
-      LEFT JOIN org_users ou ON e.created_by = ou.id AND ou.tenant_id = e.tenant_id
+      LEFT JOIN global_users ou ON e.created_by_global_user_id = ou.id
       LEFT JOIN bookings b ON e.id = b.event_id AND b.tenant_id = e.tenant_id
       LEFT JOIN resources r ON b.resource_id = r.id AND r.tenant_id = e.tenant_id
       WHERE e.tenant_id = $1 AND e.id = $2
-      GROUP BY e.id, t.name, l.title, ou.display_name, pl.display_name
+      GROUP BY e.id, t.name, l.title, ou.name, pl.name
     `, tenantId, id) as any[];
 
             if (!events.length) {
