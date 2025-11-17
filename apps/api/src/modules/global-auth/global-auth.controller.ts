@@ -45,6 +45,15 @@ export class GlobalAuthController {
             // Create session
             req.session.userId = user.id;
 
+            // Set cookie maxAge based on rememberMe
+            if (loginDto.rememberMe) {
+                // 30 days for remember me
+                req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000;
+            } else {
+                // 24 hours for regular login
+                req.session.cookie.maxAge = 24 * 60 * 60 * 1000;
+            }
+
             // AUTO-LOGIN TO ORG: Check if user has org accounts and auto-set first org session
             const orgUsers = await this.globalAuthService.getOrgUsersForGlobalUser(user.id);
             if (orgUsers && orgUsers.length > 0) {

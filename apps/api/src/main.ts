@@ -134,12 +134,12 @@ async function bootstrap() {
       cookie: {
         secure: cookieSecure,
         httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours (can be extended by rememberMe)
         sameSite: cookieSameSite,
         path: '/',
         domain: cookieDomain, // '.replayhub.app' in prod, undefined in dev
       },
-      rolling: false,
+      rolling: true, // Extend session on each request to prevent logout during active use
     }),
   );
 

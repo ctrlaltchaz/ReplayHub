@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
-import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { Request } from 'express';
 import { UnifiedSessionGuard } from './guards/unified-session.guard';
 import { UniversalAuthService } from './universal-auth.service';
@@ -13,6 +13,10 @@ export class UniversalLoginDto {
     @IsString()
     @IsNotEmpty()
     password: string;
+
+    @IsBoolean()
+    @IsOptional()
+    rememberMe?: boolean;
 }
 
 export class UniversalTotpVerifyDto {

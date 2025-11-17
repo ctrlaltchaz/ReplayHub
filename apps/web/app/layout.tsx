@@ -15,6 +15,10 @@ export const metadata: Metadata = {
   title: "ReplayHub",
   description: "Multi-tenant esports operations platform",
   viewport: "width=device-width, initial-scale=1, maximum-scale=5",
+  icons: {
+    icon: '/icon.png',
+    apple: '/icon.png',
+  },
 };
 
 export default function RootLayout({

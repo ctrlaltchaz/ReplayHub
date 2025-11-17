@@ -17,7 +17,7 @@ export class UniversalAuthService {
     ) { }
 
     async universalLogin(loginDto: UniversalLoginDto, req: Request) {
-        const { email, password } = loginDto;
+        const { email, password, rememberMe } = loginDto;
 
         const { globalAccount, orgAccounts } = await this.unifiedUsers.getAccountsByEmail(email);
 
@@ -52,6 +52,15 @@ export class UniversalAuthService {
             }
 
             req.session.userId = globalAccount.id;
+
+            // Set cookie maxAge based on rememberMe
+            if (rememberMe) {
+                // 30 days for remember me
+                req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000;
+            } else {
+                // 24 hours for regular login
+                req.session.cookie.maxAge = 24 * 60 * 60 * 1000;
+            }
 
             if (orgAccounts.length > 0) {
                 const firstOrgUser = orgAccounts[0];

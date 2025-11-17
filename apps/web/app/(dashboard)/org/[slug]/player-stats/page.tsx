@@ -39,7 +39,7 @@ export default function PlayerStatsPage() {
     const router = useRouter();
     const slug = params?.slug as string;
 
-    const { data: playersData, isLoading: playersLoading, error: playersError } = usePlayers(slug, { active: true });
+    const { data: playersData, isLoading: playersLoading, error: playersError } = usePlayers(slug);
 
     const [playersWithStats, setPlayersWithStats] = useState<PlayerStats[]>([]);
     const [loadingStats, setLoadingStats] = useState(false);

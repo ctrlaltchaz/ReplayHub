@@ -99,7 +99,7 @@ function extractMemberships(response?: UniversalLoginResponse | null): UnifiedOr
 function UniversalLoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { refresh } = useAuth();
+    const { refresh, globalUser, isLoading: authLoading } = useAuth();
 
     // Form state
     const [email, setEmail] = useState("");
@@ -115,6 +115,22 @@ function UniversalLoginContent() {
     const [requiresTotp, setRequiresTotp] = useState(false);
     const [loginResponse, setLoginResponse] = useState<UniversalLoginResponse | null>(null);
     const [selectedOrg, setSelectedOrg] = useState<string | null>(null);
+
+    // Check if user is already logged in and redirect
+    React.useEffect(() => {
+        if (!authLoading && globalUser) {
+            // User is already logged in, redirect them
+            const redirectTo = searchParams?.get('redirect');
+
+            if (redirectTo && redirectTo.startsWith('/')) {
+                router.push(redirectTo);
+            } else if (globalUser.isGlobalAdmin) {
+                router.push('/admin/control-center');
+            } else {
+                router.push('/org/select');
+            }
+        }
+    }, [authLoading, globalUser, router, searchParams]);
 
     const membershipOptions = React.useMemo(() => extractMemberships(loginResponse), [loginResponse]);
     const loginResponseHasGlobal = loginResponse?.user?.hasGlobalAccount ?? (loginResponse?.userType === 'global' || loginResponse?.userType === 'both');
@@ -132,7 +148,8 @@ function UniversalLoginContent() {
             // Call unified login endpoint
             const data: UniversalLoginResponse = await apiPost('/auth/universal-login', {
                 email,
-                password
+                password,
+                rememberMe
             });
 
             setLoginResponse(data);
@@ -309,6 +326,33 @@ function UniversalLoginContent() {
         // Remove manual Enter handling - let the form's onSubmit handle it
         // This prevents double submission
     };
+
+    // Show loading while checking authentication
+    if (authLoading) {
+        return (
+            <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#2ef6fc] via-[#1ac4cf] to-[#fc040e]">
+                    <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
+                </div>
+                <div className="relative z-10 text-center space-y-4">
+                    <div className="flex justify-center">
+                        <div className="relative group">
+                            <div className="absolute inset-0 bg-gradient-to-r from-[#2ef6fc] to-[#fc040e] rounded-2xl blur-lg opacity-75"></div>
+                            <div className="relative bg-white p-4 rounded-2xl shadow-2xl">
+                                <img
+                                    src="https://assets.mckeonwebsolutions.com/replayhub/replayicon.png"
+                                    alt="ReplayHub Logo"
+                                    className="h-12 w-12 object-contain"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="h-8 w-8 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <p className="text-white text-lg font-medium">Checking your session...</p>
+                </div>
+            </div>
+        );
+    }
 
     // Show organization selection if user has multiple org accounts
     if (shouldShowOrgSelection) {
