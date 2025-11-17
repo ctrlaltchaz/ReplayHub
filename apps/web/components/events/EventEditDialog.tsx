@@ -198,8 +198,8 @@ export function EventEditDialog({ slug, event, open, onOpenChange, onSubmit, pro
                 submitData.rosterId = formData.rosterId;
             }
 
-            // Add tournament fields if event type is Tournament or Showmatch
-            if (formData.eventType === 'Tournament' || formData.eventType === 'Showmatch') {
+            // Add tournament fields if event type is Tournament, Showmatch, or Broadcast
+            if (formData.eventType === 'Tournament' || formData.eventType === 'Showmatch' || formData.eventType === 'Broadcast') {
                 if (formData.opponent) submitData.opponent = formData.opponent;
                 if (formData.tournamentName) submitData.tournamentName = formData.tournamentName;
                 if (formData.tournamentStage) submitData.tournamentStage = formData.tournamentStage;
@@ -311,7 +311,7 @@ export function EventEditDialog({ slug, event, open, onOpenChange, onSubmit, pro
                             </div>
 
                             {/* Tournament-specific fields */}
-                            {(formData.eventType === 'Tournament' || formData.eventType === 'Showmatch') && (
+                            {(formData.eventType === 'Tournament' || formData.eventType === 'Showmatch' || formData.eventType === 'Broadcast') && (
                                 <div className="border border-blue-200 rounded-lg p-4 space-y-4 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900">
                                     <h4 className="font-medium text-sm text-blue-900 dark:text-blue-100 flex items-center gap-2">
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

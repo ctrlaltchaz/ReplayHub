@@ -1,7 +1,7 @@
 "use client";
 
 import { format, parseISO } from "date-fns";
-import { Calendar, Clock, ExternalLink, FileText, MapPin, Package, Radio, Trophy, User, Users } from "lucide-react";
+import { Award, Calendar, Clock, Crown, ExternalLink, FileText, Flag, MapPin, Medal, Package, Radio, Trophy, User, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useEvent } from "../../hooks/events";
@@ -141,7 +141,7 @@ export function EventDetailsDrawer({
     const callTime = event.callTime ? formatDateTime(event.callTime) : null;
 
     const hasProductionInfo = event.gameTitle || event.productionLead || event.broadcastChannel || event.graphicsPackage;
-    const hasTournamentInfo = (event.eventType === 'Tournament' || event.eventType === 'Showmatch') &&
+    const hasTournamentInfo = (event.eventType === 'Tournament' || event.eventType === 'Showmatch' || event.eventType === 'Broadcast') &&
         (event.opponent || event.tournamentName || event.tournamentStage || event.bestOf);
     const hasLinkedData = event.rosterId || event.checklistId;
 
@@ -333,11 +333,23 @@ export function EventDetailsDrawer({
                                     )}
 
                                     {event.tournamentStage && (
-                                        <div className="flex items-start gap-2">
-                                            <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                                            <div>
-                                                <div className="font-medium">Stage</div>
-                                                <div className="text-muted-foreground">{event.tournamentStage}</div>
+                                        <div className="bg-muted/30 rounded-lg p-3 border flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-background border flex items-center justify-center flex-shrink-0">
+                                                {event.tournamentStage === 'Finals' || event.tournamentStage === 'Grand Finals' ? (
+                                                    <Crown className="h-5 w-5 text-yellow-500" />
+                                                ) : event.tournamentStage === 'Semifinals' ? (
+                                                    <Medal className="h-5 w-5 text-orange-500" />
+                                                ) : event.tournamentStage === 'Quarterfinals' ? (
+                                                    <Award className="h-5 w-5 text-blue-500" />
+                                                ) : event.tournamentStage === 'Groups' ? (
+                                                    <Users className="h-5 w-5 text-green-500" />
+                                                ) : (
+                                                    <Flag className="h-5 w-5 text-purple-500" />
+                                                )}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="text-xs text-muted-foreground">Stage</div>
+                                                <div className="font-montserrat font-semibold">{event.tournamentStage}</div>
                                             </div>
                                         </div>
                                     )}
