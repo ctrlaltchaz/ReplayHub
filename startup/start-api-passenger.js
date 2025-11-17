@@ -8,9 +8,27 @@
 const fs = require('fs');
 const path = require('path');
 
-// Setup logging to app.log
-const logFile = path.join(__dirname, '..', 'app.log');
+// Setup logging to logs/app.log (Plesk exposes /logs)
+const logDir = path.resolve(__dirname, '..', 'logs');
+if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
+}
+const logFile = path.join(logDir, 'app.log');
+
+// Ensure we can write to the log file
+try {
+    fs.appendFileSync(logFile, ''); // Create if doesn't exist
+    console.log(`Logging to: ${logFile}`);
+} catch (err) {
+    console.error('Failed to create log file:', err);
+}
+
 const logStream = fs.createWriteStream(logFile, { flags: 'a' });
+
+// Handle stream errors
+logStream.on('error', (err) => {
+    console.error('Log stream error:', err);
+});
 
 // Redirect console.log to both stdout and app.log
 const originalLog = console.log;
@@ -19,19 +37,29 @@ const originalError = console.error;
 console.log = function (...args) {
     const timestamp = new Date().toISOString();
     const message = `[${timestamp}] ${args.join(' ')}\n`;
-    logStream.write(message);
+    try {
+        logStream.write(message);
+    } catch (err) {
+        originalError('Failed to write to log:', err);
+    }
     originalLog.apply(console, args);
 };
 
 console.error = function (...args) {
     const timestamp = new Date().toISOString();
     const message = `[${timestamp}] ERROR: ${args.join(' ')}\n`;
-    logStream.write(message);
+    try {
+        logStream.write(message);
+    } catch (err) {
+        originalError('Failed to write error to log:', err);
+    }
     originalError.apply(console, args);
 };
 
 // Log startup
 console.log('=== API Starting ===');
+console.log('Process CWD:', process.cwd());
+console.log('__dirname:', __dirname);
 
 // Go up one directory to project root, then into apps/api/dist/src
 require('../apps/api/dist/src/main.js');
