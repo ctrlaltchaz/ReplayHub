@@ -130,7 +130,7 @@ function UniversalLoginContent() {
                 router.push('/org/select');
             }
         }
-    }, [authLoading, globalUser, router, searchParams]);
+    }, [isLoadingGlobal, globalUser, router, searchParams]);
 
     const membershipOptions = React.useMemo(() => extractMemberships(loginResponse), [loginResponse]);
     const loginResponseHasGlobal = loginResponse?.user?.hasGlobalAccount ?? (loginResponse?.userType === 'global' || loginResponse?.userType === 'both');
