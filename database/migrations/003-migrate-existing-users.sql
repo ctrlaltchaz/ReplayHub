@@ -7,19 +7,21 @@ INSERT INTO
     user_org_memberships (
         id,
         tenant_id,
-        global_user_id,
-        status,
+        user_id,
+        email,
+        display_name,
+        is_active,
         created_at,
         updated_at
     )
-SELECT ou.id, ou.tenant_id, ou.global_user_id, ou.status, ou.created_at, ou.updated_at
+SELECT ou.id, ou.tenant_id, ou.global_user_id, ou.email, ou.display_name, ou.is_active, ou.created_at, ou.updated_at
 FROM org_users ou
 WHERE
     NOT EXISTS (
         SELECT 1
         FROM user_org_memberships uom
         WHERE
-            uom.global_user_id = ou.global_user_id
+            uom.user_id = ou.global_user_id
             AND uom.tenant_id = ou.tenant_id
     )
     AND ou.global_user_id IS NOT NULL;
