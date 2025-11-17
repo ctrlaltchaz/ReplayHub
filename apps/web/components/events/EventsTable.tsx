@@ -75,6 +75,7 @@ export function EventsTable({
                         <TableHead className="w-[250px]">Title</TableHead>
                         <TableHead className="w-[120px]">Game</TableHead>
                         <TableHead className="w-[120px]">Type</TableHead>
+                        <TableHead className="w-[140px]">Opponent</TableHead>
                         <TableHead className="w-[140px]">Production Lead</TableHead>
                         <TableHead className="w-[140px]">Start Time</TableHead>
                         <TableHead className="w-[100px]">Duration</TableHead>
