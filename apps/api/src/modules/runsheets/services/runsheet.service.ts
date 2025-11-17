@@ -12,7 +12,7 @@ import {
 export class RunsheetService {
     constructor(private prisma: PrismaService) { }
 
-    async create(tenantId: string, createRunsheetDto: CreateRunsheetDto, createdBy: string) {
+    async create(tenantId: string, createRunsheetDto: CreateRunsheetDto, createdByGlobalUserId: string) {
         // Use transaction to ensure RLS context is set on the same connection
         return await this.prisma.$transaction(async (tx) => {
             // Set RLS context for tenant isolation
@@ -60,7 +60,7 @@ export class RunsheetService {
                     tenantId,
                     title: createRunsheetDto.title,
                     eventId,
-                    createdBy,
+                    createdBy: createdByGlobalUserId,
                     items: initialItems.length > 0 ? {
                         create: initialItems
                     } : undefined,

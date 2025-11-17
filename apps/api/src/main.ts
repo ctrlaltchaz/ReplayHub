@@ -107,11 +107,23 @@ async function bootstrap() {
 
   // Session configuration with standardized cookie options
   // Detect production by checking for SESSION_SECRET or explicit COOKIE_DOMAIN env var
-  const isProduction = process.env.NODE_ENV === 'production' ||
-    process.env.SESSION_SECRET !== undefined ||
-    process.env.COOKIE_DOMAIN !== undefined;
-
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  const isProduction = nodeEnv === 'production';
+  const forceSecureCookies = process.env.FORCE_SECURE_COOKIES === 'true';
   const cookieDomain = process.env.COOKIE_DOMAIN || (isProduction ? '.replayhub.app' : undefined);
+  const cookieSecure = forceSecureCookies || (isProduction && cookieDomain !== undefined);
+
+  const sessionSameSiteRaw = process.env.SESSION_COOKIE_SAMESITE?.toLowerCase();
+  const allowedSameSite: Array<'lax' | 'strict' | 'none'> = ['lax', 'strict', 'none'];
+  let cookieSameSite: boolean | 'lax' | 'strict' | 'none' = cookieSecure ? 'none' : 'lax';
+
+  if (sessionSameSiteRaw === 'true') {
+    cookieSameSite = true;
+  } else if (sessionSameSiteRaw === 'false') {
+    cookieSameSite = false;
+  } else if (sessionSameSiteRaw && allowedSameSite.includes(sessionSameSiteRaw as 'lax' | 'strict' | 'none')) {
+    cookieSameSite = sessionSameSiteRaw as 'lax' | 'strict' | 'none';
+  }
 
   app.use(
     session({
@@ -120,10 +132,10 @@ async function bootstrap() {
       saveUninitialized: false,
       name: 'sessionId',
       cookie: {
-        secure: isProduction, // HTTPS only in production
+        secure: cookieSecure,
         httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        sameSite: 'none', // Allow cross-origin in both dev and prod
+        sameSite: cookieSameSite,
         path: '/',
         domain: cookieDomain, // '.replayhub.app' in prod, undefined in dev
       },
@@ -132,11 +144,12 @@ async function bootstrap() {
   );
 
   console.log('[Session] Cookie config:', {
-    environment: isProduction ? 'production' : 'development',
-    secure: isProduction,
-    sameSite: 'none',
+    environment: nodeEnv,
+    secure: cookieSecure,
+    sameSite: cookieSameSite,
     domain: cookieDomain || 'undefined (localhost)',
-    note: !isProduction ? 'DEV: SameSite=none without Secure - Chrome/Edge may block this' : 'Production config',
+    forceSecureCookies,
+    note: cookieSecure ? 'Secure cookies enabled' : 'DEV: Secure cookies disabled for localhost compatibility',
   });
 
   // Trace scheduling middleware (temporary for debugging) - AFTER session middleware

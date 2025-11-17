@@ -88,13 +88,9 @@ export class EventRemindersService {
                         include: {
                             player: {
                                 include: {
-                                    orgUser: {
+                                    globalUser: {
                                         include: {
-                                            globalUser: {
-                                                include: {
-                                                    discordLinks: true,
-                                                },
-                                            },
+                                            discordLinks: true,
                                         },
                                     },
                                 },
@@ -116,7 +112,7 @@ export class EventRemindersService {
             let failedCount = 0;
 
             for (const member of team.members) {
-                const discordLink = member.player?.orgUser?.globalUser?.discordLinks?.[0];
+                const discordLink = member.player?.globalUser?.discordLinks?.[0];
 
                 if (!discordLink) {
                     this.logger.debug(`Player ${member.player?.gamerTag} has no Discord link`);

@@ -1,7 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_INTERCEPTOR } from '@nestjs/core';
-import { ThrottlerModule } from '@nestjs/throttler';
 
 // Common modules
 import { AuditModule } from './common/audit/audit.module';
@@ -20,6 +19,7 @@ import { GlobalAdminModule } from './modules/global-admin/global-admin.module';
 import { GlobalAuthModule } from './modules/global-auth/global-auth.module';
 import { GlobalOrganisationsModule } from './modules/global-organisations/global-organisations.module';
 import { GlobalUsersModule } from './modules/global-users/global-users.module';
+import { RateLimitModule } from './modules/rate-limit/rate-limit.module';
 import { UniversalAuthModule } from './modules/universal-auth/universal-auth.module';
 
 // Demo module (for tenant isolation testing)
@@ -27,6 +27,7 @@ import { DemoModule } from './modules/demo/demo.module';
 import { TenantRoutesModule } from './modules/tenant-routes/tenant-routes.module';
 
 // Org-scoped modules
+import { AuditLogsModule } from './modules/audit/audit.module';
 import { InviteModule } from './modules/invites/invite.module';
 import { OrgAuthModule } from './modules/org-auth/org-auth.module';
 import { OrgUserModule } from './modules/org-users/org-user.module';
@@ -57,13 +58,7 @@ import { UsersModule } from './modules/users/users.module';
       envFilePath: ['.env.local', '.env'],
     }),
 
-    // Rate limiting
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000,
-        limit: 100,
-      },
-    ]),
+    RateLimitModule,
 
     // Database
     DatabaseModule,
@@ -90,6 +85,7 @@ import { UsersModule } from './modules/users/users.module';
     InviteModule,
     OrgUserModule,
     OrganizationModule,
+    AuditLogsModule,
 
     // Tenant route configuration
     TenantRoutesModule,

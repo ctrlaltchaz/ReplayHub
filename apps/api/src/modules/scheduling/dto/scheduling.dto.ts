@@ -96,7 +96,7 @@ export class CreateEventDto {
     @MaxLength(100)
     gameTitle?: string;
 
-    @ApiPropertyOptional({ description: 'Production lead orgUserId' })
+    @ApiPropertyOptional({ description: 'Production lead globalUserId' })
     @Transform(({ value }) => (!value || value === '') ? undefined : value)
     @ValidateIf((o) => o.productionLead !== undefined && o.productionLead !== '')
     @IsString()

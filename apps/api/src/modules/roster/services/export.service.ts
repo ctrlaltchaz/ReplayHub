@@ -4,96 +4,96 @@ import { PrismaService } from '../../../database/prisma.service';
 
 @Injectable()
 export class ExportService {
-    constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) { }
 
-    async generateRosterSheet(tenantId: string, teamId: string): Promise<Buffer> {
-        // Fetch team with full roster data
-        const team = await this.prisma.team.findFirst({
-            where: { id: teamId, tenantId },
-            include: {
-                coach: {
-                    select: { displayName: true, email: true },
+  async generateRosterSheet(tenantId: string, teamId: string): Promise<Buffer> {
+    // Fetch team with full roster data
+    const team = await this.prisma.team.findFirst({
+      where: { id: teamId, tenantId },
+      include: {
+        coachGlobalUser: {
+          select: { name: true, email: true },
+        },
+        members: {
+          include: {
+            player: {
+              select: {
+                gamerTag: true,
+                role: true,
+                rank: true,
+                eligibility: true,
+                mainsJson: true,
+                globalUser: {
+                  select: { name: true, email: true },
                 },
-                members: {
-                    include: {
-                        player: {
-                            select: {
-                                gamerTag: true,
-                                role: true,
-                                rank: true,
-                                eligibility: true,
-                                mainsJson: true,
-                                orgUser: {
-                                    select: { displayName: true, email: true },
-                                },
-                            },
-                        },
-                    },
-                    orderBy: [{ isStarter: 'desc' }, { position: 'asc' }],
-                },
+              },
             },
-        });
+          },
+          orderBy: [{ isStarter: 'desc' }, { position: 'asc' }],
+        },
+      },
+    });
 
-        if (!team) {
-            throw new NotFoundException('Team not found');
-        }
-
-        // Get tenant info for branding
-        const tenant = await this.prisma.organisation.findFirst({
-            where: { id: tenantId },
-            select: { name: true, slug: true },
-        });
-
-        const htmlContent = this.generateRosterSheetHTML(team, tenant);
-        return this.generatePDF(htmlContent, `${team.name}-roster-sheet`);
+    if (!team) {
+      throw new NotFoundException('Team not found');
     }
 
-    async generateCallSheet(tenantId: string, eventId: string): Promise<Buffer> {
-        // Fetch lineup with event details
-        const lineup = await this.prisma.lineup.findFirst({
-            where: { eventId, tenantId },
-            include: {
-                team: {
-                    select: { name: true, game: true, season: true },
+    // Get tenant info for branding
+    const tenant = await this.prisma.organisation.findFirst({
+      where: { id: tenantId },
+      select: { name: true, slug: true },
+    });
+
+    const htmlContent = this.generateRosterSheetHTML(team, tenant);
+    return this.generatePDF(htmlContent, `${team.name}-roster-sheet`);
+  }
+
+  async generateCallSheet(tenantId: string, eventId: string): Promise<Buffer> {
+    // Fetch lineup with event details
+    const lineup = await this.prisma.lineup.findFirst({
+      where: { eventId, tenantId },
+      include: {
+        team: {
+          select: { name: true, game: true, season: true },
+        },
+        slots: {
+          include: {
+            player: {
+              select: {
+                gamerTag: true,
+                role: true,
+                rank: true,
+                mainsJson: true,
+                globalUser: {
+                  select: { name: true, email: true },
                 },
-                slots: {
-                    include: {
-                        player: {
-                            select: {
-                                gamerTag: true,
-                                role: true,
-                                rank: true,
-                                mainsJson: true,
-                                orgUser: {
-                                    select: { displayName: true, email: true },
-                                },
-                            },
-                        },
-                    },
-                    orderBy: [{ isSub: 'asc' }, { idx: 'asc' }],
-                },
+              },
             },
-        });
+          },
+          orderBy: [{ isSub: 'asc' }, { idx: 'asc' }],
+        },
+      },
+    });
 
-        if (!lineup) {
-            throw new NotFoundException('Lineup not found for this event');
-        }
-
-        // Get tenant info for branding
-        const tenant = await this.prisma.organisation.findFirst({
-            where: { id: tenantId },
-            select: { name: true, slug: true },
-        });
-
-        const htmlContent = this.generateCallSheetHTML(lineup, tenant, eventId);
-        return this.generatePDF(htmlContent, `${lineup.team.name}-call-sheet-${eventId}`);
+    if (!lineup) {
+      throw new NotFoundException('Lineup not found for this event');
     }
 
-    private generateRosterSheetHTML(team: any, tenant: any): string {
-        const starters = team.members.filter((m: any) => m.isStarter);
-        const subs = team.members.filter((m: any) => !m.isStarter);
+    // Get tenant info for branding
+    const tenant = await this.prisma.organisation.findFirst({
+      where: { id: tenantId },
+      select: { name: true, slug: true },
+    });
 
-        return `
+    const htmlContent = this.generateCallSheetHTML(lineup, tenant, eventId);
+    return this.generatePDF(htmlContent, `${lineup.team.name}-call-sheet-${eventId}`);
+  }
+
+  private generateRosterSheetHTML(team: any, tenant: any): string {
+    const starters = team.members.filter((m: any) => m.isStarter);
+    const subs = team.members.filter((m: any) => !m.isStarter);
+
+    return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -200,10 +200,10 @@ export class ExportService {
             <div class="team-details">${team.game} ${team.season ? `• ${team.season}` : ''}</div>
           </div>
 
-          ${team.coach ? `
+          ${team.coachGlobalUser ? `
           <div class="section">
             <div class="coach-info">
-              <strong>Coach:</strong> ${team.coach.displayName} (${team.coach.email})
+              <strong>Coach:</strong> ${team.coachGlobalUser.name} (${team.coachGlobalUser.email})
             </div>
           </div>
           ` : ''}
@@ -232,7 +232,7 @@ export class ExportService {
                     <td>${member.player.rank || '-'}</td>
                     <td>${(member.player.mainsJson as string[]).join(', ') || '-'}</td>
                     <td><span class="eligibility ${member.player.eligibility || 'eligible'}">${member.player.eligibility || 'eligible'}</span></td>
-                    <td>${member.player.orgUser?.displayName || '-'}</td>
+                    <td>${member.player.globalUser?.name || '-'}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -264,7 +264,7 @@ export class ExportService {
                     <td>${member.player.rank || '-'}</td>
                     <td>${(member.player.mainsJson as string[]).join(', ') || '-'}</td>
                     <td><span class="eligibility ${member.player.eligibility || 'eligible'}">${member.player.eligibility || 'eligible'}</span></td>
-                    <td>${member.player.orgUser?.displayName || '-'}</td>
+                    <td>${member.player.globalUser?.name || '-'}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -279,13 +279,13 @@ export class ExportService {
       </body>
       </html>
     `;
-    }
+  }
 
-    private generateCallSheetHTML(lineup: any, tenant: any, eventId: string): string {
-        const starters = lineup.slots.filter((s: any) => !s.isSub);
-        const subs = lineup.slots.filter((s: any) => s.isSub);
+  private generateCallSheetHTML(lineup: any, tenant: any, eventId: string): string {
+    const starters = lineup.slots.filter((s: any) => !s.isSub);
+    const subs = lineup.slots.filter((s: any) => s.isSub);
 
-        return `
+    return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -437,7 +437,7 @@ export class ExportService {
                     <td><strong>${slot.player.gamerTag}</strong></td>
                     <td>${slot.player.role || '-'}</td>
                     <td>${(slot.player.mainsJson as string[]).join(', ') || '-'}</td>
-                    <td>${slot.player.orgUser?.email || '-'}</td>
+                    <td>${slot.player.globalUser?.email || '-'}</td>
                     <td>${slot.notes || '-'}</td>
                   </tr>
                 `).join('')}
@@ -467,7 +467,7 @@ export class ExportService {
                     <td><strong>${slot.player.gamerTag}</strong></td>
                     <td>${slot.player.role || '-'}</td>
                     <td>${(slot.player.mainsJson as string[]).join(', ') || '-'}</td>
-                    <td>${slot.player.orgUser?.email || '-'}</td>
+                    <td>${slot.player.globalUser?.email || '-'}</td>
                     <td>${slot.notes || 'Ready as substitute'}</td>
                   </tr>
                 `).join('')}
@@ -506,26 +506,26 @@ export class ExportService {
       </body>
       </html>
     `;
-    }
+  }
 
-    private async generatePDF(htmlContent: string, filename: string): Promise<Buffer> {
-        const browser = await chromium.launch();
-        const page = await browser.newPage();
+  private async generatePDF(htmlContent: string, filename: string): Promise<Buffer> {
+    const browser = await chromium.launch();
+    const page = await browser.newPage();
 
-        await page.setContent(htmlContent);
+    await page.setContent(htmlContent);
 
-        const pdfBuffer = await page.pdf({
-            format: 'A4',
-            printBackground: true,
-            margin: {
-                top: '20px',
-                bottom: '20px',
-                left: '20px',
-                right: '20px',
-            },
-        });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: {
+        top: '20px',
+        bottom: '20px',
+        left: '20px',
+        right: '20px',
+      },
+    });
 
-        await browser.close();
-        return Buffer.from(pdfBuffer);
-    }
+    await browser.close();
+    return Buffer.from(pdfBuffer);
+  }
 }

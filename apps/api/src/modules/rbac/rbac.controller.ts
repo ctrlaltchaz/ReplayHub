@@ -99,12 +99,12 @@ export class RbacController {
     @UseGuards(PermissionGuard)
     async assignRoles(
         @Param('userId') userId: string,
-        @Body() assignRoleDto: Omit<AssignRoleDto, 'orgUserId'>,
+        @Body() assignRoleDto: Omit<AssignRoleDto, 'membershipId'>,
         @Req() req: Request,
     ) {
         const result = await this.roleService.assignRoles(
             req.tenant!.id,
-            { ...assignRoleDto, orgUserId: userId },
+            { ...assignRoleDto, membershipId: userId },
             req.orgUser!.id
         );
         return result;
@@ -115,12 +115,12 @@ export class RbacController {
     @UseGuards(PermissionGuard)
     async removeRoles(
         @Param('userId') userId: string,
-        @Body() removeRoleDto: Omit<RemoveRoleDto, 'orgUserId'>,
+        @Body() removeRoleDto: Omit<RemoveRoleDto, 'membershipId'>,
         @Req() req: Request,
     ) {
         const result = await this.roleService.removeRoles(
             req.tenant!.id,
-            { ...removeRoleDto, orgUserId: userId },
+            { ...removeRoleDto, membershipId: userId },
             req.orgUser!.id
         );
         return result;

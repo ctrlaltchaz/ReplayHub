@@ -385,8 +385,8 @@ export class LineupService {
         const players = await this.prisma.player.findMany({
             where,
             include: {
-                orgUser: {
-                    select: { id: true, displayName: true, email: true },
+                globalUser: {
+                    select: { id: true, name: true, email: true },
                 },
                 teams: {
                     where: { teamId },
@@ -450,8 +450,8 @@ export class LineupService {
                                 rank: true,
                                 eligibility: true,
                                 mainsJson: true,
-                                orgUser: {
-                                    select: { displayName: true, email: true },
+                                globalUser: {
+                                    select: { name: true, email: true },
                                 },
                             },
                         },

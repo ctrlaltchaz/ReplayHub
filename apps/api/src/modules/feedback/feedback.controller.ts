@@ -15,18 +15,6 @@ import { SessionGuard } from '../global-auth/guards/session.guard';
 import { CreateFeedbackDto } from './dto';
 import { FeedbackService } from './feedback.service';
 
-// Extend Express Request to include globalUser
-declare module 'express' {
-    interface Request {
-        globalUser?: {
-            id: string;
-            email: string;
-            name: string;
-            isGlobalAdmin: boolean;
-        };
-    }
-}
-
 @Controller('feedback')
 @UseGuards(SessionGuard) // Require global user session
 export class FeedbackController {

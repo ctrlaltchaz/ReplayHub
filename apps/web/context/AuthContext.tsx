@@ -1,11 +1,13 @@
 "use client";
 
-import { useGlobalLogin, useGlobalLogout, useGlobalMe, useGlobalTotpVerify, useOrgLogin, useOrgLogout, useOrgMe, useOrgTotpVerify } from '@/lib/auth/api';
-import { flattenPermissions, type GlobalUser, type OrgUser, type PermissionKey } from '@/lib/auth/session';
+import { useGlobalLogin, useGlobalLogout, useGlobalTotpVerify, useOrgLogin, useOrgLogout, useOrgMe, useOrgTotpVerify, useUnifiedSession } from '@/lib/auth/api';
+import { flattenPermissions, type GlobalUser, type OrgUser, type PermissionKey, type UnifiedOrgMembership, type UnifiedUserProfile } from '@/lib/auth/session';
 import * as React from 'react';
 
 interface AuthContextType {
     // State
+    sessionUser: UnifiedUserProfile | null;
+    activeMembership: UnifiedOrgMembership | null;
     globalUser: GlobalUser | null;
     orgUser: OrgUser | null;
     permissions: PermissionKey[];
@@ -37,11 +39,33 @@ interface AuthProviderProps {
 export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
     const [refreshKey, setRefreshKey] = React.useState(0);
 
-    // Global auth queries - always enabled
-    const { data: globalUser, isLoading: isLoadingGlobal, refetch: refetchGlobal } = useGlobalMe({
+    // Unified session query (global + org context)
+    const { data: sessionUser, isLoading: isLoadingSession, refetch: refetchSession } = useUnifiedSession({
         retry: false,
         refetchOnWindowFocus: false,
     });
+
+    const activeMembership = React.useMemo<UnifiedOrgMembership | null>(() => {
+        if (!sessionUser) {
+            return null;
+        }
+
+        if (orgSlug) {
+            const matching = sessionUser.memberships.find((membership) => membership.tenantSlug === orgSlug);
+            if (matching) {
+                return matching;
+            }
+        }
+
+        return sessionUser.activeMembership ?? sessionUser.memberships[0] ?? null;
+    }, [sessionUser, orgSlug]);
+
+    const effectiveOrgSlug = React.useMemo(() => {
+        if (orgSlug) {
+            return orgSlug;
+        }
+        return activeMembership?.tenantSlug ?? '';
+    }, [orgSlug, activeMembership]);
 
     // Org auth queries (only when orgSlug is provided)
     const {
@@ -50,9 +74,9 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
         isFetched: isOrgFetched,
         refetch: refetchOrg
     } = useOrgMe(
-        orgSlug || '',
+        effectiveOrgSlug,
         {
-            enabled: !!orgSlug,
+            enabled: !!effectiveOrgSlug,
             retry: false,
             refetchOnWindowFocus: false,
         }
@@ -76,17 +100,18 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
     // - If no orgSlug, permissions are ready (we're not in an org context)
     // - If orgSlug exists, wait for the fetch to complete AND have valid orgUser data
     const isPermissionsReady = React.useMemo(() => {
-        if (!orgSlug) return true; // Not in org context, no permissions needed
+        if (!effectiveOrgSlug) return true; // Not in org context, no permissions needed
         if (isLoadingOrg) return false; // Still loading
         // Only ready if the query has completed AND we have valid orgUser data
         // This handles the case where the query fails or returns null
         return isOrgFetched && orgUser !== undefined && orgUser !== null;
-    }, [orgSlug, isLoadingOrg, isOrgFetched, orgUser]);
+    }, [effectiveOrgSlug, isLoadingOrg, isOrgFetched, orgUser]);
 
     // Debug logging for permissions
     React.useEffect(() => {
         console.log('[AuthContext] State:', {
             orgSlug,
+            effectiveOrgSlug,
             isLoadingOrg,
             isOrgFetched,
             hasOrgUser: !!orgUser,
@@ -102,60 +127,80 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
                 flattenedPermissions: permissions,
                 permissionsCount: permissions.length
             });
-        } else if (orgSlug && isOrgFetched) {
+        } else if (effectiveOrgSlug && isOrgFetched) {
             console.log('[AuthContext] No orgUser - user may not have access to this org');
         }
-    }, [orgSlug, isLoadingOrg, isOrgFetched, orgUser, permissions, isPermissionsReady]);
+    }, [orgSlug, effectiveOrgSlug, isLoadingOrg, isOrgFetched, orgUser, permissions, isPermissionsReady]);
+
+    const globalUser = React.useMemo<GlobalUser | null>(() => {
+        if (!sessionUser) {
+            return null;
+        }
+
+        return {
+            id: sessionUser.id,
+            email: sessionUser.email,
+            name: sessionUser.name,
+            avatar: sessionUser.avatar,
+            isGlobalAdmin: sessionUser.isGlobalAdmin,
+        };
+    }, [sessionUser]);
 
     // Compute isGlobalAdmin flag
-    const isGlobalAdmin = globalUser?.isGlobalAdmin === true;
+    const isGlobalAdmin = sessionUser?.isGlobalAdmin === true;
 
     // Actions
     const loginGlobal = React.useCallback(async (credentials: { email: string; password: string }) => {
         await globalLoginMutation.mutateAsync(credentials);
-        await refetchGlobal();
-    }, [globalLoginMutation, refetchGlobal]);
+        await refetchSession();
+        if (effectiveOrgSlug) {
+            await refetchOrg();
+        }
+    }, [globalLoginMutation, refetchSession, refetchOrg, effectiveOrgSlug]);
 
     const logoutGlobal = React.useCallback(async () => {
         await globalLogoutMutation.mutateAsync();
-        await refetchGlobal();
-    }, [globalLogoutMutation, refetchGlobal]);
+        await Promise.all([refetchSession(), effectiveOrgSlug ? refetchOrg() : Promise.resolve()]);
+    }, [globalLogoutMutation, refetchSession, refetchOrg, effectiveOrgSlug]);
 
     const loginOrg = React.useCallback(async (slug: string, credentials: { email: string; password: string }) => {
         await orgLoginMutation.mutateAsync(credentials);
         if (orgSlug === slug) {
             await refetchOrg();
         }
-    }, [orgLoginMutation, orgSlug, refetchOrg]);
+        await refetchSession();
+    }, [orgLoginMutation, orgSlug, refetchOrg, refetchSession]);
 
     const logoutOrg = React.useCallback(async (slug: string) => {
         await orgLogoutMutation.mutateAsync();
         if (orgSlug === slug) {
             await refetchOrg();
         }
-    }, [orgLogoutMutation, orgSlug, refetchOrg]);
+        await refetchSession();
+    }, [orgLogoutMutation, orgSlug, refetchOrg, refetchSession]);
 
     const verifyGlobalTotp = React.useCallback(async (token: string) => {
         await globalTotpMutation.mutateAsync({ token });
-        await refetchGlobal();
-    }, [globalTotpMutation, refetchGlobal]);
+        await refetchSession();
+    }, [globalTotpMutation, refetchSession]);
 
     const verifyOrgTotp = React.useCallback(async (slug: string, token: string) => {
         await orgTotpMutation.mutateAsync({ token });
         if (orgSlug === slug) {
             await refetchOrg();
         }
-    }, [orgTotpMutation, orgSlug, refetchOrg]);
+        await refetchSession();
+    }, [orgTotpMutation, orgSlug, refetchOrg, refetchSession]);
 
     const refresh = React.useCallback(async () => {
         console.log('[AuthContext] Refreshing auth state...');
         const results = await Promise.all([
-            refetchGlobal(),
-            orgSlug ? refetchOrg() : Promise.resolve(),
+            refetchSession(),
+            effectiveOrgSlug ? refetchOrg() : Promise.resolve(),
         ]);
-        console.log('[AuthContext] Refresh complete. Global user:', results[0].data);
+        console.log('[AuthContext] Refresh complete. Session user:', results[0]?.data);
         setRefreshKey((prev: number) => prev + 1);
-    }, [refetchGlobal, refetchOrg, orgSlug]);
+    }, [refetchSession, refetchOrg, effectiveOrgSlug]);
 
     const hasPermission = React.useCallback((required?: string | string[]) => {
         if (!required) return true;
@@ -165,6 +210,8 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
     }, [isGlobalAdmin, permissions]);
 
     const contextValue: AuthContextType = React.useMemo(() => ({
+        sessionUser: sessionUser || null,
+        activeMembership,
         globalUser: globalUser || null,
         orgUser: orgUser || null,
         permissions,
@@ -177,10 +224,12 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
         verifyGlobalTotp,
         verifyOrgTotp,
         refresh,
-        isLoadingGlobal,
+        isLoadingGlobal: isLoadingSession,
         isLoadingOrg,
         isPermissionsReady,
     }), [
+        sessionUser,
+        activeMembership,
         globalUser,
         orgUser,
         permissions,
@@ -193,7 +242,7 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
         verifyGlobalTotp,
         verifyOrgTotp,
         refresh,
-        isLoadingGlobal,
+        isLoadingSession,
         isLoadingOrg,
         isPermissionsReady,
     ]);

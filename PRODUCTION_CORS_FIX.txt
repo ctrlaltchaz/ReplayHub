@@ -1,0 +1,8 @@
+# Add this to your production API server's .env file
+# Usually located at /var/www/replayhub/apps/api/.env
+
+# CORS Configuration - Allow requests from your frontend domain
+CORS_ORIGINS=https://app.replayhub.app,https://replayhub.app
+
+# If you also want to allow www subdomain:
+# CORS_ORIGINS=https://app.replayhub.app,https://www.app.replayhub.app,https://replayhub.app,https://www.replayhub.app

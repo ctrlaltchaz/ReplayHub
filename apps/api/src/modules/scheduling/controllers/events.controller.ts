@@ -79,8 +79,8 @@ export class EventsController {
             throw new ConflictException('Authentication context required');
         }
 
-        if (!orgUser) {
-            throw new ConflictException('Organization user context required - please ensure your account is linked to this organization');
+        if (!globalUser) {
+            throw new ConflictException('Global user context required for event creation');
         }
 
         // Validate datetime order
@@ -88,10 +88,10 @@ export class EventsController {
             throw new ConflictException('End time must be after start time');
         }
 
-        // Use the orgUser ID as the creator (foreign key to org_users table)
+        // Use the globalUser ID as the creator for audit trail
         return await this.eventsService.createEvent(
             tenantId_,
-            orgUser.id,
+            globalUser.id,
             createEventDto
         );
     }

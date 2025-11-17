@@ -1,26 +1,19 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Request } from 'express';
-
-declare module 'express-session' {
-    interface SessionData {
-        userId?: string;
-        requiresTotp?: boolean;
-        totpVerified?: boolean;
-    }
-}
+import { UnifiedSessionGuard } from '../../universal-auth/guards/unified-session.guard';
 
 @Injectable()
 export class SessionGuard implements CanActivate {
-    canActivate(context: ExecutionContext): boolean {
+    constructor(private readonly unifiedSessionGuard: UnifiedSessionGuard) { }
+
+    async canActivate(context: ExecutionContext): Promise<boolean> {
+        await this.unifiedSessionGuard.canActivate(context);
+
         const request = context.switchToHttp().getRequest<Request>();
+        const profile = request.unifiedUser;
 
-        if (!request.session?.userId) {
-            throw new UnauthorizedException('Not authenticated');
-        }
-
-        // If user has 2FA enabled, check if TOTP is verified for this session
-        if (request.session.requiresTotp && !request.session.totpVerified) {
-            throw new UnauthorizedException('TOTP verification required');
+        if (!profile?.hasGlobalAccount) {
+            throw new UnauthorizedException('Global session required');
         }
 
         return true;

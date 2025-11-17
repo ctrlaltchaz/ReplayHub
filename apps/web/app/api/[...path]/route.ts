@@ -101,11 +101,19 @@ async function proxyRequest(
             statusText: response.statusText,
         });
 
-        // Forward all response headers EXCEPT Set-Cookie (handle separately)
+        // Forward response headers except ones that no longer apply after decompression
         response.headers.forEach((value, key) => {
-            if (key.toLowerCase() !== 'set-cookie') {
-                nextResponse.headers.set(key, value);
+            const headerKey = key.toLowerCase();
+            if (headerKey === 'set-cookie') {
+                return;
             }
+
+            // Skip compression and length headers since fetch already decoded the body
+            if (headerKey === 'content-encoding' || headerKey === 'content-length') {
+                return;
+            }
+
+            nextResponse.headers.set(key, value);
         });
 
         // Handle Set-Cookie specially - fetch API returns it as a single string

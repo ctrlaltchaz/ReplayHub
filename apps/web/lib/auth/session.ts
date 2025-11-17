@@ -1,12 +1,12 @@
 export interface GlobalUser {
     id: string;
     email: string;
-    name?: string;
-    avatar?: string;
+    name?: string | null;
+    avatar?: string | null;
     isGlobalAdmin?: boolean;
-    createdAt: string;
-    updatedAt?: string;
-    lastLoginAt?: string;
+    createdAt?: string;
+    updatedAt?: string | null;
+    lastLoginAt?: string | null;
 }
 
 export interface OrgUser {
@@ -21,6 +21,35 @@ export interface OrgUser {
 }
 
 export type PermissionKey = string;
+
+export interface UnifiedOrgMembership {
+    orgUserId: string;
+    tenantId: string;
+    tenantSlug: string;
+    tenantName: string;
+    email: string;
+    displayName: string | null;
+    isActive: boolean;
+    isTotpEnabled: boolean;
+}
+
+export interface UnifiedUserProfile {
+    id: string;
+    email: string;
+    name: string | null;
+    avatar: string | null;
+    hasGlobalAccount: boolean;
+    isGlobalAdmin: boolean;
+    isActive: boolean;
+    isTotpEnabled: boolean;
+    globalOrganisations: Array<{
+        id: string;
+        name: string;
+        slug: string;
+    }>;
+    memberships: UnifiedOrgMembership[];
+    activeMembership?: UnifiedOrgMembership;
+}
 
 /**
  * Flattens nested permission arrays into a single array of permission strings

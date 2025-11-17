@@ -1,6 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
-import { UnifiedTenantAuthGuard } from '../../common/tenant/guards/unified-tenant-auth.guard';
 import { TenantModule } from '../../common/tenant/tenant.module';
 import { DatabaseModule } from '../../database/database.module';
 import { DiscordModule } from '../discord/discord.module';
@@ -37,7 +36,6 @@ import { ResourcesController } from './controllers/resources.controller';
         ResourcesService,
         BookingsService,
         EventRemindersService,
-        UnifiedTenantAuthGuard,
         PermissionGuard,
     ],
     controllers: [
@@ -50,7 +48,6 @@ import { ResourcesController } from './controllers/resources.controller';
         EventsService,
         ResourcesService,
         BookingsService,
-        UnifiedTenantAuthGuard,
     ],
 })
 export class SchedulingModule { }

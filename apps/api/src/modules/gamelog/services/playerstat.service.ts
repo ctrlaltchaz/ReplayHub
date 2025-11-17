@@ -108,8 +108,8 @@ export class PlayerStatService {
                 throw new BadRequestException('Player stat already exists for this match/map combination');
             }
 
-            // Get orgUserId if player is linked
-            const orgUserId = player.orgUserId;
+            // Get globalUserId if player is linked
+            const globalUserId = player.globalUserId;
 
             const playerStat = await tx.playerStat.create({
                 data: {
@@ -117,7 +117,7 @@ export class PlayerStatService {
                     matchId,
                     mapGameId: dto.mapGameId,
                     playerId: dto.playerId,
-                    orgUserId,
+                    globalUserId,
                     lineupId: match.lineupId,
                     role: dto.role,
                     statsJson: dto.statsJson,
@@ -251,7 +251,7 @@ export class PlayerStatService {
                             matchId,
                             mapGameId: statDto.mapGameId,
                             playerId: statDto.playerId,
-                            orgUserId: player?.orgUserId,
+                            globalUserId: player?.globalUserId,
                             lineupId: match.lineupId,
                             role: statDto.role,
                             statsJson: statDto.statsJson,

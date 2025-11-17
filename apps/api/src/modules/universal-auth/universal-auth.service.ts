@@ -1,10 +1,11 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import * as argon2 from 'argon2';
-import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { Request } from 'express';
 import { PrismaService } from '../../database/prisma.service';
 import { EmailService } from '../email/email.service';
+import { UnifiedUserProfile } from '../users/dto/unified-user.dto';
+import { UnifiedGlobalAccount, UnifiedOrgAccount, UnifiedUserService } from '../users/unified-user.service';
 import { UniversalLoginDto, UniversalTotpVerifyDto } from './universal-auth.controller';
 
 @Injectable()
@@ -12,109 +13,74 @@ export class UniversalAuthService {
     constructor(
         private prisma: PrismaService,
         private emailService: EmailService,
+        private unifiedUsers: UnifiedUserService,
     ) { }
 
     async universalLogin(loginDto: UniversalLoginDto, req: Request) {
         const { email, password } = loginDto;
 
-        // Check for global user
-        const globalUser = await this.prisma.globalUser.findUnique({
-            where: { email },
-            include: {
-                organisationAdmins: {
-                    include: {
-                        organisation: true,
-                    },
-                },
-            },
-        });
+        const { globalAccount, orgAccounts } = await this.unifiedUsers.getAccountsByEmail(email);
 
-        // Check for org users
-        const orgUsers = await this.prisma.orgUser.findMany({
-            where: { email },
-        });
-
-        if (!globalUser && orgUsers.length === 0) {
+        if (!globalAccount && orgAccounts.length === 0) {
             throw new UnauthorizedException('Invalid credentials');
         }
 
-        // Get organisation (tenant) info for org users
-        let organisations: any[] = [];
-        if (orgUsers.length > 0) {
-            const tenantIds = [...new Set(orgUsers.map(ou => ou.tenantId))];
-            const orgsResult = await this.prisma.organisation.findMany({
-                where: {
-                    id: {
-                        in: tenantIds,
-                    },
-                },
-                select: {
-                    id: true,
-                    slug: true,
-                    name: true,
-                },
-            });
-            // Ensure it's always an array
-            organisations = Array.isArray(orgsResult) ? orgsResult : [];
-        }
+        const organisationMap = new Map(
+            orgAccounts
+                .filter((account) => account.organisation)
+                .map((account) => [account.organisation!.id, account.organisation!]),
+        );
 
-        // Determine user type
         let userType: 'global' | 'org' | 'both';
-        if (globalUser && orgUsers.length > 0) {
+        if (globalAccount && orgAccounts.length > 0) {
             userType = 'both';
-        } else if (globalUser) {
+        } else if (globalAccount) {
             userType = 'global';
         } else {
             userType = 'org';
         }
 
-        // Handle global user login
-        if (globalUser) {
-            const isValidPassword = await this.verifyPassword(globalUser.passwordHash, password);
+        if (globalAccount) {
+            const isValidPassword = await this.unifiedUsers.verifyPassword(globalAccount.passwordHash, password);
 
             if (!isValidPassword) {
                 throw new UnauthorizedException('Invalid credentials');
             }
 
-            if (!globalUser.isActive) {
+            if (!globalAccount.isActive) {
                 throw new UnauthorizedException('Account is inactive');
             }
 
-            // Create global session
-            req.session.userId = globalUser.id;
+            req.session.userId = globalAccount.id;
 
-            // AUTO-LOGIN: If user has org accounts, automatically set the first org session
-            // This allows seamless navigation to org pages without requiring separate login
-            if (orgUsers && orgUsers.length > 0) {
-                const firstOrgUser = orgUsers[0];
-                const firstOrg = organisations.find(o => o.id === firstOrgUser.tenantId);
+            if (orgAccounts.length > 0) {
+                const firstOrgUser = orgAccounts[0];
+                const firstOrg = firstOrgUser.organisation ?? organisationMap.get(firstOrgUser.tenantId);
 
                 if (firstOrg) {
-                    req.session.orgUserId = firstOrgUser.id;
+                    req.session.membershipId = firstOrgUser.id;
                     req.session.orgTenant = firstOrg.slug;
-                    console.log(`[UniversalAuth] Auto-set org session: orgUserId=${firstOrgUser.id}, tenant=${firstOrg.slug}`);
                 }
             }
 
-            // Save session before checking TOTP
             await new Promise<void>((resolve, reject) => {
                 req.session.save((err) => {
                     if (err) {
                         console.error('[UniversalAuth] Session save error:', err);
                         reject(err);
                     } else {
-                        console.log(`[UniversalAuth] Session saved successfully!`);
-                        console.log(`[UniversalAuth] Session ID: ${req.session.id}`);
-                        console.log(`[UniversalAuth] Session userId: ${req.session.userId}`);
-                        console.log(`[UniversalAuth] Session orgUserId: ${req.session.orgUserId}`);
-                        console.log(`[UniversalAuth] Response will set cookie: sessionId=${req.session.id}`);
                         resolve();
                     }
                 });
             });
 
-            // Check if TOTP is required
-            if (globalUser.isTotpEnabled) {
+            const profile = this.unifiedUsers.buildUnifiedProfile({
+                globalAccount,
+                orgAccounts,
+                activeMembershipId: req.session.membershipId,
+            });
+
+            if (globalAccount.isTotpEnabled) {
                 req.session.requiresTotp = true;
                 req.session.totpVerified = false;
                 return {
@@ -122,67 +88,59 @@ export class UniversalAuthService {
                     userType,
                     message: 'TOTP verification required',
                     requiresTotp: true,
+                    user: profile,
                     globalUser: {
-                        id: globalUser.id,
-                        email: globalUser.email,
-                        isGlobalAdmin: globalUser.isGlobalAdmin,
-                        organizations: globalUser.organisationAdmins.map(oa => ({
-                            id: oa.organisation.id,
-                            name: oa.organisation.name,
-                            slug: oa.organisation.slug,
-                        })),
+                        id: globalAccount.id,
+                        email: globalAccount.email,
+                        isGlobalAdmin: globalAccount.isGlobalAdmin,
+                        organizations: globalAccount.organisations,
                     },
+                    orgAccounts: profile.memberships.map((membership) => ({
+                        id: membership.membershipId,
+                        tenantSlug: membership.tenantSlug,
+                        tenantName: membership.tenantName,
+                        email: membership.email,
+                    })),
                 };
             }
 
-            // Return successful global login
             return {
                 success: true,
                 userType,
                 message: 'Login successful',
+                user: profile,
                 globalUser: {
-                    id: globalUser.id,
-                    email: globalUser.email,
-                    isGlobalAdmin: globalUser.isGlobalAdmin,
-                    organizations: (globalUser.organisationAdmins || []).map(oa => ({
-                        id: oa.organisation.id,
-                        name: oa.organisation.name,
-                        slug: oa.organisation.slug,
-                    })),
+                    id: globalAccount.id,
+                    email: globalAccount.email,
+                    isGlobalAdmin: globalAccount.isGlobalAdmin,
+                    organizations: globalAccount.organisations,
                 },
-                orgAccounts: (orgUsers || []).map(ou => {
-                    const org = organisations.find(o => o.id === ou.tenantId);
-                    return {
-                        id: ou.id,
-                        tenantSlug: org?.slug || '',
-                        tenantName: org?.name || '',
-                        email: ou.email,
-                    };
-                }),
+                orgAccounts: profile.memberships.map((membership) => ({
+                    id: membership.membershipId,
+                    tenantSlug: membership.tenantSlug,
+                    tenantName: membership.tenantName,
+                    email: membership.email,
+                })),
             };
         }
 
-        // Handle org user login (multiple orgs)
-        if (orgUsers.length > 0) {
-            // Verify password with first org user (all should have same password)
-            const firstOrgUser = orgUsers[0];
-            const isValidPassword = await this.verifyPassword(firstOrgUser.passwordHash, password);
+        if (orgAccounts.length > 0) {
+            const firstOrgUser = orgAccounts[0];
+            const isValidPassword = await this.unifiedUsers.verifyPassword(firstOrgUser.passwordHash, password);
 
             if (!isValidPassword) {
                 throw new UnauthorizedException('Invalid credentials');
             }
 
-            // If user has only one org account, log them in directly
-            if (orgUsers.length === 1) {
-                const orgUser = orgUsers[0];
-                const org = organisations.find(o => o.id === orgUser.tenantId);
+            if (orgAccounts.length === 1) {
+                const orgUser = orgAccounts[0];
+                const org = orgUser.organisation ?? organisationMap.get(orgUser.tenantId);
 
                 if (!orgUser.isActive) {
                     throw new UnauthorizedException('Account is inactive');
                 }
 
-                // Create org session
-                req.session.orgUserId = orgUser.id;
+                req.session.membershipId = orgUser.id;
                 req.session.orgTenant = org?.slug || '';
 
                 await new Promise<void>((resolve, reject) => {
@@ -192,33 +150,43 @@ export class UniversalAuthService {
                     });
                 });
 
+                const profile = this.unifiedUsers.buildUnifiedProfile({
+                    globalAccount,
+                    orgAccounts,
+                    activeMembershipId: req.session.membershipId,
+                });
+
                 return {
                     success: true,
                     userType: 'org',
                     message: 'Login successful',
-                    orgAccounts: [{
-                        id: orgUser.id,
-                        tenantSlug: org?.slug || '',
-                        tenantName: org?.name || '',
-                        email: orgUser.email,
-                    }],
+                    user: profile,
+                    orgAccounts: profile.memberships.map((membership) => ({
+                        id: membership.membershipId,
+                        tenantSlug: membership.tenantSlug,
+                        tenantName: membership.tenantName,
+                        email: membership.email,
+                    })),
                 };
             }
 
-            // Multiple org accounts - return for selection
+            const profile = this.unifiedUsers.buildUnifiedProfile({
+                globalAccount,
+                orgAccounts,
+                activeMembershipId: req.session.membershipId,
+            });
+
             return {
                 success: true,
                 userType: 'org',
                 message: 'Select organization',
-                orgAccounts: (orgUsers || []).map(ou => {
-                    const org = organisations.find(o => o.id === ou.tenantId);
-                    return {
-                        id: ou.id,
-                        tenantSlug: org?.slug || '',
-                        tenantName: org?.name || '',
-                        email: ou.email,
-                    };
-                }),
+                user: profile,
+                orgAccounts: profile.memberships.map((membership) => ({
+                    id: membership.membershipId,
+                    tenantSlug: membership.tenantSlug,
+                    tenantName: membership.tenantName,
+                    email: membership.email,
+                })),
             };
         }
 
@@ -226,7 +194,7 @@ export class UniversalAuthService {
     }
 
     async universalTotpVerify(verifyDto: UniversalTotpVerifyDto, req: Request) {
-        const { token, userType, tenantSlug } = verifyDto;
+        const { token, userType } = verifyDto;
 
         if (userType === 'global') {
             const userId = req.session.userId;
@@ -234,70 +202,90 @@ export class UniversalAuthService {
                 throw new UnauthorizedException('No active session');
             }
 
-            const globalUser = await this.prisma.globalUser.findUnique({
-                where: { id: userId },
-                include: {
-                    organisationAdmins: {
-                        include: {
-                            organisation: true,
-                        },
-                    },
-                },
-            });
+            const globalAccount = await this.unifiedUsers.getGlobalAccountById(userId);
 
-            if (!globalUser || !globalUser.isTotpEnabled) {
+            if (!globalAccount || !globalAccount.isTotpEnabled) {
                 throw new UnauthorizedException('TOTP not enabled');
             }
 
-            // Here you would verify the TOTP token
-            // const speakeasy = require('speakeasy');
-            // const verified = speakeasy.totp.verify({
-            //     secret: globalUser.totpSecret,
-            //     encoding: 'base32',
-            //     token,
-            // });
-
-            // For now, just mark as verified
             req.session.totpVerified = true;
             req.session.requiresTotp = false;
+
+            const { orgAccounts } = await this.unifiedUsers.getAccountsByEmail(globalAccount.email);
+            const profile = this.unifiedUsers.buildUnifiedProfile({
+                globalAccount,
+                orgAccounts,
+                activeMembershipId: req.session.membershipId,
+            });
 
             return {
                 success: true,
                 userType: 'global',
                 message: 'TOTP verified',
+                user: profile,
                 globalUser: {
-                    id: globalUser.id,
-                    email: globalUser.email,
-                    isGlobalAdmin: globalUser.isGlobalAdmin,
-                    organizations: globalUser.organisationAdmins.map(oa => ({
-                        id: oa.organisation.id,
-                        name: oa.organisation.name,
-                        slug: oa.organisation.slug,
-                    })),
+                    id: globalAccount.id,
+                    email: globalAccount.email,
+                    isGlobalAdmin: globalAccount.isGlobalAdmin,
+                    organizations: globalAccount.organisations,
                 },
+                orgAccounts: profile.memberships.map((membership) => ({
+                    id: membership.membershipId,
+                    tenantSlug: membership.tenantSlug,
+                    tenantName: membership.tenantName,
+                    email: membership.email,
+                })),
             };
         }
 
-        // Handle org TOTP verification if needed
         throw new UnauthorizedException('Invalid verification request');
     }
 
-    private async verifyPassword(hash: string, password: string): Promise<boolean> {
-        try {
-            // Check if it's an argon2 hash (starts with $argon2)
-            if (hash.startsWith('$argon2')) {
-                return await argon2.verify(hash, password);
+    /**
+     * Request password reset - generates token and sends email
+     */
+    async getCurrentSessionProfile(req: Request): Promise<UnifiedUserProfile> {
+        const { userId, membershipId } = req.session;
+
+        let globalAccount: UnifiedGlobalAccount | null = null;
+        let orgAccounts: UnifiedOrgAccount[] = [];
+
+        if (userId) {
+            globalAccount = await this.unifiedUsers.getGlobalAccountById(userId);
+            if (globalAccount) {
+                orgAccounts = await this.unifiedUsers.getOrgAccountsForGlobalUser(userId);
             }
-            // Check if it's a bcrypt hash (starts with $2a$, $2b$, or $2y$)
-            else if (hash.startsWith('$2a$') || hash.startsWith('$2b$') || hash.startsWith('$2y$')) {
-                return await bcrypt.compare(password, hash);
-            }
-            // Unknown hash format
-            return false;
-        } catch (error) {
-            console.error('Password verification error:', error);
-            return false;
         }
+
+        if (membershipId) {
+            const orgAccount = await this.unifiedUsers.getOrgAccountById(membershipId);
+            if (orgAccount) {
+                const merged = new Map<string, UnifiedOrgAccount>();
+                orgAccounts.forEach((account) => merged.set(account.id, account));
+                merged.set(orgAccount.id, orgAccount);
+
+                if (!globalAccount && orgAccount.parentGlobalUserId) {
+                    const parentGlobal = await this.unifiedUsers.getGlobalAccountById(orgAccount.parentGlobalUserId);
+                    if (parentGlobal) {
+                        globalAccount = parentGlobal;
+                        const linkedAccounts = await this.unifiedUsers.getOrgAccountsForGlobalUser(parentGlobal.id);
+                        linkedAccounts.forEach((account) => merged.set(account.id, account));
+                    }
+                }
+
+                orgAccounts = Array.from(merged.values());
+            }
+        }
+
+        if (!globalAccount && orgAccounts.length === 0) {
+            throw new UnauthorizedException('No active session');
+        }
+
+        return this.unifiedUsers.buildUnifiedProfile({
+            globalAccount,
+            orgAccounts,
+            activeMembershipId: membershipId,
+        });
     }
 
     /**
@@ -305,16 +293,10 @@ export class UniversalAuthService {
      */
     async requestPasswordReset(email: string) {
         // Check if user exists (global or org)
-        const globalUser = await this.prisma.globalUser.findUnique({
-            where: { email },
-        });
-
-        const orgUsers = await this.prisma.orgUser.findMany({
-            where: { email },
-        });
-
         // Always return success to prevent email enumeration
-        if (!globalUser && orgUsers.length === 0) {
+        const { globalAccount, orgAccounts } = await this.unifiedUsers.getAccountsByEmail(email);
+
+        if (!globalAccount && orgAccounts.length === 0) {
             return {
                 success: true,
                 message: 'If an account with that email exists, a password reset link has been sent.',
@@ -340,7 +322,6 @@ export class UniversalAuthService {
         // Send password reset email
         try {
             await this.emailService.sendPasswordResetEmail(email, token);
-            console.log(`Password reset email sent to ${email}`);
         } catch (error) {
             console.error(`Failed to send password reset email to ${email}:`, error);
             // Don't throw error to prevent email enumeration
@@ -409,25 +390,23 @@ export class UniversalAuthService {
         const hashedPassword = await argon2.hash(newPassword);
 
         // Update password for global user if exists
-        const globalUser = await this.prisma.globalUser.findUnique({
-            where: { email },
-        });
+        // Update password for all org users with this email
+        const { globalAccount, orgAccounts } = await this.unifiedUsers.getAccountsByEmail(email);
 
-        if (globalUser) {
+        if (globalAccount) {
             await this.prisma.globalUser.update({
-                where: { email },
+                where: { id: globalAccount.id },
                 data: { passwordHash: hashedPassword },
             });
         }
 
-        // Update password for all org users with this email
-        const orgUsers = await this.prisma.orgUser.findMany({
-            where: { email },
-        });
-
-        if (orgUsers.length > 0) {
+        if (orgAccounts.length > 0) {
             await this.prisma.orgUser.updateMany({
-                where: { email },
+                where: {
+                    id: {
+                        in: orgAccounts.map((account) => account.id),
+                    },
+                },
                 data: { passwordHash: hashedPassword },
             });
         }

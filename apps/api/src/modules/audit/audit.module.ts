@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
-import { DatabaseModule } from '../../database/database.module';
-import { AuditService } from './audit.service';
+import { AuditModule as CommonAuditModule } from '../../common/audit/audit.module';
+import { TenantModule } from '../../common/tenant/tenant.module';
+import { OrgAuthModule } from '../org-auth/org-auth.module';
+import { RbacModule } from '../rbac/rbac.module';
+import { UniversalAuthModule } from '../universal-auth/universal-auth.module';
+import { AuditController } from './audit.controller';
 
 @Module({
-    imports: [DatabaseModule],
-    providers: [AuditService],
-    exports: [AuditService],
+    imports: [CommonAuditModule, TenantModule, OrgAuthModule, UniversalAuthModule, RbacModule],
+    controllers: [AuditController],
 })
-export class AuditModule { }
+export class AuditLogsModule { }

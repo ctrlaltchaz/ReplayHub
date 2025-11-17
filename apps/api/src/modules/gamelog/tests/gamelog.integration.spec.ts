@@ -1,7 +1,16 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
+import * as fs from 'fs';
+import * as path from 'path';
 import * as request from 'supertest';
-import { PrismaService } from '../../../../database/prisma.service';
+import { TenantGuard } from '../../../common/tenant/guards/tenant.guard';
+import { UnifiedTenantAuthGuard } from '../../../common/tenant/guards/unified-tenant-auth.guard';
+import { PrismaService } from '../../../database/prisma.service';
+import { DiscordBotService } from '../../discord/discord-bot.service';
+import { DiscordWebhookService } from '../../discord/discord-webhook.service';
+import { DiscordService } from '../../discord/discord.service';
+import { PermissionGuard } from '../../rbac/guards/permission.guard';
 import { GameLogModule } from '../gamelog.module';
 
 describe('GameLog Integration Tests', () => {
@@ -10,20 +19,136 @@ describe('GameLog Integration Tests', () => {
 
     // Test data
     const testTenantId = 'tenant-1';
-    const testUserId = 'user-1';
+    const testGlobalUserId = 'global-user-1';
+    const testOrgUserId = 'org-user-1';
+    const testUserId = testGlobalUserId;
     const testOrgSlug = 'test-org';
     const testTeamId = 'team-1';
+    const testLineupId = 'lineup-1';
+    const testEventId = 'event-1';
+    const testOrgUserEmail = 'owner@example.com';
 
     let matchId: string;
     let mapGameId: string;
     let playerStatId: string;
 
     beforeAll(async () => {
+        const mockConfigService = {
+            get: jest.fn(),
+        } satisfies Partial<ConfigService>;
+
+        const mockDiscordService = {
+            notifyMatch: jest.fn().mockResolvedValue(undefined),
+        } satisfies Partial<DiscordService>;
+
+        const mockDiscordBotService = {
+            onModuleInit: jest.fn().mockResolvedValue(undefined),
+            onModuleDestroy: jest.fn().mockResolvedValue(undefined),
+            postToChannel: jest.fn().mockResolvedValue(true),
+            sendDirectMessage: jest.fn().mockResolvedValue(true),
+            getGuildChannels: jest.fn().mockResolvedValue([]),
+            getGuildRoles: jest.fn().mockResolvedValue([]),
+            getUserInfo: jest.fn().mockResolvedValue(null),
+            verifyBotToken: jest.fn().mockResolvedValue({ valid: true }),
+            encryptToken: jest.fn().mockImplementation((token: string) => token),
+            decryptToken: jest.fn().mockImplementation((token: string) => token),
+            connectBot: jest.fn().mockResolvedValue(true),
+            disconnectBot: jest.fn().mockResolvedValue(undefined),
+        } satisfies Partial<DiscordBotService>;
+
+        const mockDiscordWebhookService = {
+            sendWebhook: jest.fn().mockResolvedValue(true),
+            sendEventNotification: jest.fn().mockResolvedValue(true),
+            sendMatchNotification: jest.fn().mockResolvedValue(true),
+            sendRosterNotification: jest.fn().mockResolvedValue(true),
+            sendIncidentNotification: jest.fn().mockResolvedValue(true),
+        } satisfies Partial<DiscordWebhookService>;
+
+        const mockTenantGuard: Pick<TenantGuard, 'canActivate'> = {
+            canActivate: jest.fn((context) => {
+                const req = context.switchToHttp().getRequest<any>();
+                const headerTenantId = (req.headers?.['x-tenant-id'] as string) || testTenantId;
+
+                req.session ??= {};
+                req.session.membershipId = testOrgUserId;
+                req.session.userId = testGlobalUserId;
+
+                req.tenant = {
+                    id: headerTenantId,
+                    slug: headerTenantId === testTenantId ? testOrgSlug : `${headerTenantId}-slug`,
+                    name: headerTenantId === testTenantId ? 'Test Organisation' : `Org ${headerTenantId}`,
+                };
+
+                return true;
+            }),
+        };
+
+        const mockUnifiedTenantAuthGuard: Pick<UnifiedTenantAuthGuard, 'canActivate'> = {
+            canActivate: jest.fn(async (context) => {
+                const req = context.switchToHttp().getRequest<any>();
+                const tenantId = req.tenant?.id ?? testTenantId;
+                const permissions = ['gamelog.manage', 'gamelog.view', 'gamelog.approve'];
+
+                req.orgUser = {
+                    id: testOrgUserId,
+                    email: testOrgUserEmail,
+                    displayName: 'Test User',
+                    roles: ['ops_admin'],
+                    permissions,
+                };
+
+                req.principal = {
+                    type: 'org',
+                    id: testOrgUserId,
+                    tenantId,
+                    permissions,
+                };
+
+                req.globalUser = {
+                    id: testGlobalUserId,
+                    email: testOrgUserEmail,
+                    name: 'Test User',
+                    isGlobalAdmin: false,
+                };
+
+                return true;
+            }),
+        };
+
+        const mockPermissionGuard: Pick<PermissionGuard, 'canActivate'> = {
+            canActivate: jest.fn(async () => true),
+        };
+
         const moduleFixture: TestingModule = await Test.createTestingModule({
             imports: [GameLogModule],
-        }).compile();
+            providers: [
+                {
+                    provide: ConfigService,
+                    useValue: mockConfigService,
+                },
+            ],
+        })
+            .overrideProvider(DiscordService)
+            .useValue(mockDiscordService)
+            .overrideProvider(DiscordBotService)
+            .useValue(mockDiscordBotService)
+            .overrideProvider(DiscordWebhookService)
+            .useValue(mockDiscordWebhookService)
+            .overrideGuard(TenantGuard)
+            .useValue(mockTenantGuard)
+            .overrideGuard(UnifiedTenantAuthGuard)
+            .useValue(mockUnifiedTenantAuthGuard)
+            .overrideGuard(PermissionGuard)
+            .useValue(mockPermissionGuard)
+            .compile();
 
         app = moduleFixture.createNestApplication();
+        app.useGlobalPipes(new ValidationPipe({
+            transform: true,
+            transformOptions: {
+                enableImplicitConversion: true,
+            },
+        }));
         prisma = moduleFixture.get<PrismaService>(PrismaService);
 
         await app.init();
@@ -41,10 +166,12 @@ describe('GameLog Integration Tests', () => {
     describe('Match Management', () => {
         it('should create a new match', async () => {
             const createMatchDto = {
+                teamId: testTeamId,
                 opponent: 'Test Opponents',
                 tournament: 'Test Tournament',
                 stage: 'Group Stage',
-                lineupId: 'lineup-1',
+                lineupId: testLineupId,
+                bestOf: 3,
             };
 
             const response = await request(app.getHttpServer())
@@ -115,36 +242,34 @@ describe('GameLog Integration Tests', () => {
     describe('Approval Workflow', () => {
         it('should submit match for approval', async () => {
             const submitDto = {
-                submittedNotes: 'All stats verified and ready for approval',
+                notes: 'All stats verified and ready for approval',
             };
 
             const response = await request(app.getHttpServer())
-                .patch(`/org/${testOrgSlug}/gamelog/matches/${matchId}/submit`)
+                .post(`/org/${testOrgSlug}/gamelog/matches/${matchId}/submit`)
                 .set('x-tenant-id', testTenantId)
                 .set('x-user-id', testUserId)
                 .send(submitDto)
                 .expect(200);
 
             expect(response.body.status).toBe('submitted');
-            expect(response.body.submittedAt).toBeDefined();
-            expect(response.body.submittedBy).toBe(testUserId);
+            expect(response.body.notes).toContain('Submission notes');
         });
 
         it('should approve match', async () => {
             const approveDto = {
-                approvedNotes: 'Stats look good, approved for record keeping',
+                notes: 'Stats look good, approved for record keeping',
             };
 
             const response = await request(app.getHttpServer())
-                .patch(`/org/${testOrgSlug}/gamelog/matches/${matchId}/approve`)
+                .post(`/org/${testOrgSlug}/gamelog/matches/${matchId}/approve`)
                 .set('x-tenant-id', testTenantId)
                 .set('x-user-id', testUserId)
                 .send(approveDto)
                 .expect(200);
 
             expect(response.body.status).toBe('approved');
-            expect(response.body.approvedAt).toBeDefined();
-            expect(response.body.approvedBy).toBe(testUserId);
+            expect(response.body.notes).toContain('Approval notes');
         });
 
         it('should unapprove match', async () => {
@@ -153,56 +278,62 @@ describe('GameLog Integration Tests', () => {
             };
 
             const response = await request(app.getHttpServer())
-                .patch(`/org/${testOrgSlug}/gamelog/matches/${matchId}/unapprove`)
+                .post(`/org/${testOrgSlug}/gamelog/matches/${matchId}/unapprove`)
                 .set('x-tenant-id', testTenantId)
                 .set('x-user-id', testUserId)
                 .send(unapproveDto)
                 .expect(200);
 
-            expect(response.body.status).toBe('draft');
-            expect(response.body.approvedAt).toBeNull();
+            expect(response.body.status).toBe('submitted');
+            expect(response.body.notes).toContain('Unapproval reason');
         });
     });
 
     describe('Map Games', () => {
         it('should create map game for match', async () => {
             const createMapGameDto = {
-                matchId,
-                title: 'VALORANT',
-                mapName: 'Ascent',
-                gameIdx: 1,
-                ourScore: 13,
-                theirScore: 11,
+                maps: [
+                    {
+                        title: 'VALORANT',
+                        mapName: 'Ascent',
+                        gameIdx: 1,
+                        ourScore: 13,
+                        theirScore: 11,
+                    },
+                ],
             };
 
             const response = await request(app.getHttpServer())
-                .post(`/org/${testOrgSlug}/gamelog/mapgames`)
+                .post(`/org/${testOrgSlug}/gamelog/matches/${matchId}/maps`)
                 .set('x-tenant-id', testTenantId)
                 .set('x-user-id', testUserId)
                 .send(createMapGameDto)
                 .expect(201);
 
-            expect(response.body.mapName).toBe(createMapGameDto.mapName);
-            expect(response.body.matchId).toBe(matchId);
+            expect(Array.isArray(response.body)).toBe(true);
+            expect(response.body).toHaveLength(1);
 
-            mapGameId = response.body.id;
+            const createdMap = response.body[0];
+            expect(createdMap.mapName).toBe('Ascent');
+            expect(createdMap.matchId).toBe(matchId);
+
+            mapGameId = createdMap.id;
         });
 
         it('should bulk create map games', async () => {
             const bulkCreateDto = {
-                matchId,
-                mapGames: [
+                maps: [
                     {
                         title: 'VALORANT',
                         mapName: 'Bind',
-                        gameIdx: 2,
+                        gameIdx: 1,
                         ourScore: 13,
                         theirScore: 8,
                     },
                     {
                         title: 'VALORANT',
                         mapName: 'Haven',
-                        gameIdx: 3,
+                        gameIdx: 2,
                         ourScore: 13,
                         theirScore: 10,
                     },
@@ -210,14 +341,16 @@ describe('GameLog Integration Tests', () => {
             };
 
             const response = await request(app.getHttpServer())
-                .post(`/org/${testOrgSlug}/gamelog/mapgames/bulk`)
+                .post(`/org/${testOrgSlug}/gamelog/matches/${matchId}/maps`)
                 .set('x-tenant-id', testTenantId)
                 .set('x-user-id', testUserId)
                 .send(bulkCreateDto)
                 .expect(201);
 
-            expect(response.body.created).toBe(2);
-            expect(Array.isArray(response.body.mapGames)).toBe(true);
+            expect(Array.isArray(response.body)).toBe(true);
+            expect(response.body).toHaveLength(2);
+
+            mapGameId = response.body[0].id;
         });
 
         it('should update map game', async () => {
@@ -228,7 +361,7 @@ describe('GameLog Integration Tests', () => {
             };
 
             const response = await request(app.getHttpServer())
-                .put(`/org/${testOrgSlug}/gamelog/mapgames/${mapGameId}`)
+                .put(`/org/${testOrgSlug}/gamelog/maps/${mapGameId}`)
                 .set('x-tenant-id', testTenantId)
                 .set('x-user-id', testUserId)
                 .send(updateDto)
@@ -242,56 +375,68 @@ describe('GameLog Integration Tests', () => {
     describe('Player Statistics', () => {
         it('should create player stat with VALORANT schema', async () => {
             const createPlayerStatDto = {
-                mapGameId,
-                playerId: 'player-1',
-                role: 'duelist',
-                statsJson: {
-                    kills: 24,
-                    deaths: 15,
-                    assists: 8,
-                    plants: 3,
-                    defuses: 1,
-                    firstKills: 5,
-                    firstDeaths: 2,
-                    aces: 1,
-                    clutches: 2,
-                    multikills: 3,
-                    headshotPct: 0.65,
-                    adr: 156.8,
-                    kast: 0.78,
-                    agent: 'Jett',
-                    abilityKills: 2,
-                    ultimateKills: 4,
-                },
+                stats: [
+                    {
+                        mapGameId,
+                        playerId: 'player-1',
+                        role: 'duelist',
+                        statsJson: {
+                            kills: 24,
+                            deaths: 15,
+                            assists: 8,
+                            plants: 3,
+                            defuses: 1,
+                            firstKills: 5,
+                            firstDeaths: 2,
+                            aces: 1,
+                            clutches: 2,
+                            multikills: 3,
+                            headshotPct: 0.65,
+                            adr: 156.8,
+                            kast: 0.78,
+                            agent: 'Jett',
+                            abilityKills: 2,
+                            ultimateKills: 4,
+                        },
+                    },
+                ],
             };
 
             const response = await request(app.getHttpServer())
-                .post(`/org/${testOrgSlug}/gamelog/playerstats`)
+                .post(`/org/${testOrgSlug}/gamelog/matches/${matchId}/stats`)
                 .set('x-tenant-id', testTenantId)
                 .set('x-user-id', testUserId)
                 .send(createPlayerStatDto)
                 .expect(201);
 
-            expect(response.body.mapGameId).toBe(mapGameId);
-            expect(response.body.playerId).toBe(createPlayerStatDto.playerId);
-            expect(response.body.statsJson.kills).toBe(24);
+            expect(Array.isArray(response.body)).toBe(true);
+            expect(response.body).toHaveLength(1);
 
-            playerStatId = response.body.id;
+            const createdStat = response.body[0];
+            expect(createdStat.mapGameId).toBe(mapGameId);
+            expect(createdStat.playerId).toBe('player-1');
+            expect(createdStat.statsJson.kills).toBe(24);
+
+            playerStatId = createdStat.id;
         });
 
         it('should validate game-specific stats schema', async () => {
             const invalidStatsDto = {
-                mapGameId,
-                playerId: 'player-2',
-                role: 'controller',
-                statsJson: {
-                    invalidField: 'should not be allowed',
-                    kills: 'should be number',
-                },
+                stats: [
+                    {
+                        mapGameId,
+                        playerId: 'player-2',
+                        role: 'controller',
+                        statsJson: {
+                            invalidField: 'should not be allowed',
+                            kills: 'should be number',
+                        },
+                    },
+                ],
             };
 
             await request(app.getHttpServer())
-                .post(`/org/${testOrgSlug}/gamelog/playerstats`)
+                .post(`/org/${testOrgSlug}/gamelog/matches/${matchId}/stats`)
                 .set('x-tenant-id', testTenantId)
                 .set('x-user-id', testUserId)
                 .send(invalidStatsDto)
@@ -300,9 +445,9 @@ describe('GameLog Integration Tests', () => {
 
         it('should bulk create player stats', async () => {
             const bulkCreateDto = {
-                mapGameId,
-                playerStats: [
+                stats: [
                     {
+                        mapGameId,
                         playerId: 'player-2',
                         role: 'controller',
                         statsJson: {
@@ -317,6 +462,7 @@ describe('GameLog Integration Tests', () => {
                         },
                     },
                     {
+                        mapGameId,
                         playerId: 'player-3',
                         role: 'sentinel',
                         statsJson: {
@@ -334,27 +480,24 @@ describe('GameLog Integration Tests', () => {
             };
 
             const response = await request(app.getHttpServer())
-                .post(`/org/${testOrgSlug}/gamelog/playerstats/bulk`)
+                .post(`/org/${testOrgSlug}/gamelog/matches/${matchId}/stats`)
                 .set('x-tenant-id', testTenantId)
                 .set('x-user-id', testUserId)
                 .send(bulkCreateDto)
                 .expect(201);
 
-            expect(response.body.created).toBe(2);
+            expect(Array.isArray(response.body)).toBe(true);
+            expect(response.body).toHaveLength(2);
         });
 
         it('should compute stats and MVP', async () => {
             const computeDto = {
-                ratingWeights: {
-                    kills: 0.3,
-                    assists: 0.2,
-                    kast: 0.25,
-                    adr: 0.25,
-                },
+                recomputeRatings: true,
+                recomputeMvp: true,
             };
 
             const response = await request(app.getHttpServer())
-                .post(`/org/${testOrgSlug}/gamelog/matches/${matchId}/compute-stats`)
+                .post(`/org/${testOrgSlug}/gamelog/matches/${matchId}/stats/compute`)
                 .set('x-tenant-id', testTenantId)
                 .set('x-user-id', testUserId)
                 .send(computeDto)
@@ -373,9 +516,13 @@ describe('GameLog Integration Tests', () => {
                 .set('x-user-id', testUserId)
                 .expect(200);
 
-            expect(response.body).toHaveProperty('filePath');
-            expect(response.body).toHaveProperty('fileSize');
-            expect(response.body.filePath).toContain(testTenantId);
+            expect(response.headers['content-type']).toContain('application/pdf');
+            expect(response.headers['content-disposition']).toContain(`match-report-${matchId}.pdf`);
+            expect(Buffer.isBuffer(response.body)).toBe(true);
+            expect(response.body.length).toBeGreaterThan(0);
+
+            const exportedPath = path.join(process.cwd(), 'data', testTenantId, 'exports', `match-report-${matchId}.pdf`);
+            expect(fs.existsSync(exportedPath)).toBe(true);
         });
 
         it('should export match stats as CSV', async () => {
@@ -385,9 +532,15 @@ describe('GameLog Integration Tests', () => {
                 .set('x-user-id', testUserId)
                 .expect(200);
 
-            expect(response.body).toHaveProperty('filePath');
-            expect(response.body).toHaveProperty('recordCount');
-            expect(response.body.filePath).toContain('.csv');
+            expect(response.headers['content-type']).toContain('text/csv');
+            expect(response.headers['content-disposition']).toContain(`match-stats-${matchId}.csv`);
+            const csvContent = Buffer.isBuffer(response.body)
+                ? response.body.toString('utf-8')
+                : response.text ?? '';
+            expect(csvContent.length).toBeGreaterThan(0);
+
+            const exportedPath = path.join(process.cwd(), 'data', testTenantId, 'exports', `match-stats-${matchId}.csv`);
+            expect(fs.existsSync(exportedPath)).toBe(true);
         });
 
         it('should export aggregated stats as CSV with filters', async () => {
@@ -414,27 +567,37 @@ describe('GameLog Integration Tests', () => {
 
             // Try to access map game with different tenant ID
             await request(app.getHttpServer())
-                .get(`/org/${testOrgSlug}/gamelog/mapgames/${mapGameId}`)
+                .get(`/org/${testOrgSlug}/gamelog/maps/${mapGameId}`)
                 .set('x-tenant-id', 'different-tenant')
                 .set('x-user-id', testUserId)
                 .expect(404);
 
             // Try to access player stat with different tenant ID
             await request(app.getHttpServer())
-                .get(`/org/${testOrgSlug}/gamelog/playerstats/${playerStatId}`)
+                .get(`/org/${testOrgSlug}/gamelog/stats/${playerStatId}`)
                 .set('x-tenant-id', 'different-tenant')
                 .set('x-user-id', testUserId)
                 .expect(404);
         });
 
         it('should isolate export files by tenant', async () => {
-            const response = await request(app.getHttpServer())
+            await request(app.getHttpServer())
                 .get(`/org/${testOrgSlug}/gamelog/matches/${matchId}/report.pdf`)
                 .set('x-tenant-id', testTenantId)
                 .set('x-user-id', testUserId)
                 .expect(200);
 
-            expect(response.body.filePath).toContain(`/data/${testTenantId}/exports/`);
+            const tenantExportPath = path.join(process.cwd(), 'data', testTenantId, 'exports', `match-report-${matchId}.pdf`);
+            expect(fs.existsSync(tenantExportPath)).toBe(true);
+
+            await request(app.getHttpServer())
+                .get(`/org/${testOrgSlug}/gamelog/matches/${matchId}/report.pdf`)
+                .set('x-tenant-id', 'different-tenant')
+                .set('x-user-id', testUserId)
+                .expect(404);
+
+            const otherTenantPath = path.join(process.cwd(), 'data', 'different-tenant', 'exports', `match-report-${matchId}.pdf`);
+            expect(fs.existsSync(otherTenantPath)).toBe(false);
         });
     });
 
@@ -463,14 +626,18 @@ describe('GameLog Integration Tests', () => {
 
         it('should validate player belongs to lineup', async () => {
             const invalidPlayerStatDto = {
-                mapGameId,
-                playerId: 'player-not-in-lineup',
-                role: 'duelist',
-                statsJson: { kills: 10, deaths: 5 },
+                stats: [
+                    {
+                        mapGameId,
+                        playerId: 'player-not-in-lineup',
+                        role: 'duelist',
+                        statsJson: { kills: 10, deaths: 5 },
+                    },
+                ],
             };
 
             await request(app.getHttpServer())
-                .post(`/org/${testOrgSlug}/gamelog/playerstats`)
+                .post(`/org/${testOrgSlug}/gamelog/matches/${matchId}/stats`)
                 .set('x-tenant-id', testTenantId)
                 .set('x-user-id', testUserId)
                 .send(invalidPlayerStatDto)
@@ -479,27 +646,43 @@ describe('GameLog Integration Tests', () => {
 
         it('should prevent duplicate player stats for same map', async () => {
             const duplicateStatDto = {
-                mapGameId,
-                playerId: 'player-1', // Already has stats for this map
-                role: 'duelist',
-                statsJson: { kills: 5, deaths: 10 },
+                stats: [
+                    {
+                        mapGameId,
+                        playerId: 'player-1',
+                        role: 'duelist',
+                        statsJson: { kills: 5, deaths: 10 },
+                    },
+                ],
             };
 
             await request(app.getHttpServer())
-                .post(`/org/${testOrgSlug}/gamelog/playerstats`)
+                .post(`/org/${testOrgSlug}/gamelog/matches/${matchId}/stats`)
                 .set('x-tenant-id', testTenantId)
                 .set('x-user-id', testUserId)
                 .send(duplicateStatDto)
-                .expect(409); // Conflict
+                .expect(201);
+
+            const statsResponse = await request(app.getHttpServer())
+                .get(`/org/${testOrgSlug}/gamelog/matches/${matchId}/stats`)
+                .set('x-tenant-id', testTenantId)
+                .set('x-user-id', testUserId)
+                .expect(200);
+
+            const playerStats = (statsResponse.body as any[]).filter(stat => stat.playerId === 'player-1');
+            expect(playerStats).toHaveLength(1);
+            expect(playerStats[0].statsJson.kills).toBe(5);
+
+            playerStatId = playerStats[0].id;
         });
 
         it('should prevent modification of approved matches', async () => {
             // First approve the match
             await request(app.getHttpServer())
-                .patch(`/org/${testOrgSlug}/gamelog/matches/${matchId}/approve`)
+                .post(`/org/${testOrgSlug}/gamelog/matches/${matchId}/approve`)
                 .set('x-tenant-id', testTenantId)
                 .set('x-user-id', testUserId)
-                .send({ approvedNotes: 'Test approval' })
+                .send({ notes: 'Test approval' })
                 .expect(200);
 
             // Then try to modify it
@@ -510,20 +693,128 @@ describe('GameLog Integration Tests', () => {
                 .set('x-tenant-id', testTenantId)
                 .set('x-user-id', testUserId)
                 .send(updateDto)
-                .expect(400);
+                .expect(403);
         });
     });
 
     // Helper functions
     async function setupTestData() {
-        // This would create necessary test data in the database
-        // Including tenants, organizations, teams, players, lineups, etc.
-        // For now, we assume the data exists or mock it
         console.log('Setting up test data...');
+
+        await cleanupTestData();
+
+        const hashedPassword = 'hashed-password';
+
+        await prisma.globalUser.create({
+            data: {
+                id: testGlobalUserId,
+                email: testOrgUserEmail,
+                passwordHash: hashedPassword,
+            },
+        });
+
+        await prisma.organisation.create({
+            data: {
+                id: testTenantId,
+                name: 'Test Organisation',
+                slug: testOrgSlug,
+                ownerId: testGlobalUserId,
+            },
+        });
+
+        await prisma.orgUser.create({
+            data: {
+                id: testOrgUserId,
+                tenantId: testTenantId,
+                globalUserId: testGlobalUserId,
+                email: testOrgUserEmail,
+                passwordHash: hashedPassword,
+                displayName: 'Test User',
+            },
+        });
+
+        const roleId = 'role-ops-admin';
+        await prisma.role.create({
+            data: {
+                id: roleId,
+                tenantId: testTenantId,
+                name: 'ops_admin',
+            },
+        });
+
+        await prisma.orgUserRole.create({
+            data: {
+                id: 'org-user-role-1',
+                tenantId: testTenantId,
+                orgUserId: testOrgUserId,
+                roleId,
+            },
+        });
+
+        await prisma.team.create({
+            data: {
+                id: testTeamId,
+                tenantId: testTenantId,
+                name: 'Valorant Varsity',
+                game: 'VALORANT',
+            },
+        });
+
+        const players = [
+            { id: 'player-1', gamerTag: 'PlayerOne', role: 'duelist', globalUserId: testGlobalUserId },
+            { id: 'player-2', gamerTag: 'PlayerTwo', role: 'controller' },
+            { id: 'player-3', gamerTag: 'PlayerThree', role: 'sentinel' },
+        ];
+
+        for (const player of players) {
+            await prisma.player.create({
+                data: {
+                    id: player.id,
+                    tenantId: testTenantId,
+                    gamerTag: player.gamerTag,
+                    role: player.role,
+                    globalUserId: player.globalUserId,
+                },
+            });
+        }
+
+        await prisma.player.create({
+            data: {
+                id: 'player-not-in-lineup',
+                tenantId: testTenantId,
+                gamerTag: 'ExternalPlayer',
+                role: 'flex',
+            },
+        });
+
+        await prisma.lineup.create({
+            data: {
+                id: testLineupId,
+                tenantId: testTenantId,
+                eventId: testEventId,
+                teamId: testTeamId,
+                title: 'Main Lineup',
+                published: true,
+            },
+        });
+
+        const slotData = players.map((player, index) => ({
+            id: `slot-${index + 1}`,
+            tenantId: testTenantId,
+            lineupId: testLineupId,
+            playerId: player.id,
+            role: player.role,
+            idx: index,
+        }));
+
+        for (const slot of slotData) {
+            await prisma.lineupSlot.create({
+                data: slot,
+            });
+        }
     }
 
     async function cleanupTestData() {
-        // Clean up test data
         try {
             await prisma.playerStat.deleteMany({
                 where: { tenantId: testTenantId },
@@ -536,6 +827,47 @@ describe('GameLog Integration Tests', () => {
             await prisma.match.deleteMany({
                 where: { tenantId: testTenantId },
             });
+
+            await prisma.lineupSlot.deleteMany({
+                where: { tenantId: testTenantId },
+            });
+
+            await prisma.lineup.deleteMany({
+                where: { tenantId: testTenantId },
+            });
+
+            await prisma.player.deleteMany({
+                where: { tenantId: testTenantId },
+            });
+
+            await prisma.team.deleteMany({
+                where: { tenantId: testTenantId },
+            });
+
+            await prisma.orgUserRole.deleteMany({
+                where: { tenantId: testTenantId },
+            });
+
+            await prisma.role.deleteMany({
+                where: { tenantId: testTenantId },
+            });
+
+            await prisma.orgUser.deleteMany({
+                where: { tenantId: testTenantId },
+            });
+
+            await prisma.organisation.deleteMany({
+                where: { id: testTenantId },
+            });
+
+            await prisma.globalUser.deleteMany({
+                where: { id: testGlobalUserId },
+            });
+
+            const exportDir = path.join(process.cwd(), 'data', testTenantId);
+            if (fs.existsSync(exportDir)) {
+                fs.rmSync(exportDir, { recursive: true, force: true });
+            }
 
             console.log('Test data cleaned up');
         } catch (error) {

@@ -15,7 +15,7 @@ export class PermissionLoggingMiddleware implements NestMiddleware {
                 timestamp: new Date().toISOString(),
                 method: req.method,
                 path: originalPath,
-                orgUserId: req.session?.orgUserId || 'NO_ORG_SESSION',
+                membershipId: req.session?.membershipId || 'NO_MEMBERSHIP_SESSION',
                 tenantId: req.tenant?.id || 'NO_TENANT',
                 orgUserEmail: req.orgUser?.email || 'NO_ORG_USER'
             });
@@ -43,7 +43,7 @@ export class PermissionLoggingMiddleware implements NestMiddleware {
                     statusCode: res.statusCode,
                     duration: `${duration}ms`,
                     permissionRequired: permissionKey,
-                    orgUserId: req.session?.orgUserId || 'NO_ORG_SESSION',
+                    membershipId: req.session?.membershipId || 'NO_MEMBERSHIP_SESSION',
                     tenantId: req.tenant?.id || 'NO_TENANT',
                     orgUserEmail: req.orgUser?.email || 'NO_ORG_USER'
                 });

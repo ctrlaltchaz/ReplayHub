@@ -12,13 +12,10 @@ export class TeamService {
 
     async create(tenantId: string, createTeamDto: CreateTeamDto) {
         // Validate coach exists if provided
+        let coachGlobalUserId: string | null = null;
         if (createTeamDto.coachId) {
-            const coach = await this.prisma.orgUser.findFirst({
-                where: { id: createTeamDto.coachId, tenantId },
-            });
-            if (!coach) {
-                throw new BadRequestException('Coach not found');
-            }
+            // coachId is actually the globalUserId from the frontend
+            coachGlobalUserId = createTeamDto.coachId;
         }
 
         // Check for duplicate team name within the same season/game
@@ -40,13 +37,13 @@ export class TeamService {
                 name: createTeamDto.name,
                 game: createTeamDto.game,
                 season: createTeamDto.season || null,
-                coachId: createTeamDto.coachId || null,
+                coachGlobalUserId,
                 captainId: createTeamDto.captainId || null,
                 tenantId,
             },
             include: {
-                coach: {
-                    select: { id: true, displayName: true, email: true },
+                coachGlobalUser: {
+                    select: { id: true, name: true, email: true },
                 },
                 captain: {
                     select: { id: true, gamerTag: true, realName: true },
@@ -81,8 +78,8 @@ export class TeamService {
         return this.prisma.team.findMany({
             where,
             include: {
-                coach: {
-                    select: { id: true, displayName: true, email: true },
+                coachGlobalUser: {
+                    select: { id: true, name: true, email: true },
                 },
                 captain: {
                     select: { id: true, gamerTag: true, realName: true },
@@ -99,8 +96,8 @@ export class TeamService {
         const team = await this.prisma.team.findFirst({
             where: { id, tenantId },
             include: {
-                coach: {
-                    select: { id: true, displayName: true, email: true },
+                coachGlobalUser: {
+                    select: { id: true, name: true, email: true },
                 },
                 captain: {
                     select: { id: true, gamerTag: true, realName: true },
@@ -115,8 +112,8 @@ export class TeamService {
                                 rank: true,
                                 eligibility: true,
                                 isActive: true,
-                                orgUser: {
-                                    select: { id: true, displayName: true, email: true },
+                                globalUser: {
+                                    select: { id: true, name: true, email: true },
                                 },
                             },
                         },
@@ -152,12 +149,8 @@ export class TeamService {
 
         // Validate coach exists if provided
         if (updateTeamDto.coachId) {
-            const coach = await this.prisma.orgUser.findFirst({
-                where: { id: updateTeamDto.coachId, tenantId },
-            });
-            if (!coach) {
-                throw new BadRequestException('Coach not found');
-            }
+            // coachId is actually the globalUserId from the frontend
+            updateTeamDto['coachGlobalUserId'] = updateTeamDto.coachId;
         }
 
         // Validate captain exists if provided (ignore empty strings)
@@ -194,8 +187,8 @@ export class TeamService {
             where: { id },
             data: updateTeamDto,
             include: {
-                coach: {
-                    select: { id: true, displayName: true, email: true },
+                coachGlobalUser: {
+                    select: { id: true, name: true, email: true },
                 },
                 captain: {
                     select: { id: true, gamerTag: true, realName: true },
@@ -224,8 +217,8 @@ export class TeamService {
             where: { id },
             data: { status: 'archived' },
             include: {
-                coach: {
-                    select: { id: true, displayName: true, email: true },
+                coachGlobalUser: {
+                    select: { id: true, name: true, email: true },
                 },
                 _count: {
                     select: { members: true },
@@ -335,8 +328,8 @@ export class TeamService {
         }).then(async (member) => {
             // Send Discord notification
             try {
-                // Get affected player's orgUserId for DM notification
-                const affectedOrgUserIds = player.orgUserId ? [player.orgUserId] : undefined;
+                // Get affected player's globalUserId for DM notification
+                const affectedGlobalUserIds = player.globalUserId ? [player.globalUserId] : undefined;
 
                 await this.discordService.notifyRoster(
                     tenantId,
@@ -347,7 +340,7 @@ export class TeamService {
                         role: position || member.position,
                         details: isStarter ? 'Added as starter' : 'Added as substitute',
                     },
-                    affectedOrgUserIds
+                    affectedGlobalUserIds
                 );
             } catch (error) {
                 // Don't fail the operation if Discord notification fails
@@ -362,7 +355,7 @@ export class TeamService {
             where: { teamId, playerId, tenantId },
             include: {
                 team: { select: { name: true } },
-                player: { select: { gamerTag: true, orgUserId: true } },
+                player: { select: { gamerTag: true, globalUserId: true } },
             },
         });
 
@@ -376,8 +369,8 @@ export class TeamService {
 
         // Send Discord notification
         try {
-            // Get affected player's orgUserId for DM notification
-            const affectedOrgUserIds = member.player.orgUserId ? [member.player.orgUserId] : undefined;
+            // Get affected player's globalUserId for DM notification
+            const affectedGlobalUserIds = member.player.globalUserId ? [member.player.globalUserId] : undefined;
 
             await this.discordService.notifyRoster(
                 tenantId,
@@ -387,7 +380,7 @@ export class TeamService {
                     playerName: member.player.gamerTag,
                     details: 'Removed from team',
                 },
-                affectedOrgUserIds
+                affectedGlobalUserIds
             );
         } catch (error) {
             // Don't fail the operation if Discord notification fails
@@ -402,7 +395,7 @@ export class TeamService {
             where: { teamId, playerId, tenantId },
             include: {
                 team: { select: { name: true } },
-                player: { select: { gamerTag: true, orgUserId: true } },
+                player: { select: { gamerTag: true, globalUserId: true } },
             },
         });
 
@@ -437,8 +430,8 @@ export class TeamService {
                 if (position !== undefined) changes.push(`Position: ${position}`);
                 if (isStarter !== undefined) changes.push(`Role: ${isStarter ? 'Starter' : 'Substitute'}`);
 
-                // Get affected player's orgUserId for DM notification
-                const affectedOrgUserIds = member.player.orgUserId ? [member.player.orgUserId] : undefined;
+                // Get affected player's globalUserId for DM notification
+                const affectedGlobalUserIds = member.player.globalUserId ? [member.player.globalUserId] : undefined;
 
                 await this.discordService.notifyRoster(
                     tenantId,
@@ -448,7 +441,7 @@ export class TeamService {
                         playerName: member.player.gamerTag,
                         details: changes.join(', '),
                     },
-                    affectedOrgUserIds
+                    affectedGlobalUserIds
                 );
             } catch (error) {
                 // Don't fail the operation if Discord notification fails

@@ -7,7 +7,15 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 export const GlobalUserId = createParamDecorator(
     (data: unknown, ctx: ExecutionContext): string => {
         const request = ctx.switchToHttp().getRequest();
-        return request.globalUser?.id || request.session?.userId;
+        if (request.globalUser?.id) {
+            return request.globalUser.id;
+        }
+
+        if (request.unifiedUser?.hasGlobalAccount) {
+            return request.unifiedUser.id;
+        }
+
+        return undefined;
     },
 );
 
@@ -17,6 +25,19 @@ export const GlobalUserId = createParamDecorator(
 export const GlobalUser = createParamDecorator(
     (data: unknown, ctx: ExecutionContext) => {
         const request = ctx.switchToHttp().getRequest();
-        return request.globalUser;
+        if (request.globalUser) {
+            return request.globalUser;
+        }
+
+        if (request.unifiedUser?.hasGlobalAccount) {
+            return {
+                id: request.unifiedUser.id,
+                email: request.unifiedUser.email,
+                name: request.unifiedUser.name ?? request.unifiedUser.email,
+                isGlobalAdmin: request.unifiedUser.isGlobalAdmin,
+            };
+        }
+
+        return undefined;
     },
 );

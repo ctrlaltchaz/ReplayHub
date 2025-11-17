@@ -22,7 +22,7 @@ export class EventsService {
                 data: {
                     ...createEventDto,
                     tenantId,
-                    createdBy: userId,
+                    createdByGlobalUserId: userId,
                 },
                 include: {
                     bookings: {

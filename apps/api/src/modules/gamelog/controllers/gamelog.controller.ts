@@ -66,7 +66,7 @@ export class GameLogController {
         @Request() req: any,
         @Body() dto: CreateMatchDto,
     ): Promise<MatchResponse> {
-        return this.gameLogService.createMatch(req.tenant.id, req.orgUser.id, dto);
+        return this.gameLogService.createMatch(req.tenant.id, req.globalUser.id, dto);
     }
 
     @Get('matches')
@@ -119,6 +119,7 @@ export class GameLogController {
     @Can('gamelog.manage')
     @ApiOperation({ summary: 'Submit match for approval' })
     @ApiResponse({ status: 200, description: 'Match submitted successfully' })
+    @HttpCode(HttpStatus.OK)
     async submitMatch(
         @Request() req: any,
         @Param('id') matchId: string,
@@ -131,6 +132,7 @@ export class GameLogController {
     @Can('gamelog.approve')
     @ApiOperation({ summary: 'Approve match and lock editing' })
     @ApiResponse({ status: 200, description: 'Match approved successfully' })
+    @HttpCode(HttpStatus.OK)
     async approveMatch(
         @Request() req: any,
         @Param('id') matchId: string,
@@ -143,6 +145,7 @@ export class GameLogController {
     @Can('gamelog.approve')
     @ApiOperation({ summary: 'Unapprove match (ops_admin only)' })
     @ApiResponse({ status: 200, description: 'Match unapproved successfully' })
+    @HttpCode(HttpStatus.OK)
     async unapproveMatch(
         @Request() req: any,
         @Param('id') matchId: string,
@@ -236,6 +239,28 @@ export class GameLogController {
         return this.playerStatService.findStatsByMatch(req.tenant.id, matchId);
     }
 
+    @Get('stats/export.csv')
+    @Can('gamelog.view')
+    @ApiOperation({ summary: 'Export aggregated statistics as CSV' })
+    @ApiResponse({ status: 200, description: 'Aggregated CSV report generated successfully' })
+    async exportAggregatedStats(
+        @Request() req: any,
+        @Query('teamId') teamId?: string,
+        @Query('playerId') playerId?: string,
+        @Query('from') from?: string,
+        @Query('to') to?: string,
+        @Query('tournament') tournament?: string,
+    ) {
+        const options: any = {};
+        if (teamId) options.teamId = teamId;
+        if (playerId) options.playerId = playerId;
+        if (from) options.from = new Date(from);
+        if (to) options.to = new Date(to);
+        if (tournament) options.tournament = tournament;
+
+        return this.csvExportService.exportAggregatedStats(req.tenant.id, options);
+    }
+
     @Get('stats/:statId')
     @Can('gamelog.view')
     @ApiOperation({ summary: 'Get player stat by ID' })
@@ -275,6 +300,7 @@ export class GameLogController {
     @Can('stats.edit')
     @ApiOperation({ summary: 'Recompute ratings and MVP selection' })
     @ApiResponse({ status: 200, description: 'Stats computed successfully' })
+    @HttpCode(HttpStatus.OK)
     async computeStats(
         @Request() req: any,
         @Param('id') matchId: string,
@@ -335,25 +361,4 @@ export class GameLogController {
         return new StreamableFile(file);
     }
 
-    @Get('stats/export.csv')
-    @Can('gamelog.view')
-    @ApiOperation({ summary: 'Export aggregated statistics as CSV' })
-    @ApiResponse({ status: 200, description: 'Aggregated CSV report generated successfully' })
-    async exportAggregatedStats(
-        @Request() req: any,
-        @Query('teamId') teamId?: string,
-        @Query('playerId') playerId?: string,
-        @Query('from') from?: string,
-        @Query('to') to?: string,
-        @Query('tournament') tournament?: string,
-    ) {
-        const options: any = {};
-        if (teamId) options.teamId = teamId;
-        if (playerId) options.playerId = playerId;
-        if (from) options.from = new Date(from);
-        if (to) options.to = new Date(to);
-        if (tournament) options.tournament = tournament;
-
-        return this.csvExportService.exportAggregatedStats(req.tenant.id, options);
-    }
 }

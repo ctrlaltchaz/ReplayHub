@@ -44,7 +44,7 @@ export class PdfExportService {
               mapGame: true
             }
           },
-          createdByUser: true
+          createdByGlobalUser: true
         }
       });
 

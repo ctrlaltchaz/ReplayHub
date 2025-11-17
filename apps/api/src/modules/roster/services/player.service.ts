@@ -7,23 +7,6 @@ export class PlayerService {
     constructor(private prisma: PrismaService) { }
 
     async create(tenantId: string, createPlayerDto: CreatePlayerDto) {
-        // Validate orgUser exists if provided
-        if (createPlayerDto.orgUserId) {
-            const orgUser = await this.prisma.orgUser.findFirst({
-                where: { id: createPlayerDto.orgUserId, tenantId },
-            });
-            if (!orgUser) {
-                throw new BadRequestException('Org user not found');
-            }
-
-            // Check if user is already linked to another player
-            const existingPlayer = await this.prisma.player.findFirst({
-                where: { orgUserId: createPlayerDto.orgUserId, tenantId },
-            });
-            if (existingPlayer) {
-                throw new ConflictException('This user is already linked to another player');
-            }
-        }
 
         // Check for duplicate gamer tag
         const existing = await this.prisma.player.findFirst({
@@ -43,7 +26,7 @@ export class PlayerService {
             data: {
                 gamerTag: playerData.gamerTag,
                 realName: playerData.realName || null,
-                orgUserId: playerData.orgUserId || null,
+                globalUserId: null, // Will be set via linkPlayerToUser
                 role: playerData.role || null,
                 rank: playerData.rank || null,
                 bio: playerData.bio || null,
@@ -54,8 +37,8 @@ export class PlayerService {
                 consentJson: consent || {},
             },
             include: {
-                orgUser: {
-                    select: { id: true, displayName: true, email: true },
+                globalUser: {
+                    select: { id: true, name: true, email: true },
                 },
                 _count: {
                     select: {
@@ -104,15 +87,15 @@ export class PlayerService {
                 { gamerTag: { contains: query.q, mode: 'insensitive' } },
                 { role: { contains: query.q, mode: 'insensitive' } },
                 { rank: { contains: query.q, mode: 'insensitive' } },
-                { orgUser: { displayName: { contains: query.q, mode: 'insensitive' } } },
+                { globalUser: { name: { contains: query.q, mode: 'insensitive' } } },
             ];
         }
 
         return this.prisma.player.findMany({
             where,
             include: {
-                orgUser: {
-                    select: { id: true, displayName: true, email: true },
+                globalUser: {
+                    select: { id: true, name: true, email: true },
                 },
                 teams: {
                     include: {
@@ -136,8 +119,8 @@ export class PlayerService {
         const player = await this.prisma.player.findFirst({
             where: { id, tenantId },
             include: {
-                orgUser: {
-                    select: { id: true, displayName: true, email: true },
+                globalUser: {
+                    select: { id: true, name: true, email: true },
                 },
                 teams: {
                     include: {
@@ -190,13 +173,11 @@ export class PlayerService {
         const player = await this.prisma.player.findFirst({
             where: {
                 tenantId,
-                orgUser: {
-                    globalUserId,
-                },
+                globalUserId,
             },
             include: {
-                orgUser: {
-                    select: { id: true, displayName: true, email: true },
+                globalUser: {
+                    select: { id: true, name: true, email: true },
                 },
                 teams: {
                     include: {
@@ -220,28 +201,6 @@ export class PlayerService {
 
         if (!existing) {
             throw new NotFoundException('Player not found');
-        }
-
-        // Validate orgUser exists if provided
-        if (updatePlayerDto.orgUserId) {
-            const orgUser = await this.prisma.orgUser.findFirst({
-                where: { id: updatePlayerDto.orgUserId, tenantId },
-            });
-            if (!orgUser) {
-                throw new BadRequestException('Org user not found');
-            }
-
-            // Check if user is already linked to another player
-            const existingPlayer = await this.prisma.player.findFirst({
-                where: {
-                    orgUserId: updatePlayerDto.orgUserId,
-                    tenantId,
-                    id: { not: id },
-                },
-            });
-            if (existingPlayer) {
-                throw new ConflictException('This user is already linked to another player');
-            }
         }
 
         // Check for gamer tag conflicts if gamer tag is being changed
@@ -270,8 +229,8 @@ export class PlayerService {
             where: { id },
             data: updateData,
             include: {
-                orgUser: {
-                    select: { id: true, displayName: true, email: true },
+                globalUser: {
+                    select: { id: true, name: true, email: true },
                 },
                 _count: {
                     select: {
@@ -385,50 +344,47 @@ export class PlayerService {
             throw new NotFoundException('Player not found');
         }
 
-        if (player.orgUserId) {
+        if (player.globalUserId) {
             throw new ConflictException('Player is already linked to a user');
         }
 
-        // Find the org user with global user data
-        let orgUser;
+        // Find the global user data
+        let globalUser;
         if (linkData.userId) {
-            orgUser = await this.prisma.orgUser.findFirst({
-                where: { id: linkData.userId, tenantId },
-                include: {
-                    globalUser: {
-                        select: {
-                            name: true,
-                            bio: true,
-                            avatar: true,
-                            socialLinks: true,
-                        },
-                    },
+            // Assume userId is globalUserId
+            globalUser = await this.prisma.globalUser.findUnique({
+                where: { id: linkData.userId },
+                select: {
+                    id: true,
+                    name: true,
+                    bio: true,
+                    avatar: true,
+                    socialLinks: true,
+                    email: true,
                 },
             });
         } else if (linkData.email) {
-            orgUser = await this.prisma.orgUser.findFirst({
-                where: { email: linkData.email, tenantId },
-                include: {
-                    globalUser: {
-                        select: {
-                            name: true,
-                            bio: true,
-                            avatar: true,
-                            socialLinks: true,
-                        },
-                    },
+            globalUser = await this.prisma.globalUser.findUnique({
+                where: { email: linkData.email },
+                select: {
+                    id: true,
+                    name: true,
+                    bio: true,
+                    avatar: true,
+                    socialLinks: true,
+                    email: true,
                 },
             });
         }
 
-        if (!orgUser) {
-            throw new NotFoundException('Org user not found');
+        if (!globalUser) {
+            throw new NotFoundException('Global user not found');
         }
 
         // Check if user is already linked to another player
         const existingPlayer = await this.prisma.player.findFirst({
             where: {
-                orgUserId: orgUser.id,
+                globalUserId: globalUser.id,
                 tenantId,
             },
         });
@@ -438,30 +394,30 @@ export class PlayerService {
         }
 
         // Prepare data sync from user to player
-        const updateData: any = { orgUserId: orgUser.id };
+        const updateData: any = {
+            globalUserId: globalUser.id
+        };
 
         // Sync user data to player if available
-        if (orgUser.globalUser) {
-            if (orgUser.globalUser.name && !player.realName) {
-                updateData.realName = orgUser.globalUser.name;
-            }
-            if (orgUser.globalUser.avatar && !player.avatar) {
-                updateData.avatar = orgUser.globalUser.avatar;
-            }
-            if (orgUser.globalUser.bio && !player.bio) {
-                updateData.bio = orgUser.globalUser.bio;
-            }
-            if (orgUser.globalUser.socialLinks && (!player.socialsJson || JSON.stringify(player.socialsJson) === '{}')) {
-                updateData.socialsJson = orgUser.globalUser.socialLinks;
-            }
+        if (globalUser.name && !player.realName) {
+            updateData.realName = globalUser.name;
+        }
+        if (globalUser.avatar && !player.avatar) {
+            updateData.avatar = globalUser.avatar;
+        }
+        if (globalUser.bio && !player.bio) {
+            updateData.bio = globalUser.bio;
+        }
+        if (globalUser.socialLinks && (!player.socialsJson || JSON.stringify(player.socialsJson) === '{}')) {
+            updateData.socialsJson = globalUser.socialLinks;
         }
 
         return this.prisma.player.update({
             where: { id },
             data: updateData,
             include: {
-                orgUser: {
-                    select: { id: true, displayName: true, email: true },
+                globalUser: {
+                    select: { id: true, name: true, email: true },
                 },
             },
         });
@@ -476,13 +432,15 @@ export class PlayerService {
             throw new NotFoundException('Player not found');
         }
 
-        if (!player.orgUserId) {
+        if (!player.globalUserId) {
             throw new BadRequestException('Player is not linked to any user');
         }
 
         return this.prisma.player.update({
             where: { id },
-            data: { orgUserId: null },
+            data: {
+                globalUserId: null
+            },
         });
     }
 
@@ -646,20 +604,13 @@ export class PlayerService {
                 id: playerId,
                 tenantId,
             },
-            include: {
-                orgUser: {
-                    select: {
-                        globalUserId: true,
-                    },
-                },
-            },
         });
 
         if (!player) {
             throw new NotFoundException('Player not found');
         }
 
-        if (!player.orgUser || player.orgUser.globalUserId !== globalUserId) {
+        if (!player.globalUserId || player.globalUserId !== globalUserId) {
             throw new BadRequestException('You can only update your own player profile');
         }
 
@@ -677,8 +628,8 @@ export class PlayerService {
                 socialsJson: socials !== undefined ? socials : player.socialsJson,
             },
             include: {
-                orgUser: {
-                    select: { id: true, displayName: true, email: true },
+                globalUser: {
+                    select: { id: true, name: true, email: true },
                 },
                 teams: {
                     include: {
@@ -703,20 +654,13 @@ export class PlayerService {
                 id: playerId,
                 tenantId,
             },
-            include: {
-                orgUser: {
-                    select: {
-                        globalUserId: true,
-                    },
-                },
-            },
         });
 
         if (!player) {
             throw new NotFoundException('Player not found');
         }
 
-        if (!player.orgUser || player.orgUser.globalUserId !== globalUserId) {
+        if (!player.globalUserId || player.globalUserId !== globalUserId) {
             throw new BadRequestException('You can only update your own player settings');
         }
 
@@ -744,16 +688,10 @@ export class PlayerService {
             where: {
                 id: playerId,
                 tenantId: tenantId,
-                orgUser: {
-                    globalUserId: globalUserId,
-                },
+                globalUserId: globalUserId,
             },
             include: {
-                orgUser: {
-                    include: {
-                        globalUser: true,
-                    },
-                },
+                globalUser: true,
             },
         });
 
@@ -762,7 +700,11 @@ export class PlayerService {
         }
 
         // Sync data from globalUser to player
-        const globalUser = player.orgUser.globalUser;
+        const globalUser = player.globalUser;
+        if (!globalUser) {
+            throw new Error('Player has no linked global user');
+        }
+
         const updateData: any = {};
 
         if (globalUser.name) {
@@ -783,7 +725,7 @@ export class PlayerService {
             where: { id: playerId },
             data: updateData,
             include: {
-                orgUser: true,
+                globalUser: true,
                 teams: {
                     include: {
                         team: true,
@@ -803,14 +745,9 @@ export class PlayerService {
             // Verify player exists and get statsVisible setting
             const player = await tx.player.findFirst({
                 where: { id: playerId, tenantId },
-                include: {
-                    orgUser: {
-                        select: { globalUserId: true }
-                    }
-                }
             });
 
-            console.log('[getPlayerGameStats] Player found:', player ? { id: player.id, gamerTag: player.gamerTag, statsVisible: player.statsVisible, orgUserId: player.orgUserId } : null);
+            console.log('[getPlayerGameStats] Player found:', player ? { id: player.id, gamerTag: player.gamerTag, statsVisible: player.statsVisible, globalUserId: player.globalUserId } : null);
 
             if (!player) {
                 throw new NotFoundException('Player not found');
@@ -819,7 +756,7 @@ export class PlayerService {
             // Check if stats are private
             if (player.statsVisible === false) {
                 // Allow player to view their own stats
-                const isOwnPlayer = player.orgUser?.globalUserId === requestingUserId;
+                const isOwnPlayer = player.globalUserId === requestingUserId;
 
                 console.log('[getPlayerGameStats] Stats private check:', { statsVisible: player.statsVisible, isOwnPlayer });
 

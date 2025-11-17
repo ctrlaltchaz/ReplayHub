@@ -1,5 +1,4 @@
 import { Module, forwardRef } from '@nestjs/common';
-import { UnifiedTenantAuthGuard } from '../../common/tenant/guards/unified-tenant-auth.guard';
 import { TenantModule } from '../../common/tenant/tenant.module';
 import { DatabaseModule } from '../../database/database.module';
 import { GlobalAuthModule } from '../global-auth/global-auth.module';
@@ -17,7 +16,7 @@ import { OrgUserService } from './org-user.service';
         OrgAuthModule,
     ],
     controllers: [OrgUserController],
-    providers: [OrgUserService, UnifiedTenantAuthGuard],
+    providers: [OrgUserService],
     exports: [OrgUserService],
 })
 export class OrgUserModule { }

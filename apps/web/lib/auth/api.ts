@@ -1,5 +1,9 @@
 import { useApiMutation, useApiQuery, type UseApiMutationOptions, type UseApiQueryOptions } from '@/lib/api/query';
-import type { GlobalUser, OrgUser } from './session';
+import type { GlobalUser, OrgUser, UnifiedUserProfile } from './session';
+
+export function useUnifiedSession(options?: UseApiQueryOptions<UnifiedUserProfile>) {
+    return useApiQuery<UnifiedUserProfile>('/auth/session', options);
+}
 
 // Global auth hooks
 export function useGlobalMe(options?: UseApiQueryOptions<GlobalUser>) {

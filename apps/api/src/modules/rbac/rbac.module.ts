@@ -5,6 +5,7 @@ import { TenantModule } from '../../common/tenant/tenant.module';
 import { DatabaseModule } from '../../database/database.module';
 import { GlobalAuthModule } from '../global-auth/global-auth.module';
 import { OrgAuthModule } from '../org-auth/org-auth.module';
+import { UniversalAuthModule } from '../universal-auth/universal-auth.module';
 import { PermissionGuard } from './guards/permission.guard';
 import { RbacController } from './rbac.controller';
 import { PermissionService } from './services/permission.service';
@@ -16,6 +17,7 @@ import { RoleService } from './services/role.service';
         forwardRef(() => GlobalAuthModule),
         DatabaseModule,
         OrgAuthModule,
+        UniversalAuthModule,
     ],
     controllers: [RbacController],
     providers: [PermissionService, RoleService, PermissionGuard, TenantAccessGuard, UnifiedTenantAuthGuard],

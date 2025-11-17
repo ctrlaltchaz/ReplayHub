@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import * as argon2 from 'argon2';
-import * as bcrypt from 'bcrypt';
 import * as otplib from 'otplib';
 import { PrismaService } from '../../database/prisma.service';
 import { EmailService } from '../email/email.service';
+import { UnifiedUserService } from '../users/unified-user.service';
 import { ChangePasswordDto, LoginDto, RegisterDto, UpdateProfileDto } from './dto/auth.dto';
 
 @Injectable()
@@ -11,17 +11,15 @@ export class GlobalAuthService {
     constructor(
         private prisma: PrismaService,
         private emailService: EmailService,
+        private unifiedUsers: UnifiedUserService,
     ) { }
 
     async register(registerDto: RegisterDto) {
         const { email, password } = registerDto;
 
-        // Check if user already exists
-        const existingUser = await this.prisma.globalUser.findUnique({
-            where: { email },
-        });
+        const { globalAccount } = await this.unifiedUsers.getAccountsByEmail(email);
 
-        if (existingUser) {
+        if (globalAccount) {
             throw new Error('User already exists');
         }
 
@@ -29,15 +27,19 @@ export class GlobalAuthService {
         const passwordHash = await argon2.hash(password);
 
         // Create user
-        const user = await this.prisma.globalUser.create({
+        const created = await this.prisma.globalUser.create({
             data: {
                 email,
                 passwordHash,
             },
         });
 
-        // Return user without password hash
-        const { passwordHash: _, ...userResponse } = user;
+        const account = await this.unifiedUsers.getGlobalAccountById(created.id);
+        if (!account) {
+            throw new Error('User registration failed to load account');
+        }
+
+        const { passwordHash: _, ...userResponse } = account;
         return userResponse;
     }
 
@@ -45,30 +47,24 @@ export class GlobalAuthService {
         const { email, password } = loginDto;
 
         // Find user
-        const user = await this.prisma.globalUser.findUnique({
-            where: { email },
-        });
+        const { globalAccount } = await this.unifiedUsers.getAccountsByEmail(email);
 
-        if (!user) {
+        if (!globalAccount) {
             throw new Error('Invalid credentials');
         }
 
-        // Verify password
-        const isValidPassword = await argon2.verify(user.passwordHash, password);
+        const isValidPassword = await this.unifiedUsers.verifyPassword(globalAccount.passwordHash, password);
         if (!isValidPassword) {
             throw new Error('Invalid credentials');
         }
 
         // Return user without password hash
-        const { passwordHash: _, ...userResponse } = user;
+        const { passwordHash: _, ...userResponse } = globalAccount;
         return userResponse;
     }
 
     async setupTotp(userId: string) {
-        const user = await this.prisma.globalUser.findUnique({
-            where: { id: userId },
-        });
-
+        const user = await this.unifiedUsers.getGlobalAccountById(userId);
         if (!user) {
             throw new Error('User not found');
         }
@@ -97,9 +93,7 @@ export class GlobalAuthService {
     }
 
     async verifyTotpSetup(userId: string, token: string) {
-        const user = await this.prisma.globalUser.findUnique({
-            where: { id: userId },
-        });
+        const user = await this.unifiedUsers.getGlobalAccountById(userId);
 
         if (!user || !user.totpSecret) {
             throw new Error('TOTP setup not initiated');
@@ -124,9 +118,7 @@ export class GlobalAuthService {
     }
 
     async verifyTotp(userId: string, token: string) {
-        const user = await this.prisma.globalUser.findUnique({
-            where: { id: userId },
-        });
+        const user = await this.unifiedUsers.getGlobalAccountById(userId);
 
         if (!user || !user.isTotpEnabled || !user.totpSecret) {
             throw new Error('TOTP not enabled');
@@ -145,16 +137,14 @@ export class GlobalAuthService {
     }
 
     async getUserById(id: string) {
-        const user = await this.prisma.globalUser.findUnique({
-            where: { id },
-        });
+        const account = await this.unifiedUsers.getGlobalAccountById(id);
 
-        if (!user) {
+        if (!account) {
             return null;
         }
 
         // Return user without password hash
-        const { passwordHash: _, ...userResponse } = user;
+        const { passwordHash: _, ...userResponse } = account;
         return userResponse;
     }
 
@@ -163,17 +153,14 @@ export class GlobalAuthService {
 
         // If email is being changed, check if it's already taken
         if (email) {
-            const existing = await this.prisma.globalUser.findUnique({
-                where: { email },
-            });
-
+            const { globalAccount: existing } = await this.unifiedUsers.getAccountsByEmail(email);
             if (existing && existing.id !== userId) {
                 throw new Error('Email already in use');
             }
         }
 
         // Update user
-        const user = await this.prisma.globalUser.update({
+        await this.prisma.globalUser.update({
             where: { id: userId },
             data: {
                 ...(name !== undefined && { name }),
@@ -181,8 +168,12 @@ export class GlobalAuthService {
             },
         });
 
-        // Return user without password hash
-        const { passwordHash: _, ...userResponse } = user;
+        const updatedAccount = await this.unifiedUsers.getGlobalAccountById(userId);
+        if (!updatedAccount) {
+            throw new Error('User not found');
+        }
+
+        const { passwordHash: _, ...userResponse } = updatedAccount;
         return userResponse;
     }
 
@@ -190,28 +181,13 @@ export class GlobalAuthService {
         const { currentPassword, newPassword } = changePasswordDto;
 
         // Get user
-        const user = await this.prisma.globalUser.findUnique({
-            where: { id: userId },
-        });
+        const user = await this.unifiedUsers.getGlobalAccountById(userId);
 
         if (!user) {
             throw new Error('User not found');
         }
 
-        // Verify current password - support both bcrypt and argon2
-        let isValidPassword = false;
-
-        // Try bcrypt first (most common from universal-auth)
-        if (user.passwordHash.startsWith('$2a$') || user.passwordHash.startsWith('$2b$')) {
-            isValidPassword = await bcrypt.compare(currentPassword, user.passwordHash);
-        } else {
-            // Try argon2
-            try {
-                isValidPassword = await argon2.verify(user.passwordHash, currentPassword);
-            } catch (err) {
-                isValidPassword = false;
-            }
-        }
+        const isValidPassword = await this.unifiedUsers.verifyPassword(user.passwordHash, currentPassword);
 
         if (!isValidPassword) {
             throw new Error('Current password is incorrect');
@@ -231,11 +207,9 @@ export class GlobalAuthService {
 
     async requestEmailChange(userId: string, newEmail: string) {
         // Check if new email is already in use
-        const existingUser = await this.prisma.globalUser.findUnique({
-            where: { email: newEmail },
-        });
+        const { globalAccount: existing } = await this.unifiedUsers.getAccountsByEmail(newEmail);
 
-        if (existingUser && existingUser.id !== userId) {
+        if (existing && existing.id !== userId) {
             throw new Error('Email address is already in use');
         }
 
@@ -261,9 +235,7 @@ export class GlobalAuthService {
     }
 
     async verifyEmailChange(userId: string, newEmail: string, code: string) {
-        const user = await this.prisma.globalUser.findUnique({
-            where: { id: userId },
-        });
+        const user = await this.unifiedUsers.getGlobalAccountById(userId);
 
         if (!user) {
             throw new Error('User not found');
@@ -349,22 +321,18 @@ export class GlobalAuthService {
         }
 
         // Find org_user for this global user in this org
-        const orgUser = await this.prisma.orgUser.findFirst({
-            where: {
-                tenantId: org.id,
-                globalUserId: globalUserId
-            }
-        });
+        const orgAccounts = await this.unifiedUsers.getOrgAccountsForGlobalUser(globalUserId);
+        const orgAccount = orgAccounts.find((account) => account.organisation?.id === org.id);
 
-        if (!orgUser) {
+        if (!orgAccount) {
             throw new Error('You do not have access to this organization');
         }
 
         // Set session org context - using same keys as universal login
-        req.session.orgUserId = orgUser.id;
+        req.session.membershipId = orgAccount.id;
         req.session.orgTenant = org.slug;
 
-        console.log(`[GlobalAuth] Switched org session: orgUserId=${orgUser.id}, tenant=${org.slug}`);
+        console.log(`[GlobalAuth] Switched org session: membershipId=${orgAccount.id}, tenant=${org.slug}`);
 
         // Save session explicitly
         await new Promise<void>((resolve, reject) => {
@@ -390,30 +358,6 @@ export class GlobalAuthService {
     }
 
     async getOrgUsersForGlobalUser(globalUserId: string) {
-        const orgUsers = await this.prisma.orgUser.findMany({
-            where: {
-                globalUserId: globalUserId
-            }
-        });
-
-        // Get org data for each org user
-        const orgUsersWithOrg = await Promise.all(
-            orgUsers.map(async (orgUser) => {
-                const org = await this.prisma.organisation.findUnique({
-                    where: { id: orgUser.tenantId },
-                    select: {
-                        id: true,
-                        name: true,
-                        slug: true
-                    }
-                });
-                return {
-                    ...orgUser,
-                    organisation: org
-                };
-            })
-        );
-
-        return orgUsersWithOrg;
+        return this.unifiedUsers.getOrgAccountsForGlobalUser(globalUserId);
     }
 }

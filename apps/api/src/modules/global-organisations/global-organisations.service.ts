@@ -1,10 +1,16 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateOrgDto, OrganisationDto } from './dto';
+import { OrganisationProvisioningService } from './organisation-provisioning.service';
 
 @Injectable()
 export class GlobalOrganisationsService {
-    constructor(private prisma: PrismaService) { }
+    private readonly logger = new Logger(GlobalOrganisationsService.name);
+
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly provisioningService: OrganisationProvisioningService,
+    ) { }
 
     async create(createOrgDto: CreateOrgDto, globalUserId: string): Promise<OrganisationDto> {
         // Check if slug already exists
@@ -48,7 +54,7 @@ export class GlobalOrganisationsService {
                 return organisation;
             });
 
-            return {
+            const organisationDto: OrganisationDto = {
                 id: result.id,
                 name: result.name,
                 slug: result.slug,
@@ -61,8 +67,17 @@ export class GlobalOrganisationsService {
                 isAdmin: true,
                 role: 'owner',
             };
+
+            try {
+                await this.provisioningService.provisionNewOrganisation(result.id, globalUserId);
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                this.logger.error(`Provisioning failed for organisation ${result.id}: ${message}`);
+            }
+
+            return organisationDto;
         } catch (error) {
-            if (error.code === 'P2002') {
+            if ((error as any)?.code === 'P2002') {
                 throw new ConflictException('Organisation slug is already taken');
             }
             throw error;

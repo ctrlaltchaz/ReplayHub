@@ -2,20 +2,6 @@ import { Injectable, NestMiddleware, NotFoundException } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
 import { PrismaService } from '../../../database/prisma.service';
 
-export interface TenantData {
-    id: string;
-    slug: string;
-    name: string;
-}
-
-declare global {
-    namespace Express {
-        interface Request {
-            tenant?: TenantData;
-        }
-    }
-}
-
 @Injectable()
 export class TenantResolverMiddleware implements NestMiddleware {
     constructor(private prisma: PrismaService) { }

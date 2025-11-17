@@ -29,7 +29,6 @@ export const TeamQueryDto = z.object({
 export const CreatePlayerDto = z.object({
     gamerTag: z.string().min(1).max(50),
     realName: z.string().max(100).optional(),
-    orgUserId: z.string().optional(),
     role: z.string().max(50).optional(),
     rank: z.string().max(30).optional(),
     mains: z.array(z.string()).optional(),
@@ -43,7 +42,6 @@ export const CreatePlayerDto = z.object({
 export const UpdatePlayerDto = z.object({
     gamerTag: z.string().min(1).max(50).optional(),
     realName: z.string().max(100).optional(),
-    orgUserId: z.string().optional(),
     role: z.string().max(50).optional(),
     rank: z.string().max(30).optional(),
     mains: z.array(z.string()).optional(),

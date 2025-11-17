@@ -19,8 +19,9 @@ describe('Route Parameter Audit', () => {
     });
 
     it('should ensure all /org/* routes use :slug parameter consistently', () => {
-        const server = app.getHttpServer();
-        const router = server._events.request.router;
+        const httpAdapter = app.getHttpAdapter();
+        const instance = httpAdapter.getInstance();
+        const router = instance?._router ?? instance?.router;
 
         // Get all registered routes
         const routes: Array<{ path: string, methods: string[] }> = [];

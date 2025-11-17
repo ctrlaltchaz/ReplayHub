@@ -73,27 +73,12 @@ export class OrgAuthService {
             // Set tenant context for RLS
             await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-            // Find user
+            // Find user for password verification (still using OrgUser for auth)
             const orgUser = await tx.orgUser.findUnique({
                 where: {
                     tenantId_email: {
                         tenantId,
                         email: loginDto.email,
-                    },
-                },
-                include: {
-                    roles: {
-                        include: {
-                            role: {
-                                include: {
-                                    permissions: {
-                                        include: {
-                                            permission: true,
-                                        },
-                                    },
-                                },
-                            },
-                        },
                     },
                 },
             });
@@ -126,11 +111,70 @@ export class OrgAuthService {
                 }
             }
 
-            // Extract roles and permissions
-            const roles = orgUser.roles.map(ur => ur.role.name);
+            // Find the corresponding membership
+            // If orgUser has globalUserId, find membership by that
+            // Otherwise, find by email (for legacy org-only users)
+            let membership;
+            if (orgUser.globalUserId) {
+                membership = await tx.userOrganisationMembership.findUnique({
+                    where: {
+                        userId_tenantId: {
+                            userId: orgUser.globalUserId,
+                            tenantId,
+                        },
+                    },
+                    include: {
+                        roles: {
+                            include: {
+                                role: {
+                                    include: {
+                                        permissions: {
+                                            include: {
+                                                permission: true,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                });
+            } else {
+                // Legacy: org-only user, find by email
+                membership = await tx.userOrganisationMembership.findUnique({
+                    where: {
+                        tenantId_email: {
+                            tenantId,
+                            email: orgUser.email,
+                        },
+                    },
+                    include: {
+                        roles: {
+                            include: {
+                                role: {
+                                    include: {
+                                        permissions: {
+                                            include: {
+                                                permission: true,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                });
+            }
+
+            if (!membership) {
+                throw new UnauthorizedException('Membership not found - please contact support');
+            }
+
+            // Extract roles and permissions from membership (new system)
+            const roles = membership.roles.map(mr => mr.role.name);
             const permissions = [...new Set(
-                orgUser.roles.flatMap(ur =>
-                    ur.role.permissions.map(rp => rp.permission.key)
+                membership.roles.flatMap(mr =>
+                    mr.role.permissions.map(rp => rp.permission.key)
                 )
             )] as string[];
 
@@ -138,11 +182,11 @@ export class OrgAuthService {
 
             return {
                 orgUser: {
-                    id: orgUser.id,
-                    email: orgUser.email,
-                    displayName: orgUser.displayName,
-                    isActive: orgUser.isActive,
-                    isTotpEnabled: orgUser.isTotpEnabled,
+                    id: membership.id, // Return membership ID, not orgUser ID!
+                    email: membership.email,
+                    displayName: membership.displayName ?? orgUser.displayName,
+                    isActive: membership.isActive,
+                    isTotpEnabled: membership.isTotpEnabled,
                     roles,
                     permissions,
                     createdAt: orgUser.createdAt,
@@ -279,6 +323,89 @@ export class OrgAuthService {
     async validateOrgUser(tenantId: string, orgUserId: string): Promise<OrgUserProfileDto | null> {
         try {
             return await this.getProfile(tenantId, orgUserId);
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * New membership-based profile method
+     * Gets user profile from UserOrganisationMembership + roles
+     */
+    async getProfileFromMembership(tenantId: string, membershipId: string): Promise<OrgUserProfileDto> {
+        console.log('🔍 [getProfileFromMembership] Called with:', { tenantId, membershipId });
+        return await this.prisma.$transaction(async (tx) => {
+            // Set tenant context for RLS
+            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+
+            const membership = await tx.userOrganisationMembership.findUnique({
+                where: { id: membershipId },
+                include: {
+                    roles: {
+                        include: {
+                            role: {
+                                include: {
+                                    permissions: {
+                                        include: {
+                                            permission: true,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            });
+
+            console.log('🔍 [getProfileFromMembership] Membership result:', {
+                found: !!membership,
+                id: membership?.id,
+                email: membership?.email,
+                isActive: membership?.isActive,
+                rolesCount: membership?.roles?.length,
+            });
+
+            if (!membership) {
+                console.log('❌ [getProfileFromMembership] No membership found');
+                throw new UnauthorizedException('Membership not found');
+            }
+
+            // Get roles and permissions from membership roles
+            const roles = membership.roles.map(mr => mr.role.name);
+            const permissions = [...new Set(
+                membership.roles.flatMap(mr =>
+                    mr.role.permissions.map(rp => rp.permission.key)
+                )
+            )] as string[];
+
+            const profile = {
+                id: membership.id,
+                email: membership.email,
+                displayName: membership.displayName ?? membership.email,
+                isActive: membership.isActive,
+                isTotpEnabled: membership.isTotpEnabled,
+                roles,
+                permissions,
+                createdAt: membership.createdAt,
+            };
+
+            console.log('✅ [getProfileFromMembership] Returning profile:', {
+                id: profile.id,
+                email: profile.email,
+                roles,
+                permissionCount: permissions.length,
+            });
+
+            return profile;
+        });
+    }
+
+    /**
+     * Validate membership and return profile
+     */
+    async validateMembership(tenantId: string, membershipId: string): Promise<OrgUserProfileDto | null> {
+        try {
+            return await this.getProfileFromMembership(tenantId, membershipId);
         } catch {
             return null;
         }

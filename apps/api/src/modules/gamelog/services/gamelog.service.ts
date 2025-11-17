@@ -57,6 +57,17 @@ export class GameLogService {
                 }
             }
 
+            // Resolve globalUserId for creator
+            let createdByGlobalUserId: string | null = null;
+            if (userId) {
+                const creator = await tx.orgUser.findFirst({
+                    where: { id: userId, tenantId },
+                });
+                if (creator) {
+                    createdByGlobalUserId = creator.globalUserId;
+                }
+            }
+
             const match = await tx.match.create({
                 data: {
                     tenantId,
@@ -71,7 +82,7 @@ export class GameLogService {
                     endedAt: dto.endedAt ? new Date(dto.endedAt) : null,
                     vodUrl: dto.vodUrl,
                     notes: dto.notes,
-                    createdBy: userId,
+                    createdByGlobalUserId,
                 },
                 include: {
                     team: true,
@@ -400,7 +411,7 @@ export class GameLogService {
                                         select: {
                                             id: true,
                                             gamerTag: true,
-                                            orgUserId: true,
+                                            globalUserId: true,
                                         }
                                     }
                                 }
@@ -417,9 +428,10 @@ export class GameLogService {
 
             // Send Discord notification for approved match
             try {
-                // Get participant orgUserIds from lineup for DM notifications
-                const participantOrgUserIds = updatedMatch.lineup?.slots
-                    ?.map(slot => slot.player?.orgUserId)
+                // Get participant globalUserIds from lineup
+                // Note: Discord service will need to be updated to handle GlobalUser IDs
+                const participantGlobalUserIds = updatedMatch.lineup?.slots
+                    ?.map(slot => slot.player?.globalUserId)
                     .filter((id): id is string => !!id) || [];
 
                 await this.discordService.notifyMatch(
@@ -432,7 +444,7 @@ export class GameLogService {
                         notes: `${updatedMatch.tournament ? `Tournament: ${updatedMatch.tournament}` : ''}`.trim() || undefined,
                         url: updatedMatch.vodUrl || undefined,
                     },
-                    participantOrgUserIds.length > 0 ? participantOrgUserIds : undefined
+                    participantGlobalUserIds.length > 0 ? participantGlobalUserIds : undefined
                 );
             } catch (discordError) {
                 console.error('Failed to send Discord notification:', discordError);

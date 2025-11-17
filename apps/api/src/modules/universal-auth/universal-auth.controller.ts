@@ -1,7 +1,8 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { Request } from 'express';
+import { UnifiedSessionGuard } from './guards/unified-session.guard';
 import { UniversalAuthService } from './universal-auth.service';
 
 export class UniversalLoginDto {
@@ -72,6 +73,12 @@ export class UniversalAuthController {
         @Req() req: Request,
     ) {
         return await this.universalAuthService.universalTotpVerify(verifyDto, req);
+    }
+
+    @UseGuards(UnifiedSessionGuard)
+    @Get('session')
+    async getSessionProfile(@Req() req: Request) {
+        return await this.universalAuthService.getCurrentSessionProfile(req);
     }
 
     @Post('request-password-reset')

@@ -89,11 +89,20 @@ model GlobalUser {
   organisations       Organisation[]
   organisationAdmins  OrganisationAdmin[]
   orgUsers            OrgUser[]            @relation("OrgUserToGlobalUser")
+  memberships         UserOrganisationMembership[]
   auditLogs           AuditLog[]
   inventoryMovements  InventoryMovement[]  @relation("MovementsByUser")
   discordLinks        UserDiscordLink[]    @relation("UserDiscordLinks")
   feedbackSubmissions FeedbackSubmission[]
   feedbackComments    FeedbackComment[]
+  
+  // Domain model relations (new unified approach)
+  teamsCoached        Team[]        @relation("TeamCoach")
+  players             Player[]      @relation("PlayerUser")
+  playerStats         PlayerStat[]  @relation("PlayerStatUser")
+  eventsCreated       Event[]       @relation("EventCreator")
+  eventsProduced      Event[]       @relation("EventProductionLead")
+  matchesCreated      Match[]       @relation("MatchCreator")
 
   @@map("global_users")
 }
@@ -110,10 +119,12 @@ model Organisation {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   // Relations
-  owner    GlobalUser          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  admins   OrganisationAdmin[]
-  invites  OrgInvite[]
-  orgUsers OrgUser[]           @relation("OrgUserToOrganisation")
+  owner       GlobalUser                  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  admins      OrganisationAdmin[]
+  invites     OrgInvite[]
+  orgUsers    OrgUser[]                   @relation("OrgUserToOrganisation")
+  memberships UserOrganisationMembership[]
+  auditLogs   AuditLog[]                  @relation("TenantAuditLogs")
 
   @@map("organisations")
 }
@@ -146,7 +157,11 @@ model Note {
   @@map("notes")
 }
 
-// Org-scoped user system (Phase 3)
+// ⚠️ DEPRECATED: Legacy org-scoped user system (Phase 5)
+// This model is deprecated and should not be used for new features.
+// Use GlobalUser + UserOrganisationMembership instead.
+// Roles are now assigned via MembershipRole, not OrgUserRole.
+// This table remains for backward compatibility with existing org-login flows.
 model OrgUser {
   id            String   @id @default(cuid())
   tenantId      String   @map("tenant_id")
@@ -163,14 +178,8 @@ model OrgUser {
   // Relations
   organisation      Organisation @relation("OrgUserToOrganisation", fields: [tenantId], references: [id], onDelete: Cascade)
   globalUser        GlobalUser?  @relation("OrgUserToGlobalUser", fields: [globalUserId], references: [id], onDelete: SetNull)
-  roles             OrgUserRole[]
+  roles             OrgUserRole[] // ⚠️ DEPRECATED: Use MembershipRole instead
   auditLogs         AuditLog[]
-  coachedTeams      Team[] // Teams where this user is coach
-  playerProfile     Player[] // Player profile linked to this user
-  createdMatches    Match[] // Matches created by this user
-  playerStats       PlayerStat[] // Player stats linked to this user
-  createdEvents     Event[] // Events created by this user
-  producedEvents    Event[] @relation("EventProductionLead") // Events where this user is production lead
   ownedIncidents    Incident[] @relation("IncidentOwner") // Incidents assigned to this user
   createdIncidents  Incident[] @relation("IncidentCreator") // Incidents created by this user
   attendanceRecords Attendance[] @relation("AttendanceUser") // Attendance records for this user
@@ -190,8 +199,9 @@ model Role {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  permissions RolePermission[]
-  users       OrgUserRole[]
+  permissions     RolePermission[]
+  orgUserRoles    OrgUserRole[]    // Deprecated - use membershipRoles
+  membershipRoles MembershipRole[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -231,6 +241,10 @@ model RolePermission {
   @@map("role_permissions")
 }
 
+// ⚠️ DEPRECATED: Legacy role assignment table (Phase 5)
+// This model is deprecated and should not be used for new features.
+// Use MembershipRole instead to assign roles to UserOrganisationMembership.
+// This table remains for backward compatibility with existing org-login flows.
 model OrgUserRole {
   id        String   @id @default(cuid())
   tenantId  String   @map("tenant_id")
@@ -245,6 +259,47 @@ model OrgUserRole {
   @@unique([tenantId, orgUserId, roleId])
   @@index([tenantId, orgUserId])
   @@map("org_user_roles")
+}
+
+// Unified organisation membership model (future replacement for OrgUser)
+model UserOrganisationMembership {
+  id            String   @id @default(cuid())
+  tenantId      String   @map("tenant_id")
+  userId        String   @map("user_id")
+  email         String
+  displayName   String?  @map("display_name")
+  isActive      Boolean  @default(true) @map("is_active")
+  isTotpEnabled Boolean  @default(false) @map("is_totp_enabled")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user         GlobalUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organisation Organisation     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  roles        MembershipRole[]
+
+  @@unique([userId, tenantId])
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([userId])
+  @@index([tenantId, userId])
+  @@map("user_org_memberships")
+}
+
+model MembershipRole {
+  id           String   @id @default(cuid())
+  tenantId     String   @map("tenant_id")
+  membershipId String   @map("membership_id")
+  roleId       String   @map("role_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  membership UserOrganisationMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  role       Role                       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, membershipId, roleId])
+  @@index([tenantId, membershipId])
+  @@map("membership_roles")
 }
 
 model OrgInvite {
@@ -271,26 +326,32 @@ model OrgInvite {
 }
 
 model AuditLog {
-  id         String          @id @default(cuid())
-  tenantId   String          @map("tenant_id")
-  action     AuditAction
-  entityType AuditEntityType @map("entity_type")
-  entityId   String          @map("entity_id")
-  userId     String?         @map("user_id") // Global user ID (if applicable)
-  orgUserId  String?         @map("org_user_id") // Org user ID (if applicable)
-  details    String? // JSON string for additional data
-  ipAddress  String?         @map("ip_address")
-  userAgent  String?         @map("user_agent")
-  createdAt  DateTime        @default(now()) @map("created_at")
+  id           String           @id @default(cuid())
+  tenantId     String           @map("tenant_id")
+  action       String
+  entity       String?
+  entityType   AuditEntityType? @map("entity_type")
+  entityId     String?          @map("entity_id")
+  description  String?
+  metadata     Json?
+  method       String?
+  endpoint     String?
+  status       String           @default("success")
+  errorMessage String?          @map("error_message")
+  userId       String?          @map("user_id") // Global user ID (if applicable)
+  orgUserId    String?          @map("org_user_id") // Org user ID (if applicable)
+  ipAddress    String?          @map("ip_address")
+  userAgent    String?          @map("user_agent")
+  createdAt    DateTime         @default(now()) @map("created_at")
 
   // Relations
-  user    GlobalUser? @relation(fields: [userId], references: [id])
-  orgUser OrgUser?    @relation(fields: [orgUserId], references: [id])
+  organisation Organisation @relation("TenantAuditLogs", fields: [tenantId], references: [id], onDelete: Cascade)
+  user         GlobalUser?   @relation(fields: [userId], references: [id])
+  orgUser      OrgUser?      @relation(fields: [orgUserId], references: [id])
 
-  @@index([tenantId])
-  @@index([tenantId, entityType])
-  @@index([tenantId, entityType, entityId])
-  @@index([tenantId, orgUserId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, action, createdAt])
+  @@index([tenantId, status, createdAt])
   @@index([createdAt])
   @@map("audit_logs")
 }
@@ -298,19 +359,19 @@ model AuditLog {
 // ===== ROSTER MANAGEMENT MODELS =====
 
 model Team {
-  id        String   @id @default(cuid())
-  tenantId  String   @map("tenant_id")
-  name      String
-  game      String // e.g., "VALORANT", "LoL", "OW2", "RL"
-  season    String? // e.g., "2025-S1"
-  coachId   String?  @map("coach_id") // OrgUser.id
-  captainId String?  @map("captain_id") // Player.id
-  status    String   @default("active") // active | archived
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id               String   @id @default(cuid())
+  tenantId         String   @map("tenant_id")
+  name             String
+  game             String // e.g., "VALORANT", "LoL", "OW2", "RL"
+  season           String? // e.g., "2025-S1"
+  coachGlobalUserId String? @map("coach_global_user_id") // GlobalUser.id
+  captainId        String?  @map("captain_id") // Player.id
+  status           String   @default("active") // active | archived
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   // Relations
-  coach        OrgUser?      @relation(fields: [coachId], references: [id])
+  coachGlobalUser  GlobalUser?   @relation("TeamCoach", fields: [coachGlobalUserId], references: [id])
   captain      Player?       @relation("TeamCaptain", fields: [captainId], references: [id])
   members      TeamMember[]
   lineups      Lineup[]
@@ -324,12 +385,12 @@ model Team {
 }
 
 model Player {
-  id          String   @id @default(cuid())
-  tenantId    String   @map("tenant_id")
-  orgUserId   String?  @map("org_user_id") // optional link to OrgUser (login user)
-  gamerTag    String   @map("gamer_tag")
-  realName    String?  @map("real_name") // player's real name
-  avatar      String?  // profile picture URL
+  id           String   @id @default(cuid())
+  tenantId     String   @map("tenant_id")
+  globalUserId String?  @map("global_user_id") // link to GlobalUser
+  gamerTag     String   @map("gamer_tag")
+  realName     String?  @map("real_name") // player's real name
+  avatar       String?  // profile picture URL
   role        String? // e.g., IGL, Flex, Support, etc.
   rank        String? // optional, per game
   mainsJson   Json?    @default("[]") @map("mains_json") // agents/heroes/champs
@@ -343,7 +404,7 @@ model Player {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  orgUser      OrgUser?       @relation(fields: [orgUserId], references: [id])
+  globalUser   GlobalUser?    @relation("PlayerUser", fields: [globalUserId], references: [id])
   teams        TeamMember[]
   captainOf    Team[]         @relation("TeamCaptain")
   availability Availability[]
@@ -713,16 +774,16 @@ model Match {
   score      String? // e.g., "2-1", "1-1"
   vodUrl     String?   @map("vod_url")
   notes      String?
-  createdBy  String    @map("created_by")
+  createdByGlobalUserId String? @map("created_by_global_user_id") // GlobalUser.id
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  team          Team         @relation(fields: [teamId], references: [id])
-  lineup        Lineup?      @relation(fields: [lineupId], references: [id])
-  createdByUser OrgUser      @relation(fields: [createdBy], references: [id])
-  maps          MapGame[]
-  playerStats   PlayerStat[]
+  team                Team         @relation(fields: [teamId], references: [id])
+  lineup              Lineup?      @relation(fields: [lineupId], references: [id])
+  createdByGlobalUser GlobalUser?  @relation("MatchCreator", fields: [createdByGlobalUserId], references: [id])
+  maps                MapGame[]
+  playerStats         PlayerStat[]
 
   @@index([tenantId, teamId, startedAt])
   @@map("matches")
@@ -751,13 +812,13 @@ model MapGame {
 }
 
 model PlayerStat {
-  id        String   @id @default(cuid())
-  tenantId  String   @map("tenant_id")
-  matchId   String   @map("match_id")
-  mapGameId String?  @map("map_game_id")
-  playerId  String   @map("player_id") // links Player.id
-  orgUserId String?  @map("org_user_id") // helpful for joins
-  lineupId  String?  @map("lineup_id") // tie to the lineup used
+  id           String   @id @default(cuid())
+  tenantId     String   @map("tenant_id")
+  matchId      String   @map("match_id")
+  mapGameId    String?  @map("map_game_id")
+  playerId     String   @map("player_id") // links Player.id
+  globalUserId String?  @map("global_user_id") // GlobalUser.id
+  lineupId     String?  @map("lineup_id") // tie to the lineup used
   role      String? // role during the game (e.g., "Duelist", "Support")
   statsJson Json     @map("stats_json") // flexible, title-specific fields
   rating    Float? // computed composite
@@ -766,11 +827,11 @@ model PlayerStat {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  match   Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  mapGame MapGame? @relation(fields: [mapGameId], references: [id], onDelete: Cascade)
-  player  Player   @relation(fields: [playerId], references: [id])
-  orgUser OrgUser? @relation(fields: [orgUserId], references: [id])
-  lineup  Lineup?  @relation(fields: [lineupId], references: [id])
+  match       Match       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  mapGame     MapGame?    @relation(fields: [mapGameId], references: [id], onDelete: Cascade)
+  player      Player      @relation(fields: [playerId], references: [id])
+  globalUser  GlobalUser? @relation("PlayerStatUser", fields: [globalUserId], references: [id])
+  lineup      Lineup?     @relation(fields: [lineupId], references: [id])
 
   @@unique([tenantId, matchId, playerId, mapGameId])
   @@index([tenantId, matchId])
@@ -787,7 +848,6 @@ model Event {
   title            String
   eventType        String   @default("Other") @map("event_type") // Broadcast|Tournament|Showmatch|Rehearsal|Other
   gameTitle        String?  @map("game_title") // Valorant, Overwatch 2, etc.
-  productionLead   String?  @map("production_lead") // orgUserId of assigned producer
   broadcastChannel String?  @map("broadcast_channel") // Twitch, YouTube, TikTok, etc.
   startAt          DateTime @map("start_at") // Broadcast start time
   callTime         DateTime? @map("call_time") // Crew call-in time
@@ -803,20 +863,21 @@ model Event {
   tournamentStage  String?  @map("tournament_stage") // e.g., "Groups", "Quarterfinals", "Finals"
   bestOf           Int?     @default(1) @map("best_of") // Best of X games
   
-  graphicsPackage  String?  @map("graphics_package") // Graphics/overlay set identifier
-  checklistId      String?  @map("checklist_id") // Linked operational checklist
-  rosterId         String?  @map("roster_id") // Linked team roster
-  notes            String?  @db.Text // Extra broadcast notes
-  status           String   @default("scheduled") // scheduled|cancelled|completed
-  createdBy        String   @map("created_by")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  graphicsPackage           String?  @map("graphics_package") // Graphics/overlay set identifier
+  checklistId               String?  @map("checklist_id") // Linked operational checklist
+  rosterId                  String?  @map("roster_id") // Linked team roster
+  notes                     String?  @db.Text // Extra broadcast notes
+  status                    String   @default("scheduled") // scheduled|cancelled|completed
+  createdByGlobalUserId     String?  @map("created_by_global_user_id") // GlobalUser.id
+  productionLeadGlobalUserId String? @map("production_lead_global_user_id") // GlobalUser.id
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
 
   // Relations
-  team              Team?       @relation(fields: [teamId], references: [id])
-  lineup            Lineup?     @relation(fields: [lineupId], references: [id])
-  createdByUser     OrgUser     @relation(fields: [createdBy], references: [id])
-  productionLeadUser OrgUser?   @relation("EventProductionLead", fields: [productionLead], references: [id])
+  team                       Team?       @relation(fields: [teamId], references: [id])
+  lineup                     Lineup?     @relation(fields: [lineupId], references: [id])
+  createdByGlobalUser        GlobalUser? @relation("EventCreator", fields: [createdByGlobalUserId], references: [id])
+  productionLeadGlobalUser   GlobalUser? @relation("EventProductionLead", fields: [productionLeadGlobalUserId], references: [id])
   bookings          Booking[]
   incidents         Incident[]  // Incidents related to this event
   attendance        Attendance[] // Attendance records for this event
@@ -824,7 +885,6 @@ model Event {
   @@index([tenantId, startAt, endAt])
   @@index([tenantId, eventType])
   @@index([tenantId, gameTitle])
-  @@index([tenantId, productionLead])
   @@map("events")
 }
 

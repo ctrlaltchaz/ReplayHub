@@ -90,7 +90,7 @@ export class RunsheetController {
             principal: req.principal || 'NO_PRINCIPAL',
             session: {
                 userId: req.session?.userId || 'NO_USER_ID',
-                orgUserId: req.session?.orgUserId || 'NO_ORG_USER_ID',
+                membershipId: req.session?.membershipId || 'NO_MEMBERSHIP_ID',
             },
             dto: createRunsheetDto,
             message: 'Test endpoint reached successfully'
@@ -108,14 +108,14 @@ export class RunsheetController {
             if (!req.tenant?.id) {
                 throw new Error('Tenant ID is required');
             }
-            if (!req.orgUser?.id) {
-                throw new Error('Org User ID is required');
+            if (!req.globalUser?.id) {
+                throw new Error('Global User ID is required');
             }
 
             const result = await this.runsheetService.create(
                 req.tenant.id,
                 createRunsheetDto,
-                req.orgUser.id
+                req.globalUser.id
             );
 
             return result;
@@ -213,7 +213,7 @@ export class RunsheetController {
         @Req() req: Request,
         @Param('id') id: string,
     ) {
-        return this.runsheetService.duplicate(req.tenant!.id, id, req.orgUser!.id);
+        return this.runsheetService.duplicate(req.tenant!.id, id, req.globalUser!.id);
     }
 
     // Runsheet Items

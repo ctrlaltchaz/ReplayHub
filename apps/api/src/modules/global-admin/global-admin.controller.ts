@@ -62,8 +62,9 @@ export class GlobalAdminController {
 
     @Post('organisations')
     @HttpCode(HttpStatus.CREATED)
-    async createOrganisation(@Body() dto: CreateOrganisationDto) {
-        return this.globalAdminService.createOrganisation(dto);
+    async createOrganisation(@Body() dto: CreateOrganisationDto, @Req() req: Request) {
+        const creatorGlobalUserId = req.session.userId;
+        return this.globalAdminService.createOrganisation(dto, creatorGlobalUserId);
     }
 
     @Get('organisations/:orgId')

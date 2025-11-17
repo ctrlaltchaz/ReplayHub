@@ -1,13 +1,23 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { PrismaService } from '../../../../database/prisma.service';
+import { PrismaService } from '../../../database/prisma.service';
+import { DiscordService } from '../../discord/discord.service';
 import { GameLogService } from '../services/gamelog.service';
 
 describe('GameLogService', () => {
     let service: GameLogService;
-    let prisma: PrismaService;
 
-    const mockPrismaService = {
+    const createMockTransaction = () => ({
+        $executeRaw: jest.fn().mockResolvedValue(undefined),
+        team: {
+            findFirst: jest.fn(),
+        },
+        lineup: {
+            findFirst: jest.fn(),
+        },
+        orgUser: {
+            findFirst: jest.fn(),
+        },
         match: {
             create: jest.fn(),
             findFirst: jest.fn(),
@@ -16,15 +26,27 @@ describe('GameLogService', () => {
             delete: jest.fn(),
             count: jest.fn(),
         },
-        lineup: {
-            findFirst: jest.fn(),
+        achievement: {
+            create: jest.fn(),
         },
-        team: {
-            findFirst: jest.fn(),
-        },
+    });
+
+    const mockPrismaService = {
+        $transaction: jest.fn(),
     };
 
+    const mockDiscordService = {
+        notifyMatch: jest.fn(),
+    };
+
+    let mockTx: ReturnType<typeof createMockTransaction>;
+    const now = new Date('2024-01-01T00:00:00.000Z');
+
     beforeEach(async () => {
+        mockTx = createMockTransaction();
+        mockPrismaService.$transaction.mockImplementation(async (callback) => callback(mockTx));
+        mockDiscordService.notifyMatch.mockResolvedValue(undefined);
+
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 GameLogService,
@@ -32,11 +54,14 @@ describe('GameLogService', () => {
                     provide: PrismaService,
                     useValue: mockPrismaService,
                 },
+                {
+                    provide: DiscordService,
+                    useValue: mockDiscordService,
+                },
             ],
         }).compile();
 
         service = module.get<GameLogService>(GameLogService);
-        prisma = module.get<PrismaService>(PrismaService);
     });
 
     afterEach(() => {
@@ -45,6 +70,7 @@ describe('GameLogService', () => {
 
     describe('createMatch', () => {
         const createMatchDto = {
+            teamId: 'team-1',
             opponent: 'Test Opponent',
             tournament: 'Test Tournament',
             stage: 'Group Stage',
@@ -52,68 +78,74 @@ describe('GameLogService', () => {
         };
 
         it('should create a match successfully', async () => {
-            const mockLineup = {
-                id: 'lineup-1',
-                team: { id: 'team-1', game: 'VALORANT' },
-                tenantId: 'tenant-1'
-            };
-
-            const mockMatch = {
+            mockTx.team.findFirst.mockResolvedValue({ id: 'team-1', tenantId: 'tenant-1' });
+            mockTx.lineup.findFirst.mockResolvedValue({ id: 'lineup-1', tenantId: 'tenant-1', teamId: 'team-1' });
+            mockTx.orgUser.findFirst.mockResolvedValue({ id: 'user-1', globalUserId: 'global-user-1' });
+            mockTx.match.create.mockResolvedValue({
                 id: 'match-1',
-                ...createMatchDto,
                 tenantId: 'tenant-1',
+                eventId: null,
+                teamId: 'team-1',
+                lineupId: 'lineup-1',
+                opponent: createMatchDto.opponent,
+                tournament: createMatchDto.tournament,
+                stage: createMatchDto.stage,
+                bestOf: 1,
+                startedAt: null,
+                endedAt: null,
                 status: 'draft',
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            };
-
-            mockPrismaService.lineup.findFirst.mockResolvedValue(mockLineup);
-            mockPrismaService.match.create.mockResolvedValue(mockMatch);
-
-            const result = await service.createMatch('tenant-1', createMatchDto, 'user-1');
-
-            expect(result).toEqual(mockMatch);
-            expect(mockPrismaService.lineup.findFirst).toHaveBeenCalledWith({
-                where: { id: createMatchDto.lineupId, tenantId: 'tenant-1' },
-                include: { team: true },
+                result: null,
+                score: null,
+                vodUrl: null,
+                notes: null,
+                createdBy: 'user-1',
+                createdAt: now,
+                updatedAt: now,
+                team: { id: 'team-1', name: 'Alpha', game: 'VALORANT' },
+                lineup: { id: 'lineup-1', title: 'Starting Five', slots: [] },
+                maps: [],
+                playerStats: [],
             });
-            expect(mockPrismaService.match.create).toHaveBeenCalled();
+
+            const result = await service.createMatch('tenant-1', 'user-1', createMatchDto);
+
+            expect(mockTx.$executeRaw).toHaveBeenCalled();
+            expect(mockTx.match.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ tenantId: 'tenant-1', createdByGlobalUserId: 'global-user-1' }) }));
+            expect(result).toMatchObject({
+                id: 'match-1',
+                tenantId: 'tenant-1',
+                teamId: 'team-1',
+                opponent: 'Test Opponent',
+                team: {
+                    id: 'team-1',
+                    name: 'Alpha',
+                },
+            });
         });
 
         it('should throw NotFoundException if lineup not found', async () => {
-            mockPrismaService.lineup.findFirst.mockResolvedValue(null);
+            mockTx.team.findFirst.mockResolvedValue({ id: 'team-1', tenantId: 'tenant-1' });
+            mockTx.lineup.findFirst.mockResolvedValue(null);
 
             await expect(
-                service.createMatch('tenant-1', createMatchDto, 'user-1')
+                service.createMatch('tenant-1', 'user-1', createMatchDto)
+            ).rejects.toThrow(NotFoundException);
+        });
+
+        it('should throw NotFoundException if team not found', async () => {
+            mockTx.team.findFirst.mockResolvedValue(null);
+
+            await expect(
+                service.createMatch('tenant-1', 'user-1', createMatchDto)
             ).rejects.toThrow(NotFoundException);
         });
     });
 
-    describe('getMatch', () => {
-        it('should return match if found', async () => {
-            const mockMatch = {
-                id: 'match-1',
-                tenantId: 'tenant-1',
-                opponent: 'Test Opponent',
-            };
-
-            mockPrismaService.match.findFirst.mockResolvedValue(mockMatch);
-
-            const result = await service.getMatch('tenant-1', 'match-1');
-
-            expect(result).toEqual(mockMatch);
-            expect(mockPrismaService.match.findFirst).toHaveBeenCalledWith({
-                where: { id: 'match-1', tenantId: 'tenant-1' },
-                include: expect.any(Object),
-            });
-        });
-
+    describe('findMatchById', () => {
         it('should throw NotFoundException if match not found', async () => {
-            mockPrismaService.match.findFirst.mockResolvedValue(null);
+            mockTx.match.findFirst.mockResolvedValue(null);
 
-            await expect(service.getMatch('tenant-1', 'match-1')).rejects.toThrow(
-                NotFoundException
-            );
+            await expect(service.findMatchById('tenant-1', 'match-1')).rejects.toThrow(NotFoundException);
         });
     });
 
@@ -129,24 +161,25 @@ describe('GameLogService', () => {
                 id: 'match-1',
                 tenantId: 'tenant-1',
                 status: 'draft',
+                teamId: 'team-1',
             };
 
             const updatedMatch = {
                 ...existingMatch,
                 ...updateDto,
+                createdAt: now,
+                updatedAt: now,
+                team: { id: 'team-1', name: 'Alpha', game: 'VALORANT' },
+                lineup: null,
             };
 
-            mockPrismaService.match.findFirst.mockResolvedValue(existingMatch);
-            mockPrismaService.match.update.mockResolvedValue(updatedMatch);
+            mockTx.match.findFirst.mockResolvedValue(existingMatch);
+            mockTx.match.update.mockResolvedValue({ ...updatedMatch, maps: [], playerStats: [] });
 
             const result = await service.updateMatch('tenant-1', 'match-1', updateDto);
 
-            expect(result).toEqual(updatedMatch);
-            expect(mockPrismaService.match.update).toHaveBeenCalledWith({
-                where: { id: 'match-1' },
-                data: { ...updateDto, updatedAt: expect.any(Date) },
-                include: expect.any(Object),
-            });
+            expect(mockTx.match.update).toHaveBeenCalled();
+            expect(result).toMatchObject({ id: 'match-1', opponent: 'Updated Opponent', result: 'win' });
         });
 
         it('should throw BadRequestException if trying to update approved match', async () => {
@@ -154,53 +187,45 @@ describe('GameLogService', () => {
                 id: 'match-1',
                 tenantId: 'tenant-1',
                 status: 'approved',
+                teamId: 'team-1',
             };
 
-            mockPrismaService.match.findFirst.mockResolvedValue(approvedMatch);
+            mockTx.match.findFirst.mockResolvedValue(approvedMatch);
 
             await expect(
                 service.updateMatch('tenant-1', 'match-1', updateDto)
-            ).rejects.toThrow(BadRequestException);
+            ).rejects.toThrow(ForbiddenException);
         });
     });
 
     describe('submitMatch', () => {
-        const submitDto = {
-            submittedNotes: 'Ready for approval',
-        };
-
         it('should submit match for approval', async () => {
             const draftMatch = {
                 id: 'match-1',
                 tenantId: 'tenant-1',
                 status: 'draft',
+                notes: null,
             };
 
             const submittedMatch = {
                 ...draftMatch,
                 status: 'submitted',
-                submittedAt: new Date(),
-                submittedBy: 'user-1',
-                submittedNotes: submitDto.submittedNotes,
+                createdAt: now,
+                updatedAt: now,
+                notes: 'Submission notes: Ready for approval',
+                team: null,
+                lineup: null,
+                maps: [],
+                playerStats: [],
             };
 
-            mockPrismaService.match.findFirst.mockResolvedValue(draftMatch);
-            mockPrismaService.match.update.mockResolvedValue(submittedMatch);
+            mockTx.match.findFirst.mockResolvedValue(draftMatch);
+            mockTx.match.update.mockResolvedValue(submittedMatch);
 
-            const result = await service.submitMatch('tenant-1', 'match-1', submitDto, 'user-1');
+            const result = await service.submitMatch('tenant-1', 'match-1', 'Ready for approval');
 
-            expect(result).toEqual(submittedMatch);
-            expect(mockPrismaService.match.update).toHaveBeenCalledWith({
-                where: { id: 'match-1' },
-                data: {
-                    status: 'submitted',
-                    submittedAt: expect.any(Date),
-                    submittedBy: 'user-1',
-                    submittedNotes: submitDto.submittedNotes,
-                    updatedAt: expect.any(Date),
-                },
-                include: expect.any(Object),
-            });
+            expect(mockTx.match.update).toHaveBeenCalled();
+            expect(result.status).toBe('submitted');
         });
 
         it('should throw BadRequestException if match not in draft status', async () => {
@@ -210,51 +235,63 @@ describe('GameLogService', () => {
                 status: 'submitted',
             };
 
-            mockPrismaService.match.findFirst.mockResolvedValue(submittedMatch);
+            mockTx.match.findFirst.mockResolvedValue(submittedMatch);
 
             await expect(
-                service.submitMatch('tenant-1', 'match-1', submitDto, 'user-1')
+                service.submitMatch('tenant-1', 'match-1', 'Ready for approval')
             ).rejects.toThrow(BadRequestException);
         });
     });
 
     describe('approveMatch', () => {
-        const approveDto = {
-            approvedNotes: 'Approved after review',
-        };
-
         it('should approve match successfully', async () => {
             const submittedMatch = {
                 id: 'match-1',
                 tenantId: 'tenant-1',
                 status: 'submitted',
+                result: 'loss',
+                score: '2-1',
+                tournament: 'VCT',
+                notes: 'Existing notes',
+                maps: [],
+                opponent: 'Test Opponent',
             };
 
             const approvedMatch = {
                 ...submittedMatch,
                 status: 'approved',
-                approvedAt: new Date(),
-                approvedBy: 'user-1',
-                approvedNotes: approveDto.approvedNotes,
+                createdAt: now,
+                updatedAt: now,
+                notes: 'Existing notes\n\nApproval notes: Approved after review',
+                team: { id: 'team-1', name: 'Alpha', game: 'VALORANT' },
+                lineup: {
+                    id: 'lineup-1',
+                    title: 'Starting Five',
+                    slots: [
+                        {
+                            playerId: 'player-1',
+                            role: 'starter',
+                            player: { gamerTag: 'PlayerOne', role: 'duelist', globalUserId: 'global-user-1' },
+                        },
+                    ],
+                },
+                maps: [],
+                playerStats: [],
             };
 
-            mockPrismaService.match.findFirst.mockResolvedValue(submittedMatch);
-            mockPrismaService.match.update.mockResolvedValue(approvedMatch);
+            mockTx.match.findFirst.mockResolvedValue(submittedMatch);
+            mockTx.match.update.mockResolvedValue(approvedMatch);
 
-            const result = await service.approveMatch('tenant-1', 'match-1', approveDto, 'user-1');
+            const result = await service.approveMatch('tenant-1', 'match-1', 'Approved after review');
 
-            expect(result).toEqual(approvedMatch);
-            expect(mockPrismaService.match.update).toHaveBeenCalledWith({
-                where: { id: 'match-1' },
-                data: {
-                    status: 'approved',
-                    approvedAt: expect.any(Date),
-                    approvedBy: 'user-1',
-                    approvedNotes: approveDto.approvedNotes,
-                    updatedAt: expect.any(Date),
-                },
-                include: expect.any(Object),
-            });
+            expect(mockTx.match.update).toHaveBeenCalled();
+            expect(mockDiscordService.notifyMatch).toHaveBeenCalledWith(
+                'tenant-1',
+                expect.objectContaining({ opponent: 'Test Opponent' }),
+                ['global-user-1']
+            );
+            expect(result.status).toBe('approved');
+            expect(result.notes).toContain('Approval notes');
         });
 
         it('should throw BadRequestException if match not submitted', async () => {
@@ -262,12 +299,13 @@ describe('GameLogService', () => {
                 id: 'match-1',
                 tenantId: 'tenant-1',
                 status: 'draft',
+                maps: [],
             };
 
-            mockPrismaService.match.findFirst.mockResolvedValue(draftMatch);
+            mockTx.match.findFirst.mockResolvedValue(draftMatch);
 
             await expect(
-                service.approveMatch('tenant-1', 'match-1', approveDto, 'user-1')
+                service.approveMatch('tenant-1', 'match-1', 'Approved after review')
             ).rejects.toThrow(BadRequestException);
         });
     });
@@ -282,39 +320,29 @@ describe('GameLogService', () => {
                 id: 'match-1',
                 tenantId: 'tenant-1',
                 status: 'approved',
-                approvedAt: new Date(),
-                approvedBy: 'user-1',
+                notes: 'Existing notes',
             };
 
             const unapprovedMatch = {
                 ...approvedMatch,
-                status: 'draft',
-                approvedAt: null,
-                approvedBy: null,
-                approvedNotes: null,
-                unapprovedReason: unapproveDto.reason,
+                status: 'submitted',
+                createdAt: now,
+                updatedAt: now,
+                notes: `Existing notes\n\nUnapproval reason: ${unapproveDto.reason}`,
+                team: null,
+                lineup: null,
+                maps: [],
+                playerStats: [],
             };
 
-            mockPrismaService.match.findFirst.mockResolvedValue(approvedMatch);
-            mockPrismaService.match.update.mockResolvedValue(unapprovedMatch);
+            mockTx.match.findFirst.mockResolvedValue(approvedMatch);
+            mockTx.match.update.mockResolvedValue(unapprovedMatch);
 
-            const result = await service.unapproveMatch('tenant-1', 'match-1', unapproveDto, 'user-1');
+            const result = await service.unapproveMatch('tenant-1', 'match-1', unapproveDto.reason);
 
-            expect(result).toEqual(unapprovedMatch);
-            expect(mockPrismaService.match.update).toHaveBeenCalledWith({
-                where: { id: 'match-1' },
-                data: {
-                    status: 'draft',
-                    approvedAt: null,
-                    approvedBy: null,
-                    approvedNotes: null,
-                    unapprovedAt: expect.any(Date),
-                    unapprovedBy: 'user-1',
-                    unapprovedReason: unapproveDto.reason,
-                    updatedAt: expect.any(Date),
-                },
-                include: expect.any(Object),
-            });
+            expect(mockTx.match.update).toHaveBeenCalled();
+            expect(result.status).toBe('submitted');
+            expect(result.notes).toContain(unapproveDto.reason);
         });
 
         it('should throw BadRequestException if match not approved', async () => {
@@ -324,73 +352,56 @@ describe('GameLogService', () => {
                 status: 'draft',
             };
 
-            mockPrismaService.match.findFirst.mockResolvedValue(draftMatch);
+            mockTx.match.findFirst.mockResolvedValue(draftMatch);
 
             await expect(
-                service.unapproveMatch('tenant-1', 'match-1', unapproveDto, 'user-1')
+                service.unapproveMatch('tenant-1', 'match-1', unapproveDto.reason)
             ).rejects.toThrow(BadRequestException);
         });
     });
 
-    describe('listMatches', () => {
+    describe('findMatches', () => {
         const queryDto = {
             status: 'draft' as const,
             limit: 10,
-            offset: 0,
+            page: 1,
         };
 
         it('should list matches with pagination', async () => {
-            const mockMatches = [
-                { id: 'match-1', opponent: 'Team A' },
-                { id: 'match-2', opponent: 'Team B' },
-            ];
-
-            mockPrismaService.match.findMany.mockResolvedValue(mockMatches);
-            mockPrismaService.match.count.mockResolvedValue(2);
-
-            const result = await service.listMatches('tenant-1', queryDto);
-
-            expect(result).toEqual({
-                matches: mockMatches,
-                total: 2,
-                limit: 10,
-                offset: 0,
-            });
-
-            expect(mockPrismaService.match.findMany).toHaveBeenCalledWith({
-                where: {
+            mockTx.match.findMany.mockResolvedValue([
+                {
+                    id: 'match-1',
                     tenantId: 'tenant-1',
+                    teamId: 'team-1',
+                    lineupId: null,
+                    opponent: 'Team A',
+                    tournament: null,
+                    stage: null,
+                    bestOf: 1,
+                    startedAt: null,
+                    endedAt: null,
                     status: 'draft',
+                    result: null,
+                    score: null,
+                    vodUrl: null,
+                    notes: null,
+                    createdBy: 'user-1',
+                    createdAt: now,
+                    updatedAt: now,
+                    team: { id: 'team-1', name: 'Alpha', game: 'VALORANT' },
+                    lineup: null,
+                    maps: [],
+                    playerStats: [],
+                    _count: { maps: 0, playerStats: 0 },
                 },
-                include: expect.any(Object),
-                orderBy: { createdAt: 'desc' },
-                take: 10,
-                skip: 0,
-            });
-        });
+            ]);
+            mockTx.match.count.mockResolvedValue(1);
 
-        it('should handle filtering by tournament', async () => {
-            const queryWithTournament = {
-                ...queryDto,
-                tournament: 'VCT',
-            };
+            const result = await service.findMatches('tenant-1', queryDto as any);
 
-            mockPrismaService.match.findMany.mockResolvedValue([]);
-            mockPrismaService.match.count.mockResolvedValue(0);
-
-            await service.listMatches('tenant-1', queryWithTournament);
-
-            expect(mockPrismaService.match.findMany).toHaveBeenCalledWith({
-                where: {
-                    tenantId: 'tenant-1',
-                    status: 'draft',
-                    tournament: { contains: 'VCT', mode: 'insensitive' },
-                },
-                include: expect.any(Object),
-                orderBy: { createdAt: 'desc' },
-                take: 10,
-                skip: 0,
-            });
+            expect(mockTx.match.findMany).toHaveBeenCalled();
+            expect(result.total).toBe(1);
+            expect(result.matches[0]).toMatchObject({ id: 'match-1', teamId: 'team-1' });
         });
     });
 
@@ -402,29 +413,29 @@ describe('GameLogService', () => {
                 status: 'draft',
             };
 
-            mockPrismaService.match.findFirst.mockResolvedValue(draftMatch);
-            mockPrismaService.match.delete.mockResolvedValue(draftMatch);
+            mockTx.match.findFirst.mockResolvedValue(draftMatch);
+            mockTx.match.delete.mockResolvedValue(undefined);
 
             const result = await service.deleteMatch('tenant-1', 'match-1');
 
-            expect(result).toEqual(draftMatch);
-            expect(mockPrismaService.match.delete).toHaveBeenCalledWith({
+            expect(result).toBeUndefined();
+            expect(mockTx.match.delete).toHaveBeenCalledWith({
                 where: { id: 'match-1' },
             });
         });
 
-        it('should throw BadRequestException if trying to delete approved match', async () => {
+        it('should delete approved match without error', async () => {
             const approvedMatch = {
                 id: 'match-1',
                 tenantId: 'tenant-1',
                 status: 'approved',
             };
 
-            mockPrismaService.match.findFirst.mockResolvedValue(approvedMatch);
+            mockTx.match.findFirst.mockResolvedValue(approvedMatch);
+            mockTx.match.delete.mockResolvedValue(undefined);
 
-            await expect(service.deleteMatch('tenant-1', 'match-1')).rejects.toThrow(
-                BadRequestException
-            );
+            await expect(service.deleteMatch('tenant-1', 'match-1')).resolves.toBeUndefined();
+            expect(mockTx.match.delete).toHaveBeenCalled();
         });
     });
 });

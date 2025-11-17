@@ -12,11 +12,41 @@ import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { Suspense, useState } from "react";
 
+interface UnifiedOrgMembership {
+    orgUserId: string;
+    tenantId: string;
+    tenantSlug: string;
+    tenantName: string;
+    email: string;
+    displayName: string | null;
+    isActive: boolean;
+    isTotpEnabled: boolean;
+}
+
+interface UnifiedUserProfile {
+    id: string;
+    email: string;
+    name: string | null;
+    avatar: string | null;
+    hasGlobalAccount: boolean;
+    isGlobalAdmin: boolean;
+    isActive: boolean;
+    isTotpEnabled: boolean;
+    globalOrganisations: Array<{
+        id: string;
+        name: string;
+        slug: string;
+    }>;
+    memberships: UnifiedOrgMembership[];
+    activeMembership?: UnifiedOrgMembership;
+}
+
 interface UniversalLoginResponse {
     success: boolean;
     userType: 'global' | 'org' | 'both';
     message: string;
     requiresTotp?: boolean;
+    user?: UnifiedUserProfile;
     globalUser?: {
         id: string;
         email: string;
@@ -41,6 +71,31 @@ interface TotpVerifyRequest {
     tenantSlug?: string;
 }
 
+function mapLegacyOrgAccounts(accounts: UniversalLoginResponse['orgAccounts'] | undefined): UnifiedOrgMembership[] {
+    return (accounts ?? []).map((account) => ({
+        orgUserId: account.id,
+        tenantId: '',
+        tenantSlug: account.tenantSlug,
+        tenantName: account.tenantName,
+        email: account.email,
+        displayName: null,
+        isActive: true,
+        isTotpEnabled: false,
+    }));
+}
+
+function extractMemberships(response?: UniversalLoginResponse | null): UnifiedOrgMembership[] {
+    if (!response) {
+        return [];
+    }
+
+    if (response.user?.memberships) {
+        return response.user.memberships;
+    }
+
+    return mapLegacyOrgAccounts(response.orgAccounts);
+}
+
 function UniversalLoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -60,6 +115,10 @@ function UniversalLoginContent() {
     const [requiresTotp, setRequiresTotp] = useState(false);
     const [loginResponse, setLoginResponse] = useState<UniversalLoginResponse | null>(null);
     const [selectedOrg, setSelectedOrg] = useState<string | null>(null);
+
+    const membershipOptions = React.useMemo(() => extractMemberships(loginResponse), [loginResponse]);
+    const loginResponseHasGlobal = loginResponse?.user?.hasGlobalAccount ?? (loginResponse?.userType === 'global' || loginResponse?.userType === 'both');
+    const shouldShowOrgSelection = Boolean(!requiresTotp && loginResponse && membershipOptions.length > 1 && !loginResponseHasGlobal);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -123,8 +182,8 @@ function UniversalLoginContent() {
         try {
             const verifyData: TotpVerifyRequest = {
                 token: totpCode,
-                userType: loginResponse.userType === 'global' ? 'global' : 'org',
-                tenantSlug: selectedOrg || undefined,
+                userType: (loginResponse.user?.hasGlobalAccount ?? (loginResponse.userType === 'global')) ? 'global' : 'org',
+                tenantSlug: selectedOrg || loginResponse.user?.activeMembership?.tenantSlug || undefined,
             };
 
             const data: UniversalLoginResponse = await apiPost('/auth/universal-totp-verify', verifyData);
@@ -174,34 +233,35 @@ function UniversalLoginContent() {
                 return;
             }
 
+            const memberships = extractMemberships(data);
+            const validMemberships = memberships.filter((membership) => membership.tenantSlug);
+            const globalOrganisations = data.user?.globalOrganisations ?? data.globalUser?.organizations ?? [];
+            const hasGlobalAccount = data.user?.hasGlobalAccount ?? Boolean(data.globalUser);
+            const isGlobalAdmin = data.user?.isGlobalAdmin ?? Boolean(data.globalUser?.isGlobalAdmin);
+
             // Route based on user type
-            // Priority: Global Admin > Org User > Global User
-            if (data.globalUser?.isGlobalAdmin) {
+            // Priority: onboarding > Global Admin > Org User > Global User
+            if (hasGlobalAccount && globalOrganisations.length === 0) {
+                router.push('/admin/get-started');
+            } else if (isGlobalAdmin) {
                 // Global admins always go to admin control center
                 router.push('/admin/control-center');
-            } else if (data.userType === 'org' || (data.userType === 'both' && data.orgAccounts && data.orgAccounts.length > 0)) {
+            } else if (validMemberships.length > 0) {
                 // Organization user - go to their org dashboard
-                const validOrgAccounts = data.orgAccounts?.filter(org => org.tenantSlug) || [];
-
-                if (validOrgAccounts.length === 1) {
-                    router.push(`/org/${validOrgAccounts[0].tenantSlug}/dashboard`);
-                } else if (validOrgAccounts.length > 1) {
-                    // Multiple org accounts - show selection
+                if (validMemberships.length === 1) {
+                    router.push(`/org/${validMemberships[0].tenantSlug}/dashboard`);
+                } else if (validMemberships.length > 1) {
                     router.push('/org/select');
                 } else {
                     // No valid org accounts, fallback to admin overview
                     router.push('/admin/overview');
                 }
-            } else if (data.userType === 'global') {
+            } else if (hasGlobalAccount && globalOrganisations.length > 0) {
                 // Global user (non-admin) - check if they have organizations
-                if (data.globalUser?.organizations && data.globalUser.organizations.length > 0) {
-                    if (data.globalUser.organizations.length === 1) {
-                        router.push(`/org/${data.globalUser.organizations[0].slug}/overview`);
-                    } else {
-                        router.push('/org/select');
-                    }
+                if (globalOrganisations.length === 1) {
+                    router.push(`/org/${globalOrganisations[0].slug}/overview`);
                 } else {
-                    router.push('/admin/overview');
+                    router.push('/org/select');
                 }
             } else {
                 // Fallback
@@ -251,7 +311,7 @@ function UniversalLoginContent() {
     };
 
     // Show organization selection if user has multiple org accounts
-    if (loginResponse?.userType === 'org' && loginResponse.orgAccounts && loginResponse.orgAccounts.length > 1 && !requiresTotp) {
+    if (shouldShowOrgSelection) {
         return (
             <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden">
                 {/* Animated gradient background - full page */}
@@ -290,9 +350,9 @@ function UniversalLoginContent() {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-3">
-                                {loginResponse.orgAccounts.map((org) => (
+                                {membershipOptions.map((org) => (
                                     <button
-                                        key={org.id}
+                                        key={org.orgUserId}
                                         onClick={() => handleOrgSelect(org.tenantSlug)}
                                         disabled={isLoading}
                                         className="w-full p-4 text-left border-2 rounded-xl hover:bg-white/50 hover:border-[#2ef6fc] transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"

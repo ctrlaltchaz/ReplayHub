@@ -20,18 +20,22 @@ export class AuditInterceptor implements NestInterceptor {
       tap(() => {
         // Extract audit information
         const user = request.user;
-        const tenantId = request.tenantId;
+        const tenantId = request.tenant?.id ?? request.user?.tenantId ?? null;
         const action = this.getActionFromMethodAndUrl(method, url);
 
         if (user && this.shouldAudit(url)) {
           this.auditService
             .log({
+              tenantId,
               organizationId: tenantId,
               userId: user.id,
               userType: user.type || 'org', // 'global' or 'org'
               action,
+              entity: this.getResourceType(url),
               resourceType: this.getResourceType(url),
               resourceId: this.getResourceId(url),
+              endpoint: request.originalUrl ?? url,
+              method,
               ipAddress: request.ip,
               userAgent: request.headers['user-agent'],
             })

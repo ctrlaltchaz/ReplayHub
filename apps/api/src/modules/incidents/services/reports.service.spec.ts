@@ -6,9 +6,9 @@ import { ReportsService } from './reports.service';
 
 describe('ReportsService', () => {
   let service: ReportsService;
-  let prisma: PrismaService;
+  let mockTx: ReturnType<typeof createMockTransaction>;
 
-  const mockPrismaService = {
+  const createMockTransaction = () => ({
     $executeRaw: jest.fn(),
     $queryRawUnsafe: jest.fn(),
     incident: {
@@ -18,9 +18,16 @@ describe('ReportsService', () => {
     event: {
       findFirst: jest.fn(),
     },
+  });
+
+  const mockPrismaService = {
+    $transaction: jest.fn(),
   };
 
   beforeEach(async () => {
+    mockTx = createMockTransaction();
+    mockPrismaService.$transaction.mockImplementation(async (callback) => callback(mockTx));
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReportsService,
@@ -32,7 +39,6 @@ describe('ReportsService', () => {
     }).compile();
 
     service = module.get<ReportsService>(ReportsService);
-    prisma = module.get<PrismaService>(PrismaService);
   });
 
   afterEach(() => {
@@ -49,13 +55,13 @@ describe('ReportsService', () => {
     it('should handle null/undefined dates with default values', async () => {
       const emptyQuery: QueryReportsDto = {};
 
-      mockPrismaService.$executeRaw.mockResolvedValue(undefined);
-      mockPrismaService.incident.count.mockResolvedValue(5);
-      mockPrismaService.incident.groupBy.mockResolvedValue([
+      mockTx.$executeRaw.mockResolvedValue(undefined);
+      mockTx.incident.count.mockResolvedValue(5);
+      mockTx.incident.groupBy.mockResolvedValue([
         { category: 'tech', severity: 'high', status: 'open', _count: { _all: 2 } },
         { category: 'comms', severity: 'medium', status: 'resolved', _count: { _all: 3 } },
       ]);
-      mockPrismaService.$queryRawUnsafe.mockResolvedValue([
+      mockTx.$queryRawUnsafe.mockResolvedValue([
         { tag: 'urgent', count: BigInt(2) },
         { tag: 'network', count: BigInt(1) },
       ]);
@@ -66,7 +72,7 @@ describe('ReportsService', () => {
       expect(result.totalIncidents).toBe(5);
       expect(result.dateRange.from).toBeDefined(); // Should have default dates
       expect(result.dateRange.to).toBeDefined();
-      expect(mockPrismaService.$executeRaw).toHaveBeenCalled(); // Sets tenant context
+      expect(mockTx.$executeRaw).toHaveBeenCalled(); // Sets tenant context
     });
 
     it('should validate date range and throw BadRequest for invalid ranges', async () => {
@@ -86,21 +92,21 @@ describe('ReportsService', () => {
         eventId: 'non-existent-event',
       };
 
-      mockPrismaService.$executeRaw.mockResolvedValue(undefined);
-      mockPrismaService.event.findFirst.mockResolvedValue(null); // Event not found
+      mockTx.$executeRaw.mockResolvedValue(undefined);
+      mockTx.event.findFirst.mockResolvedValue(null); // Event not found
 
       await expect(service.getIncidentReport(mockTenantId, queryWithEvent))
         .rejects.toThrow(NotFoundException);
     });
 
     it('should process grouped data correctly and convert bigint to number', async () => {
-      mockPrismaService.$executeRaw.mockResolvedValue(undefined);
-      mockPrismaService.incident.count.mockResolvedValue(10);
-      mockPrismaService.incident.groupBy.mockResolvedValue([
+      mockTx.$executeRaw.mockResolvedValue(undefined);
+      mockTx.incident.count.mockResolvedValue(10);
+      mockTx.incident.groupBy.mockResolvedValue([
         { category: 'tech', severity: 'critical', status: 'open', _count: { _all: 5 } },
         { category: 'comms', severity: 'medium', status: 'resolved', _count: { _all: 3 } },
       ]);
-      mockPrismaService.$queryRawUnsafe.mockResolvedValue([
+      mockTx.$queryRawUnsafe.mockResolvedValue([
         { tag: 'priority', count: BigInt(4) },
         { tag: 'maintenance', count: BigInt(2) },
       ]);
@@ -118,10 +124,10 @@ describe('ReportsService', () => {
     });
 
     it('should use UTC timezone boundaries for date handling', async () => {
-      mockPrismaService.$executeRaw.mockResolvedValue(undefined);
-      mockPrismaService.incident.count.mockResolvedValue(0);
-      mockPrismaService.incident.groupBy.mockResolvedValue([]);
-      mockPrismaService.$queryRawUnsafe.mockResolvedValue([]);
+      mockTx.$executeRaw.mockResolvedValue(undefined);
+      mockTx.incident.count.mockResolvedValue(0);
+      mockTx.incident.groupBy.mockResolvedValue([]);
+      mockTx.$queryRawUnsafe.mockResolvedValue([]);
 
       const result = await service.getIncidentReport(mockTenantId, mockQueryDto);
 
@@ -137,16 +143,16 @@ describe('ReportsService', () => {
         category: "'; DROP TABLE incidents; --" as any,
       };
 
-      mockPrismaService.$executeRaw.mockResolvedValue(undefined);
-      mockPrismaService.incident.count.mockResolvedValue(0);
-      mockPrismaService.incident.groupBy.mockResolvedValue([]);
-      mockPrismaService.$queryRawUnsafe.mockResolvedValue([]);
+      mockTx.$executeRaw.mockResolvedValue(undefined);
+      mockTx.incident.count.mockResolvedValue(0);
+      mockTx.incident.groupBy.mockResolvedValue([]);
+      mockTx.$queryRawUnsafe.mockResolvedValue([]);
 
       // Should not throw and should use parameterized query
       const result = await service.getIncidentReport(mockTenantId, maliciousQuery);
 
       // Verify parameterized query was used safely
-      expect(mockPrismaService.$queryRawUnsafe).toHaveBeenCalledWith(
+      expect(mockTx.$queryRawUnsafe).toHaveBeenCalledWith(
         expect.stringContaining('$1'), // First parameter placeholder
         expect.any(Date), // fromUtc
         expect.any(Date), // toUtc  

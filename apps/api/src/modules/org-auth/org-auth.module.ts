@@ -3,6 +3,7 @@ import { UnifiedTenantAuthGuard } from '../../common/tenant/guards/unified-tenan
 import { TenantModule } from '../../common/tenant/tenant.module';
 import { DatabaseModule } from '../../database/database.module';
 import { GlobalAuthModule } from '../global-auth/global-auth.module';
+import { UniversalAuthModule } from '../universal-auth/universal-auth.module';
 import { OrgAuthGuard } from './guards/org-auth.guard';
 import { OrgAuthController } from './org-auth.controller';
 import { OrgAuthService } from './org-auth.service';
@@ -11,6 +12,7 @@ import { OrgAuthService } from './org-auth.service';
     imports: [
         forwardRef(() => TenantModule),
         forwardRef(() => GlobalAuthModule),
+        UniversalAuthModule,
         DatabaseModule,
     ],
     controllers: [OrgAuthController],

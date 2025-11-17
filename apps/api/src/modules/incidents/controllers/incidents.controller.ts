@@ -46,7 +46,7 @@ export class IncidentsController {
         @Req() req: any,
         @Body() dto: CreateIncidentDto
     ): Promise<IncidentResponse> {
-        const createdBy = req.principal?.orgUserId || req.principal?.id;
+        const createdBy = req.globalUser?.id;
         const actualTenantId = req.tenant.id;
         return this.incidentsService.createIncident(actualTenantId, createdBy, dto);
     }

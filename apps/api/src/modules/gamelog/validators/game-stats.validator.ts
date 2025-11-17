@@ -58,7 +58,7 @@ export const lolStatsSchema = baseStatsSchema.extend({
     visionScore: z.number().min(0).default(0),
 
     // Champion-specific
-    champion: z.string().max(50).optional(),
+    champion: z.string().min(1).max(50).optional(),
     role: z.enum(['top', 'jungle', 'mid', 'adc', 'support']).optional(),
 
     // Items (item IDs or names)
@@ -147,7 +147,7 @@ export const genericStatsSchema = baseStatsSchema.extend({
 
     // Basic performance
     score: z.number().min(0).default(0),
-    rank: z.number().min(1).optional(), // finishing position
+    rank: z.union([z.number().min(1), z.string().min(1)]).optional(), // finishing position or tier label
 
     // Allow any additional numeric stats
     customStats: z.record(z.string(), z.number()).default({}),

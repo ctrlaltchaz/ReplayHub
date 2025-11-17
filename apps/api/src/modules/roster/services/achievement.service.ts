@@ -53,8 +53,8 @@ export class AchievementService {
                         id: true,
                         gamerTag: true,
                         role: true,
-                        orgUser: {
-                            select: { displayName: true },
+                        globalUser: {
+                            select: { name: true },
                         },
                     },
                 },
@@ -92,8 +92,8 @@ export class AchievementService {
                         id: true,
                         gamerTag: true,
                         role: true,
-                        orgUser: {
-                            select: { displayName: true },
+                        globalUser: {
+                            select: { name: true },
                         },
                     },
                 },
@@ -127,8 +127,8 @@ export class AchievementService {
                         gamerTag: true,
                         role: true,
                         rank: true,
-                        orgUser: {
-                            select: { id: true, displayName: true, email: true },
+                        globalUser: {
+                            select: { id: true, name: true, email: true },
                         },
                         teams: {
                             include: {
@@ -198,8 +198,8 @@ export class AchievementService {
                         id: true,
                         gamerTag: true,
                         role: true,
-                        orgUser: {
-                            select: { displayName: true },
+                        globalUser: {
+                            select: { name: true },
                         },
                     },
                 },
@@ -299,8 +299,8 @@ export class AchievementService {
                     select: {
                         id: true,
                         gamerTag: true,
-                        orgUser: {
-                            select: { displayName: true },
+                        globalUser: {
+                            select: { name: true },
                         },
                     },
                 },

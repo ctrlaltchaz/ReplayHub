@@ -1,4 +1,4 @@
-import { getExpectedFields, validateStatsJson } from '../validators/game-stats.validator';
+import { getExpectedStatsFields, validateStatsJson, ValorantStats } from '../validators/game-stats.validator';
 
 describe('Game Stats Validator', () => {
     describe('VALORANT Stats Validation', () => {
@@ -13,17 +13,21 @@ describe('Game Stats Validator', () => {
             aces: 1,
             clutches: 2,
             multikills: 3,
-            headshotPct: 0.65,
+            headshotPct: 65,
             adr: 156.8,
-            kast: 0.78,
+            kast: 78,
             agent: 'Jett',
             abilityKills: 2,
             ultimateKills: 4,
         };
 
         it('should validate correct VALORANT stats', () => {
-            const result = validateStatsJson(validValorantStats, 'VALORANT');
-            expect(result.success).toBe(true);
+            const result = validateStatsJson('VALORANT', validValorantStats);
+            expect(result).toMatchObject({
+                kills: 24,
+                headshotPct: 65,
+                kast: 78,
+            });
         });
 
         it('should reject VALORANT stats with invalid types', () => {
@@ -33,9 +37,7 @@ describe('Game Stats Validator', () => {
                 agent: 123, // should be string
             };
 
-            const result = validateStatsJson(invalidStats, 'VALORANT');
-            expect(result.success).toBe(false);
-            expect(result.error?.issues).toHaveLength(2);
+            expect(() => validateStatsJson('VALORANT', invalidStats)).toThrow();
         });
 
         it('should reject VALORANT stats with negative values', () => {
@@ -45,19 +47,17 @@ describe('Game Stats Validator', () => {
                 deaths: -2,
             };
 
-            const result = validateStatsJson(invalidStats, 'VALORANT');
-            expect(result.success).toBe(false);
+            expect(() => validateStatsJson('VALORANT', invalidStats)).toThrow();
         });
 
         it('should reject VALORANT stats with percentage out of range', () => {
             const invalidStats = {
                 ...validValorantStats,
-                headshotPct: 1.5, // should be 0-1
-                kast: -0.1, // should be 0-1
+                headshotPct: 150, // should be 0-100
+                kast: -10, // should be 0-100
             };
 
-            const result = validateStatsJson(invalidStats, 'VALORANT');
-            expect(result.success).toBe(false);
+            expect(() => validateStatsJson('VALORANT', invalidStats)).toThrow();
         });
 
         it('should accept VALORANT stats with extra valid fields', () => {
@@ -66,8 +66,9 @@ describe('Game Stats Validator', () => {
                 extraField: 'allowed',
             };
 
-            const result = validateStatsJson(statsWithExtra, 'VALORANT');
-            expect(result.success).toBe(true);
+            const result = validateStatsJson('VALORANT', statsWithExtra) as ValorantStats;
+            expect(result.kills).toBe(24);
+            expect((result as Record<string, unknown>).extraField).toBeUndefined();
         });
     });
 
@@ -86,15 +87,19 @@ describe('Game Stats Validator', () => {
             wardsDestroyed: 8,
             visionScore: 45,
             champion: 'Jinx',
-            role: 'ADC',
-            kp: 0.85,
+            role: 'adc',
+            kp: 85,
             csPerMin: 8.2,
             goldPerMin: 550,
         };
 
         it('should validate correct League of Legends stats', () => {
-            const result = validateStatsJson(validLoLStats, 'League of Legends');
-            expect(result.success).toBe(true);
+            const result = validateStatsJson('League of Legends', validLoLStats);
+            expect(result).toMatchObject({
+                champion: 'Jinx',
+                role: 'adc',
+                kp: 85,
+            });
         });
 
         it('should reject LoL stats with invalid champion name', () => {
@@ -103,8 +108,7 @@ describe('Game Stats Validator', () => {
                 champion: '', // empty string not allowed
             };
 
-            const result = validateStatsJson(invalidStats, 'League of Legends');
-            expect(result.success).toBe(false);
+            expect(() => validateStatsJson('League of Legends', invalidStats)).toThrow();
         });
 
         it('should validate LoL stats with minimum required fields', () => {
@@ -116,8 +120,8 @@ describe('Game Stats Validator', () => {
                 champion: 'Yasuo',
             };
 
-            const result = validateStatsJson(minimalStats, 'LoL');
-            expect(result.success).toBe(true);
+            const result = validateStatsJson('LoL', minimalStats);
+            expect(result).toMatchObject({ kills: 5, cs: 120 });
         });
     });
 
@@ -134,17 +138,17 @@ describe('Game Stats Validator', () => {
             ults: 6,
             ultKills: 15,
             hero: 'Tracer',
-            heroRole: 'DPS',
+            heroRole: 'damage',
             elims_per_10min: 18.5,
             damage_per_10min: 8200,
             healing_per_10min: 6500,
             criticalHits: 45,
-            accuracy: 0.72,
+            accuracy: 72,
         };
 
         it('should validate correct Overwatch 2 stats', () => {
-            const result = validateStatsJson(validOW2Stats, 'Overwatch 2');
-            expect(result.success).toBe(true);
+            const result = validateStatsJson('Overwatch 2', validOW2Stats);
+            expect(result).toMatchObject({ heroRole: 'damage', accuracy: 72 });
         });
 
         it('should reject OW2 stats with invalid hero role', () => {
@@ -153,13 +157,12 @@ describe('Game Stats Validator', () => {
                 heroRole: 'InvalidRole', // should be Tank, DPS, or Support
             };
 
-            const result = validateStatsJson(invalidStats, 'Overwatch 2');
-            expect(result.success).toBe(false);
+            expect(() => validateStatsJson('Overwatch 2', invalidStats)).toThrow();
         });
 
         it('should validate OW2 stats with alternative game title', () => {
-            const result = validateStatsJson(validOW2Stats, 'OW2');
-            expect(result.success).toBe(true);
+            const result = validateStatsJson('OW2', validOW2Stats);
+            expect(result).toMatchObject({ eliminations: 35 });
         });
     });
 
@@ -181,24 +184,23 @@ describe('Game Stats Validator', () => {
         };
 
         it('should validate correct Rocket League stats', () => {
-            const result = validateStatsJson(validRLStats, 'Rocket League');
-            expect(result.success).toBe(true);
+            const result = validateStatsJson('Rocket League', validRLStats);
+            expect(result).toMatchObject({ goals: 3, score: 650 });
         });
 
         it('should reject RL stats with efficiency values out of range', () => {
             const invalidStats = {
                 ...validRLStats,
-                boostUsage: 1.2, // should be 0-1
-                boostEfficiency: -0.1, // should be 0-1
+                boostUsage: -0.5, // should be >= 0
+                boostEfficiency: 150, // should be <= 100
             };
 
-            const result = validateStatsJson(invalidStats, 'Rocket League');
-            expect(result.success).toBe(false);
+            expect(() => validateStatsJson('Rocket League', invalidStats)).toThrow();
         });
 
         it('should validate RL stats with shortened game title', () => {
-            const result = validateStatsJson(validRLStats, 'RL');
-            expect(result.success).toBe(true);
+            const result = validateStatsJson('RL', validRLStats);
+            expect(result).toMatchObject({ saves: 5 });
         });
     });
 
@@ -212,25 +214,25 @@ describe('Game Stats Validator', () => {
                 stringValue: 'test',
             };
 
-            const result = validateStatsJson(genericStats, 'Unknown Game');
-            expect(result.success).toBe(true);
+            const result = validateStatsJson('Unknown Game', genericStats);
+            expect(result).toMatchObject({ score: 1500 });
         });
 
         it('should reject null or undefined stats', () => {
-            expect(validateStatsJson(null, 'VALORANT').success).toBe(false);
-            expect(validateStatsJson(undefined, 'VALORANT').success).toBe(false);
+            expect(() => validateStatsJson('VALORANT', null)).toThrow();
+            expect(() => validateStatsJson('VALORANT', undefined)).toThrow();
         });
 
         it('should reject non-object stats', () => {
-            expect(validateStatsJson('invalid', 'VALORANT').success).toBe(false);
-            expect(validateStatsJson(123, 'VALORANT').success).toBe(false);
-            expect(validateStatsJson([], 'VALORANT').success).toBe(false);
+            expect(() => validateStatsJson('VALORANT', 'invalid')).toThrow();
+            expect(() => validateStatsJson('VALORANT', 123)).toThrow();
+            expect(() => validateStatsJson('VALORANT', [])).toThrow();
         });
     });
 
     describe('Expected Fields Helper', () => {
         it('should return VALORANT expected fields', () => {
-            const fields = getExpectedFields('VALORANT');
+            const fields = getExpectedStatsFields('VALORANT');
             expect(fields).toContain('kills');
             expect(fields).toContain('deaths');
             expect(fields).toContain('assists');
@@ -239,7 +241,7 @@ describe('Game Stats Validator', () => {
         });
 
         it('should return League of Legends expected fields', () => {
-            const fields = getExpectedFields('League of Legends');
+            const fields = getExpectedStatsFields('League of Legends');
             expect(fields).toContain('kills');
             expect(fields).toContain('deaths');
             expect(fields).toContain('assists');
@@ -248,7 +250,7 @@ describe('Game Stats Validator', () => {
         });
 
         it('should return Overwatch 2 expected fields', () => {
-            const fields = getExpectedFields('Overwatch 2');
+            const fields = getExpectedStatsFields('Overwatch 2');
             expect(fields).toContain('eliminations');
             expect(fields).toContain('deaths');
             expect(fields).toContain('hero');
@@ -256,7 +258,7 @@ describe('Game Stats Validator', () => {
         });
 
         it('should return Rocket League expected fields', () => {
-            const fields = getExpectedFields('Rocket League');
+            const fields = getExpectedStatsFields('Rocket League');
             expect(fields).toContain('goals');
             expect(fields).toContain('assists');
             expect(fields).toContain('saves');
@@ -264,15 +266,15 @@ describe('Game Stats Validator', () => {
         });
 
         it('should return basic fields for unknown games', () => {
-            const fields = getExpectedFields('Unknown Game');
+            const fields = getExpectedStatsFields('Unknown Game');
             expect(fields).toContain('score');
             expect(fields).toContain('rank');
         });
 
         it('should handle case insensitive game titles', () => {
-            const fieldsUpper = getExpectedFields('VALORANT');
-            const fieldsLower = getExpectedFields('valorant');
-            const fieldsMixed = getExpectedFields('VaLoRaNt');
+            const fieldsUpper = getExpectedStatsFields('VALORANT');
+            const fieldsLower = getExpectedStatsFields('valorant');
+            const fieldsMixed = getExpectedStatsFields('VaLoRaNt');
 
             expect(fieldsUpper).toEqual(fieldsLower);
             expect(fieldsLower).toEqual(fieldsMixed);
@@ -281,8 +283,8 @@ describe('Game Stats Validator', () => {
 
     describe('Edge Cases', () => {
         it('should handle empty stats object', () => {
-            const result = validateStatsJson({}, 'VALORANT');
-            expect(result.success).toBe(true); // Empty object is valid
+            const result = validateStatsJson('VALORANT', {}) as ValorantStats;
+            expect(result.kills).toBe(0); // Defaults applied
         });
 
         it('should handle partial stats', () => {
@@ -292,8 +294,8 @@ describe('Game Stats Validator', () => {
                 // missing other fields
             };
 
-            const result = validateStatsJson(partialStats, 'VALORANT');
-            expect(result.success).toBe(true); // Partial stats are valid
+            const result = validateStatsJson('VALORANT', partialStats);
+            expect(result).toMatchObject({ kills: 10, deaths: 5 });
         });
 
         it('should handle nested objects in generic validation', () => {
@@ -302,8 +304,7 @@ describe('Game Stats Validator', () => {
                 advanced: { rating: 1.5, tier: 'Gold' },
             };
 
-            const result = validateStatsJson(nestedStats, 'Custom Game');
-            expect(result.success).toBe(true);
+            expect(() => validateStatsJson('Custom Game', nestedStats)).not.toThrow();
         });
 
         it('should preserve original data in successful validation', () => {
@@ -313,11 +314,8 @@ describe('Game Stats Validator', () => {
                 agent: 'Sage',
             };
 
-            const result = validateStatsJson(originalStats, 'VALORANT');
-            expect(result.success).toBe(true);
-            if (result.success) {
-                expect(result.data).toEqual(originalStats);
-            }
+            const result = validateStatsJson('VALORANT', originalStats);
+            expect(result).toMatchObject(originalStats);
         });
     });
 });

@@ -1,277 +1,156 @@
-import { CanActivate, ExecutionContext, ForbiddenException, forwardRef, Inject, Injectable, Scope, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Inject, Injectable, Scope, UnauthorizedException, forwardRef } from '@nestjs/common';
 import { Request } from 'express';
-import { PrismaService } from '../../../database/prisma.service';
-import { TenantService } from '../tenant.service';
-
-export interface TenantData {
-    id: string;
-    slug: string;
-    name: string;
-}
-
-// Extend Express Request interface
-declare global {
-    namespace Express {
-        interface Request {
-            tenant?: TenantData;
-            principal?: {
-                type: 'org' | 'global-admin';
-                id: string;
-                tenantId: string;
-                permissions?: string[];
-            };
-            globalUser?: {
-                id: string;
-                email: string;
-            };
-        }
-    }
-}
+import { OrgAuthService } from '../../../modules/org-auth/org-auth.service';
+import { UniversalAuthService } from '../../../modules/universal-auth/universal-auth.service';
+import { UnifiedOrgMembership, UnifiedUserProfile } from '../../../modules/users/dto/unified-user.dto';
+import type { RequestGlobalUser, RequestOrgUser, RequestPrincipal, RequestUserIdentity } from '../../../types/request-context';
 
 @Injectable({ scope: Scope.REQUEST })
 export class UnifiedTenantAuthGuard implements CanActivate {
     constructor(
-        @Inject(forwardRef(() => PrismaService)) private prisma: PrismaService,
-        @Inject(forwardRef(() => TenantService)) private tenantService: TenantService,
+        private readonly universalAuthService: UniversalAuthService,
+        @Inject(forwardRef(() => OrgAuthService)) private readonly orgAuthService: OrgAuthService,
     ) { }
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
-        console.log('[UnifiedTenantAuthGuard] Executing guard #2 in chain');
         const request = context.switchToHttp().getRequest<Request>();
-
-        console.log(`[UnifiedTenantAuth] ===== GUARD CALLED! =====`);
-        console.log(`[UnifiedTenantAuth] Request: ${request.method} ${request.url}`);
-        console.log(`[UnifiedTenantAuth] Session orgUserId: ${request.session?.orgUserId || 'none'}`);
-        console.log(`[UnifiedTenantAuth] Session userId: ${request.session?.userId || 'none'}`);
 
         // Ensure TenantGuard has run and resolved req.tenant
         if (!request.tenant) {
-            console.log(`[UnifiedTenantAuth] FAIL: No tenant context`);
             throw new UnauthorizedException('Tenant context required');
         }
+        const profile = await this.ensureUnifiedProfile(request);
+        const membership = this.getTenantMembership(profile, request);
 
-        console.log(`[UnifiedTenantAuth] Tenant: ${request.tenant.slug} (${request.tenant.id})`);
-
-        // Try org session first (req.session.orgUserId)
-        if (request.session?.orgUserId) {
-            console.log(`[UnifiedTenantAuth] Attempting org session auth...`);
-            return await this.handleOrgSession(request);
+        if (membership) {
+            return this.attachOrgMembershipContext(request, profile, membership);
         }
 
-        // Try global session (req.session.userId)  
-        if (request.session?.userId) {
-            console.log(`[UnifiedTenantAuth] Attempting global session auth...`);
-            return await this.handleGlobalSession(request);
+        if (this.hasGlobalAdminAccess(profile, request)) {
+            this.attachGlobalAdminContext(request, profile);
+            return true;
         }
 
-        // No valid session found
-        console.log(`[UnifiedTenantAuth] FAIL: No valid session found`);
-        throw new UnauthorizedException('Authentication required');
+        throw new UnauthorizedException('Access denied to this organisation');
     }
 
-    private async handleOrgSession(request: Request): Promise<boolean> {
-        console.log(`[UnifiedTenantAuth] handleOrgSession: DIRECT PRISMA VERSION - orgUserId=${request.session.orgUserId}, tenantId=${request.tenant.id}`);
+    private async ensureUnifiedProfile(request: Request): Promise<UnifiedUserProfile> {
+        if (request.unifiedUser) {
+            return request.unifiedUser;
+        }
 
-        try {
-            // EXACT same pattern as OrgAuthService.getProfile() - Set RLS context first
-            console.log(`[UnifiedTenantAuth] handleOrgSession: Setting RLS context...`);
-            await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${request.tenant.id}, true)`;
+        const profile = await this.universalAuthService.getCurrentSessionProfile(request);
+        request.unifiedUser = profile;
+        request.user = {
+            id: profile.id,
+            type: profile.memberships.length ? 'org' : 'global',
+            tenantId: profile.activeMembership?.tenantId ?? null,
+            email: profile.email,
+        };
+        return profile;
+    }
 
-            // EXACT same query as OrgAuthService.getProfile()
-            console.log(`[UnifiedTenantAuth] handleOrgSession: Running findUnique query...`);
-            const orgUser = await this.prisma.orgUser.findUnique({
-                where: { id: request.session.orgUserId },
-                include: {
-                    roles: {
-                        include: {
-                            role: {
-                                include: {
-                                    permissions: {
-                                        include: {
-                                            permission: true,
-                                        },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            });
+    private getTenantMembership(profile: UnifiedUserProfile, request: Request): UnifiedOrgMembership | null {
+        if (!request.tenant) {
+            return null;
+        }
 
-            console.log(`[UnifiedTenantAuth] handleOrgSession: Query result: ${orgUser ? `FOUND (${orgUser.email})` : 'NULL'}`);
+        const { id, slug } = request.tenant;
 
-            if (!orgUser) {
-                console.log(`[UnifiedTenantAuth] handleOrgSession: ❌ User not found`);
-                throw new UnauthorizedException('User not found');
-            }
+        const fromRequest = request.activeMembership;
+        if (fromRequest && (fromRequest.tenantId === id || fromRequest.tenantSlug === slug)) {
+            return fromRequest;
+        }
 
-            // EXACT same processing as OrgAuthService.getProfile()
-            const roles = orgUser.roles.map(ur => ur.role.name);
-            const permissions = [...new Set(
-                orgUser.roles.flatMap(ur =>
-                    ur.role.permissions.map(rp => rp.permission.key)
-                )
-            )] as string[];
+        return profile.memberships.find((membership) =>
+            membership.tenantId === id || membership.tenantSlug === slug,
+        ) ?? null;
+    }
 
-            // Set request properties
-            request.orgUser = {
-                id: orgUser.id,
-                email: orgUser.email,
-                displayName: orgUser.displayName,
-                roles: roles,
-                permissions: permissions
-            };
+    private async attachOrgMembershipContext(
+        request: Request,
+        profile: UnifiedUserProfile,
+        membership: UnifiedOrgMembership,
+    ): Promise<boolean> {
+        if (!membership.isActive) {
+            throw new UnauthorizedException('Organisation account inactive');
+        }
 
-            request.principal = {
-                type: 'org',
-                id: orgUser.id,
-                tenantId: request.tenant.id,
-                permissions: permissions
-            };
-
-            // Also set globalUser if this orgUser has one linked
-            if (orgUser.globalUserId) {
-                request.globalUser = {
-                    id: orgUser.globalUserId,
-                    email: orgUser.email, // Using orgUser email as fallback
-                    name: orgUser.displayName || orgUser.email,
-                    isGlobalAdmin: false,
-                };
-            }
-
-            console.log(`[UnifiedTenantAuth] handleOrgSession: ✅ SUCCESS - User: ${orgUser.email}, Permissions: ${permissions.length}`);
-            return true;
-        } catch (error) {
-            console.log(`[UnifiedTenantAuth] handleOrgSession: ❌ EXCEPTION: ${error.message}`);
+        // Validate the membership and get org-specific profile
+        const orgProfile = await this.orgAuthService.validateMembership(
+            request.tenant!.id,
+            membership.membershipId,
+        );
+        if (!orgProfile) {
             throw new UnauthorizedException('Organisation authentication failed');
         }
+
+        request.activeMembership = membership;
+        request.orgUser = {
+            id: orgProfile.id,
+            email: orgProfile.email,
+            displayName: orgProfile.displayName,
+            roles: orgProfile.roles,
+            permissions: orgProfile.permissions,
+        } as RequestOrgUser;
+
+        request.principal = {
+            type: 'org',
+            id: orgProfile.id,
+            tenantId: request.tenant!.id,
+            permissions: orgProfile.permissions,
+        } as RequestPrincipal;
+
+        request.user = {
+            id: orgProfile.id,
+            type: 'org',
+            tenantId: request.tenant!.id,
+            email: orgProfile.email,
+        } as RequestUserIdentity;
+
+        if (profile.hasGlobalAccount) {
+            request.globalUser = {
+                id: profile.id,
+                email: profile.email,
+                name: profile.name ?? profile.email,
+                isGlobalAdmin: profile.isGlobalAdmin,
+            } as RequestGlobalUser;
+        }
+
+        return true;
     }
 
-    private async handleGlobalSession(request: Request): Promise<boolean> {
-        try {
-            console.log(`[UnifiedTenantAuth] handleGlobalSession: Looking for globalUser with id=${request.session.userId}`);
-
-            // CRITICAL: Set tenant context for RLS (Row-Level Security)
-            await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${request.tenant.id}, true)`;
-            console.log(`[UnifiedTenantAuth] handleGlobalSession: Set RLS context to tenantId=${request.tenant.id}`);
-
-            // Load global user
-            const globalUser = await this.prisma.globalUser.findFirst({
-                where: {
-                    id: request.session.userId
-                }
-            });
-
-            if (!globalUser) {
-                throw new UnauthorizedException('Invalid global session');
-            }
-
-            // FIRST: Check if global user is linked to an org user in this tenant
-            console.log(`[UnifiedTenantAuth] handleGlobalSession: Checking for linked org user...`);
-            const linkedOrgUser = await this.prisma.orgUser.findFirst({
-                where: {
-                    globalUserId: globalUser.id,
-                    tenantId: request.tenant.id,
-                    isActive: true
-                },
-                include: {
-                    roles: {
-                        include: {
-                            role: {
-                                include: {
-                                    permissions: {
-                                        include: {
-                                            permission: true,
-                                        },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            });
-
-            if (linkedOrgUser) {
-                console.log(`[UnifiedTenantAuth] handleGlobalSession: Found linked org user ${linkedOrgUser.email}`);
-
-                // Process roles and permissions just like handleOrgSession
-                const roles = linkedOrgUser.roles.map(ur => ur.role.name);
-                const permissions = [...new Set(
-                    linkedOrgUser.roles.flatMap(ur =>
-                        ur.role.permissions.map(rp => rp.permission.key)
-                    )
-                )] as string[];
-
-                // Set request properties as org user
-                request.orgUser = {
-                    id: linkedOrgUser.id,
-                    email: linkedOrgUser.email,
-                    displayName: linkedOrgUser.displayName,
-                    roles: roles,
-                    permissions: permissions
-                };
-
-                request.principal = {
-                    type: 'org',
-                    id: linkedOrgUser.id,
-                    tenantId: request.tenant.id,
-                    permissions: permissions
-                };
-
-                // Also attach global user info
-                request.globalUser = {
-                    id: globalUser.id,
-                    email: globalUser.email,
-                    name: globalUser.name || globalUser.email,
-                    isGlobalAdmin: globalUser.isGlobalAdmin || false
-                };
-
-                console.log(`[UnifiedTenantAuth] handleGlobalSession: ✅ SUCCESS via linked org user - User: ${linkedOrgUser.email}, Permissions: ${permissions.length}`);
-                return true;
-            }
-
-            // SECOND: Check if user is admin/owner of this org
-            console.log(`[UnifiedTenantAuth] handleGlobalSession: No linked org user, checking for org admin...`);
-            const orgAdmin = await this.prisma.organisationAdmin.findFirst({
-                where: {
-                    organisationId: request.tenant.id,
-                    globalUserId: globalUser.id
-                },
-                include: {
-                    organisation: true
-                }
-            });
-
-            if (!orgAdmin) {
-                // Global user exists but has no rights in this org
-                console.log(`[UnifiedTenantAuth] handleGlobalSession: ❌ No linked org user and not an org admin`);
-                throw new ForbiddenException('Access denied to this organisation');
-            }
-
-            // Attach globalUser and principal to request
-            request.globalUser = {
-                id: globalUser.id,
-                email: globalUser.email,
-                name: globalUser.name || globalUser.email,
-                isGlobalAdmin: globalUser.isGlobalAdmin || false
-            };
-
-            // Global admins get all permissions in tenant
-            request.principal = {
-                type: 'global-admin',
-                id: globalUser.id,
-                tenantId: request.tenant.id,
-                permissions: ['*'] // Superadmin permissions
-            };
-
-            console.log(`[UnifiedTenantAuth] handleGlobalSession: ✅ SUCCESS via global admin - id=${globalUser.id}, tenantId=${request.tenant.id}`);
-            return true;
-        } catch (error) {
-            if (error instanceof ForbiddenException) {
-                throw error;
-            }
-            console.error('Global session validation error:', error);
-            throw new UnauthorizedException('Global authentication failed');
+    private hasGlobalAdminAccess(profile: UnifiedUserProfile, request: Request): boolean {
+        if (!profile.isGlobalAdmin || !request.tenant) {
+            return false;
         }
+
+        return profile.globalOrganisations.some((organisation) => organisation.id === request.tenant!.id);
+    }
+
+    private attachGlobalAdminContext(request: Request, profile: UnifiedUserProfile): void {
+        request.activeMembership = null;
+        request.orgUser = undefined;
+
+        request.globalUser = {
+            id: profile.id,
+            email: profile.email,
+            name: profile.name ?? profile.email,
+            isGlobalAdmin: true,
+        } as RequestGlobalUser;
+
+        request.principal = {
+            type: 'global-admin',
+            id: profile.id,
+            tenantId: request.tenant!.id,
+            permissions: ['*'],
+        } as RequestPrincipal;
+
+        request.user = {
+            id: profile.id,
+            type: 'global',
+            tenantId: request.tenant!.id,
+            email: profile.email,
+        } as RequestUserIdentity;
     }
 }

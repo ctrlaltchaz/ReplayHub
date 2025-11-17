@@ -1,5 +1,4 @@
 import { Module, forwardRef } from '@nestjs/common';
-import { UnifiedTenantAuthGuard } from '../../common/tenant/guards/unified-tenant-auth.guard';
 import { TenantModule } from '../../common/tenant/tenant.module';
 import { DatabaseModule } from '../../database/database.module';
 import { GlobalAuthModule } from '../global-auth/global-auth.module';
@@ -29,7 +28,6 @@ import { TestDebugController } from './controllers/test-debug.controller';
         IncidentsService,
         AttendanceService,
         ReportsService,
-        UnifiedTenantAuthGuard,
     ],
     controllers: [
         IncidentsController,
@@ -41,7 +39,6 @@ import { TestDebugController } from './controllers/test-debug.controller';
         IncidentsService,
         AttendanceService,
         ReportsService,
-        UnifiedTenantAuthGuard,
     ],
 })
 export class IncidentsModule { }

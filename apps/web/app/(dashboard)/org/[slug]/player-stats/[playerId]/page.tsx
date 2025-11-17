@@ -156,6 +156,9 @@ export default function PlayerStatsDetailPage() {
         }
     };
 
+    const totalKills = stats ? Object.values(stats.gameBreakdown).reduce((acc, game) => acc + game.totalKills, 0) : 0;
+    const totalDeaths = stats ? Object.values(stats.gameBreakdown).reduce((acc, game) => acc + game.totalDeaths, 0) : 0;
+
     return (
         <div className="container mx-auto p-6 space-y-6">
             {/* Header */}
@@ -220,18 +223,18 @@ export default function PlayerStatsDetailPage() {
                         <Card>
                             <CardContent className="pt-6">
                                 <div className="flex flex-col items-center text-center">
-                                    <Zap className="h-8 w-8 text-purple-500 mb-2" />
-                                    <p className="text-3xl font-bold">{stats.totalGames}</p>
-                                    <p className="text-sm text-muted-foreground">Total Games</p>
+                                    <Zap className="h-8 w-8 text-red-500 mb-2" />
+                                    <p className="text-3xl font-bold">{totalKills}</p>
+                                    <p className="text-sm text-muted-foreground">Total Kills</p>
                                 </div>
                             </CardContent>
                         </Card>
                         <Card>
                             <CardContent className="pt-6">
                                 <div className="flex flex-col items-center text-center">
-                                    <Trophy className="h-8 w-8 text-yellow-500 mb-2" />
-                                    <p className="text-3xl font-bold">{stats.totalMvps}</p>
-                                    <p className="text-sm text-muted-foreground">MVP Awards</p>
+                                    <Trophy className="h-8 w-8 text-gray-500 mb-2" />
+                                    <p className="text-3xl font-bold">{totalDeaths}</p>
+                                    <p className="text-sm text-muted-foreground">Total Deaths</p>
                                 </div>
                             </CardContent>
                         </Card>

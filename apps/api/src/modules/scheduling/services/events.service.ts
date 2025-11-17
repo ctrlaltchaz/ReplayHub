@@ -12,7 +12,7 @@ export class EventsService {
         private discordService: DiscordService,
     ) { }
 
-    async createEvent(tenantId: string, createdBy: string, data: CreateEventDto) {
+    async createEvent(tenantId: string, createdByGlobalUserId: string, data: CreateEventDto) {
         return await this.prisma.$transaction(async (tx) => {
             try {
                 // Set tenant context for RLS
@@ -21,6 +21,20 @@ export class EventsService {
                 console.log('📝 Creating event with tenantId:', tenantId);
                 console.log('📝 Event data:', data);
 
+                // productionLead in DTO is expected to be globalUserId
+                let productionLeadGlobalUserId = data.productionLead || null;
+
+                // Validate that productionLead exists in global_users if provided
+                if (productionLeadGlobalUserId) {
+                    const globalUser = await tx.globalUser.findUnique({
+                        where: { id: productionLeadGlobalUserId }
+                    });
+                    if (!globalUser) {
+                        console.warn(`Production lead ID ${productionLeadGlobalUserId} not found in global_users, setting to null`);
+                        productionLeadGlobalUserId = null;
+                    }
+                }
+
                 // Create the event using Prisma client
                 const event = await tx.event.create({
                     data: {
@@ -28,7 +42,7 @@ export class EventsService {
                         title: data.title,
                         eventType: data.eventType || 'Other',
                         gameTitle: data.gameTitle || null,
-                        productionLead: data.productionLead || null,
+                        productionLeadGlobalUserId,
                         broadcastChannel: data.broadcastChannel || null,
                         startAt: new Date(data.startAt),
                         endAt: new Date(data.endAt),
@@ -46,7 +60,7 @@ export class EventsService {
                         checklistId: data.checklistId || null,
                         rosterId: data.rosterId || null,
                         notes: data.notes || null,
-                        createdBy,
+                        createdByGlobalUserId,
                         status: data.status || 'scheduled',
                     },
                     include: {
@@ -62,14 +76,11 @@ export class EventsService {
 
                 // Send Discord notification
                 try {
-                    // Collect assigned user IDs
+                    // Collect assigned user IDs (note: now using globalUserId fields)
                     const assignedUserIds: string[] = [];
-                    if (event.productionLead) {
-                        assignedUserIds.push(event.productionLead);
-                    }
-                    if (event.createdBy) {
-                        assignedUserIds.push(event.createdBy);
-                    }
+                    // For Discord notification, we'll need to resolve OrgUser IDs from GlobalUser IDs
+                    // This is a temporary workaround until Discord service is updated
+                    // For now, skip adding specific users to notification
 
                     await this.discordService.notifyEvent(
                         tenantId,
@@ -115,8 +126,8 @@ export class EventsService {
         e.title,
         e.event_type as "eventType",
         e.game_title as "gameTitle",
-        e.production_lead as "productionLead",
-        pl.display_name as "productionLeadName",
+        e.production_lead_global_user_id as "productionLead",
+        pl.name as "productionLeadName",
         e.broadcast_channel as "broadcastChannel",
         e.start_at as "startAt",
         e.call_time as "callTime",
@@ -134,12 +145,12 @@ export class EventsService {
         e.roster_id as "rosterId",
         e.notes,
         e.status,
-        e.created_by as "createdBy",
+        e.created_by_global_user_id as "createdBy",
         e.created_at as "createdAt",
         e.updated_at as "updatedAt",
         e.tenant_id as "tenantId"
       FROM events e
-      LEFT JOIN org_users pl ON e.production_lead = pl.id AND pl.tenant_id = e.tenant_id
+      LEFT JOIN global_users pl ON e.production_lead_global_user_id = pl.id
       WHERE e.tenant_id = $1
     `;
 
@@ -177,7 +188,7 @@ export class EventsService {
             }
 
             if (filters?.productionLead) {
-                query += ` AND e.production_lead = $${paramIndex}`;
+                query += ` AND e.production_lead_global_user_id = $${paramIndex}`;
                 params.push(filters.productionLead);
                 paramIndex++;
             }
@@ -238,7 +249,7 @@ export class EventsService {
         e.roster_id as "rosterId",
         e.notes,
         e.status,
-        e.created_by as "createdBy",
+        e.created_by_global_user_id as "createdBy",
         e.created_at as "createdAt",
         e.updated_at as "updatedAt",
         e.tenant_id as "tenantId",
@@ -372,7 +383,7 @@ export class EventsService {
                 }
 
                 if (data.productionLead !== undefined) {
-                    setClause.push(`production_lead = $${paramIndex}`);
+                    setClause.push(`production_lead_global_user_id = $${paramIndex}`);
                     params.push(data.productionLead);
                     paramIndex++;
                 }
@@ -435,13 +446,9 @@ export class EventsService {
                     const updatedEvent = await this.findOneEvent(tenantId, id);
 
                     // Collect assigned user IDs
+                    // Note: productionLead and createdBy fields removed - using globalUserId fields now
+                    // Discord service will need updating to handle GlobalUser IDs
                     const assignedUserIds: string[] = [];
-                    if (updatedEvent.productionLead) {
-                        assignedUserIds.push(updatedEvent.productionLead);
-                    }
-                    if (updatedEvent.createdBy) {
-                        assignedUserIds.push(updatedEvent.createdBy);
-                    }
 
                     await this.discordService.notifyEvent(
                         tenantId,
@@ -557,8 +564,8 @@ export class EventsService {
                     e.title,
                     e.event_type as "eventType",
                     e.game_title as "gameTitle",
-                    e.production_lead as "productionLead",
-                    pl.display_name as "productionLeadName",
+                    e.production_lead_global_user_id as "productionLead",
+                    pl.name as "productionLeadName",
                     e.broadcast_channel as "broadcastChannel",
                     e.start_at as "startAt",
                     e.call_time as "callTime",
@@ -572,7 +579,7 @@ export class EventsService {
                     e.roster_id as "rosterId",
                     e.notes,
                     e.status,
-                    e.created_by as "createdBy",
+                    e.created_by_global_user_id as "createdBy",
                     e.created_at as "createdAt",
                     e.updated_at as "updatedAt",
                     e.tenant_id as "tenantId",
@@ -590,7 +597,7 @@ export class EventsService {
                         '[]'::json
                     ) as resources
                 FROM events e
-                LEFT JOIN org_users pl ON e.production_lead = pl.id AND pl.tenant_id = e.tenant_id
+                LEFT JOIN global_users pl ON e.production_lead_global_user_id = pl.id
                 LEFT JOIN teams t ON e.team_id = t.id AND t.tenant_id = e.tenant_id
                 LEFT JOIN lineups l ON e.lineup_id = l.id AND l.tenant_id = e.tenant_id
                 LEFT JOIN bookings b ON e.id = b.event_id AND b.tenant_id = e.tenant_id
@@ -598,7 +605,7 @@ export class EventsService {
                 WHERE e.tenant_id = $1 
                   AND e.start_at < $3
                   AND e.end_at > $2
-                GROUP BY e.id, t.name, l.title, pl.display_name
+                GROUP BY e.id, t.name, l.title, pl.name
                 ORDER BY e.start_at ASC
             `, tenantId, utcRange.start, utcRange.end);
 

@@ -1,6 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../database/prisma.service';
+import { OrganisationProvisioningService } from '../global-organisations/organisation-provisioning.service';
+import { DEFAULT_PERMISSION_DEFINITIONS } from '../rbac/permission-definitions';
 import {
     CreateGlobalUserDto,
     CreateOrganisationDto,
@@ -15,7 +18,12 @@ import {
 
 @Injectable()
 export class GlobalAdminService {
-    constructor(private prisma: PrismaService) { }
+    private readonly logger = new Logger(GlobalAdminService.name);
+
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly provisioningService: OrganisationProvisioningService,
+    ) { }
 
     // Overview stats
     async getOverview() {
@@ -69,7 +77,7 @@ export class GlobalAdminService {
         };
     }
 
-    async createOrganisation(dto: CreateOrganisationDto) {
+    async createOrganisation(dto: CreateOrganisationDto, creatorGlobalUserId?: string) {
         // Check if slug already exists
         const existing = await this.prisma.organisation.findUnique({
             where: { slug: dto.slug }
@@ -97,7 +105,7 @@ export class GlobalAdminService {
             });
         }
 
-        return this.prisma.$transaction(async (tx) => {
+        const organisation = await this.prisma.$transaction(async (tx) => {
             // Create organisation
             const organisation = await tx.organisation.create({
                 data: {
@@ -122,12 +130,26 @@ export class GlobalAdminService {
                     tenantId: organisation.id,
                     email: ownerUser.email,
                     passwordHash: ownerUser.passwordHash,
-                    displayName: ownerUser.email
+                    displayName: ownerUser.name || ownerUser.email,
+                    globalUserId: ownerUser.id,
+                    isActive: true,
                 }
             });
 
             return organisation;
         });
+
+        try {
+            await this.provisioningService.provisionNewOrganisation(organisation.id, ownerUser.id);
+            if (creatorGlobalUserId && creatorGlobalUserId !== ownerUser.id) {
+                await this.ensureCreatorAccess(organisation.id, creatorGlobalUserId);
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            this.logger.error(`Provisioning failed for organisation ${organisation.id}: ${message}`);
+        }
+
+        return organisation;
     }
 
     async getOrganisation(orgId: string) {
@@ -427,16 +449,18 @@ export class GlobalAdminService {
         await this.prisma.auditLog.create({
             data: {
                 tenantId: dto.orgId,
-                action: 'LOGIN', // Using existing enum value
+                action: 'auth.impersonation.start',
+                entity: 'organisation',
                 entityType: 'ORGANISATION',
                 entityId: dto.orgId,
-                userId: globalUserId,
-                details: JSON.stringify({
+                description: 'Global admin impersonation session started',
+                metadata: {
                     type: 'impersonation_start',
                     targetOrgUserId: dto.orgUserId,
-                    reason: dto.reason || 'Administrative action'
-                })
-            }
+                    reason: dto.reason ?? 'Administrative action',
+                },
+                userId: globalUserId,
+            },
         });
 
         // Set impersonation session (expires in 1 hour)
@@ -467,14 +491,17 @@ export class GlobalAdminService {
         await this.prisma.auditLog.create({
             data: {
                 tenantId: impersonation.targetOrgId,
-                action: 'LOGOUT', // Using existing enum value
+                action: 'auth.impersonation.stop',
+                entity: 'organisation',
                 entityType: 'ORGANISATION',
                 entityId: impersonation.targetOrgId,
+                description: 'Global admin impersonation session ended',
+                metadata: {
+                    type: 'impersonation_stop',
+                    targetOrgUserId: impersonation.targetOrgUserId,
+                },
                 userId: impersonation.originalUserId,
-                details: JSON.stringify({
-                    type: 'impersonation_stop'
-                })
-            }
+            },
         });
 
         // Clear impersonation
@@ -656,15 +683,17 @@ export class GlobalAdminService {
             await tx.auditLog.create({
                 data: {
                     tenantId: orgId,
-                    action: 'CREATE',
+                    action: 'org.user.create',
+                    entity: 'org_user',
                     entityType: 'ORG_USER',
                     entityId: user.id,
-                    orgUserId: user.id,
-                    details: JSON.stringify({
+                    description: `Organisation user ${user.email} created`,
+                    metadata: {
                         email: dto.email,
-                        roles: dto.roleIds
-                    })
-                }
+                        roles: dto.roleIds,
+                    },
+                    orgUserId: user.id,
+                },
             });
 
             return user;
@@ -718,12 +747,19 @@ export class GlobalAdminService {
             await tx.auditLog.create({
                 data: {
                     tenantId: orgId,
-                    action: 'UPDATE',
+                    action: 'org.user.update',
+                    entity: 'org_user',
                     entityType: 'ORG_USER',
                     entityId: userId,
+                    description: `Organisation user ${user.email} updated`,
+                    metadata: {
+                        ...(dto.firstName && { firstName: dto.firstName }),
+                        ...(dto.lastName && { lastName: dto.lastName }),
+                        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+                        ...(dto.roleIds !== undefined && { roleIds: dto.roleIds }),
+                    },
                     orgUserId: userId,
-                    details: JSON.stringify(dto)
-                }
+                },
             });
 
             return user;
@@ -755,14 +791,16 @@ export class GlobalAdminService {
             await tx.auditLog.create({
                 data: {
                     tenantId: orgId,
-                    action: 'DELETE',
+                    action: 'org.user.delete',
+                    entity: 'org_user',
                     entityType: 'ORG_USER',
                     entityId: userId,
+                    description: `Organisation user ${user.email} deleted`,
+                    metadata: {
+                        email: user.email,
+                    },
                     orgUserId: userId,
-                    details: JSON.stringify({
-                        email: user.email
-                    })
-                }
+                },
             });
 
             return { success: true };
@@ -783,7 +821,11 @@ export class GlobalAdminService {
                             permission: true
                         }
                     },
-                    users: true
+                    membershipRoles: {
+                        select: {
+                            id: true,
+                        },
+                    },
                 },
                 orderBy: { createdAt: 'desc' }
             });
@@ -792,7 +834,7 @@ export class GlobalAdminService {
                 id: role.id,
                 name: role.name,
                 description: role.desc,
-                userCount: role.users.length,
+                userCount: role.membershipRoles.length,
                 createdAt: role.createdAt,
                 updatedAt: role.updatedAt,
                 permissions: role.permissions.map(rp => ({
@@ -840,14 +882,16 @@ export class GlobalAdminService {
                 await tx.auditLog.create({
                     data: {
                         tenantId: orgId,
-                        action: 'CREATE',
+                        action: 'org.role.create',
+                        entity: 'role',
                         entityType: 'ROLE',
                         entityId: role.id,
-                        details: JSON.stringify({
+                        description: `Role ${dto.name} created`,
+                        metadata: {
                             name: dto.name,
-                            permissions: dto.permissionIds
-                        })
-                    }
+                            permissions: dto.permissionIds,
+                        },
+                    },
                 });
 
                 console.log(`[DEBUG] Role creation completed successfully`);
@@ -913,15 +957,28 @@ export class GlobalAdminService {
                 }
             }
 
+            const metadata: Prisma.JsonObject = {};
+            if (dto.name !== undefined) {
+                metadata.name = dto.name;
+            }
+            if (dto.description !== undefined) {
+                metadata.description = dto.description;
+            }
+            if (dto.permissionIds !== undefined) {
+                metadata.permissionIds = dto.permissionIds;
+            }
+
             // Log action
             await tx.auditLog.create({
                 data: {
                     tenantId: orgId,
-                    action: 'UPDATE',
+                    action: 'org.role.update',
+                    entity: 'role',
                     entityType: 'ROLE',
                     entityId: roleId,
-                    details: JSON.stringify(dto)
-                }
+                    description: `Role ${dto.name ?? existingRole.name} updated`,
+                    metadata: Object.keys(metadata).length ? metadata : Prisma.JsonNull,
+                },
             });
 
             return role;
@@ -976,13 +1033,15 @@ export class GlobalAdminService {
             await tx.auditLog.create({
                 data: {
                     tenantId: orgId,
-                    action: 'DELETE',
+                    action: 'org.role.delete',
+                    entity: 'role',
                     entityType: 'ROLE',
                     entityId: roleId,
-                    details: JSON.stringify({
-                        name: existingRole.name
-                    })
-                }
+                    description: `Role ${existingRole.name} deleted`,
+                    metadata: {
+                        name: existingRole.name,
+                    },
+                },
             });
 
             return { success: true };
@@ -1010,7 +1069,7 @@ export class GlobalAdminService {
                 // If no permissions exist, create default permissions
                 if (permissions.length === 0) {
                     console.log(`[DEBUG] Creating default permissions for org: ${orgId}`);
-                    await this.createDefaultPermissions(orgId);
+                    await this.createDefaultPermissions(tx, orgId);
                     permissions = await tx.permission.findMany({
                         where: { tenantId: orgId },
                         orderBy: [
@@ -1037,126 +1096,48 @@ export class GlobalAdminService {
         });
     }
 
-    private async createDefaultPermissions(orgId: string) {
-        const defaultPermissions = [
-            // Calendar permissions
-            { key: 'calendar.view', group: 'calendar', desc: 'View calendar events' },
-            { key: 'calendar.manage', group: 'calendar', desc: 'Manage calendar settings and events' },
-
-            // Events permissions
-            { key: 'events.view', group: 'events', desc: 'View events' },
-            { key: 'events.create', group: 'events', desc: 'Create new events' },
-            { key: 'events.edit', group: 'events', desc: 'Edit existing events' },
-            { key: 'events.delete', group: 'events', desc: 'Delete events' },
-            { key: 'events.manage', group: 'events', desc: 'Full event management (create, edit, delete)' },
-
-            // Runsheet permissions
-            { key: 'runsheet.view', group: 'runsheet', desc: 'View runsheets' },
-            { key: 'runsheet.edit', group: 'runsheet', desc: 'Edit runsheets' },
-            { key: 'runsheet.approve', group: 'runsheet', desc: 'Approve runsheets' },
-            { key: 'runsheet.lock', group: 'runsheet', desc: 'Lock runsheets' },
-
-            // Resources permissions
-            { key: 'resources.view', group: 'resources', desc: 'View resources' },
-            { key: 'resources.manage', group: 'resources', desc: 'Manage resources (create, edit, delete)' },
-
-            // Checklist permissions
-            { key: 'checklists.view', group: 'checklists', desc: 'View checklists' },
-            { key: 'checklists.run', group: 'checklists', desc: 'Execute checklists' },
-            { key: 'checklists.manage', group: 'checklists', desc: 'Manage checklist templates' },
-
-            // Inventory permissions
-            { key: 'inventory.view', group: 'inventory', desc: 'View inventory items' },
-            { key: 'inventory.update', group: 'inventory', desc: 'Update inventory status' },
-            { key: 'inventory.book', group: 'inventory', desc: 'Book inventory items' },
-
-            // Asset permissions
-            { key: 'assets.upload', group: 'assets', desc: 'Upload assets' },
-            { key: 'assets.approve', group: 'assets', desc: 'Approve uploaded assets' },
-            { key: 'assets.manage', group: 'assets', desc: 'Manage asset library' },
-
-            // Roster permissions
-            { key: 'roster.view', group: 'roster', desc: 'View team rosters' },
-            { key: 'roster.manage', group: 'roster', desc: 'Manage team rosters' },
-            { key: 'team.create', group: 'roster', desc: 'Create new teams' },
-            { key: 'team.update', group: 'roster', desc: 'Update teams' },
-            { key: 'team.archive', group: 'roster', desc: 'Archive teams' },
-            { key: 'team.select_lineup', group: 'roster', desc: 'Select team lineups' },
-
-            // Player permissions
-            { key: 'player.create', group: 'roster', desc: 'Create new players' },
-            { key: 'player.update', group: 'roster', desc: 'Update player profiles' },
-            { key: 'player.link_user', group: 'roster', desc: 'Link players to org users' },
-            { key: 'players.view', group: 'roster', desc: 'View player profiles' },
-            { key: 'players.edit_profile_self', group: 'roster', desc: 'Edit own player profile' },
-            { key: 'players.edit_admin', group: 'roster', desc: 'Edit any player profile' },
-
-            // Availability permissions
-            { key: 'availability.manage', group: 'roster', desc: 'Manage player availability' },
-            { key: 'availability.set_self', group: 'roster', desc: 'Set own availability' },
-
-            // Lineup permissions
-            { key: 'lineup.create', group: 'roster', desc: 'Create lineups' },
-            { key: 'lineup.update', group: 'roster', desc: 'Update lineups' },
-            { key: 'lineup.publish', group: 'roster', desc: 'Publish lineups' },
-
-            // Achievement permissions
-            { key: 'achievement.create', group: 'roster', desc: 'Create achievements' },
-            { key: 'achievement.approve', group: 'roster', desc: 'Approve achievements' },
-            { key: 'achievements.create', group: 'roster', desc: 'Create achievements' },
-            { key: 'achievements.approve', group: 'roster', desc: 'Approve achievements' },
-
-            // Game Log permissions
-            { key: 'gamelog.view', group: 'gamelog', desc: 'View match logs and results' },
-            { key: 'gamelog.manage', group: 'gamelog', desc: 'Create and edit match logs' },
-            { key: 'gamelog.approve', group: 'gamelog', desc: 'Approve match logs and lock editing' },
-
-            // Player Stats permissions
-            { key: 'stats.record', group: 'stats', desc: 'Record player statistics' },
-            { key: 'stats.edit', group: 'stats', desc: 'Edit player statistics' },
-            { key: 'stats.approve', group: 'stats', desc: 'Approve player statistics' },
-
-            // Reporting permissions
-            { key: 'reports.view', group: 'reports', desc: 'View reports' },
-            { key: 'reports.export', group: 'reports', desc: 'Export reports (PDF/CSV)' },
-
-            // Incidents permissions
-            { key: 'incidents.view', group: 'incidents', desc: 'View incidents' },
-            { key: 'incidents.create', group: 'incidents', desc: 'Create incidents' },
-            { key: 'incidents.manage', group: 'incidents', desc: 'Manage incidents (update, delete, assign, RCA)' },
-
-            // User management permissions
-            { key: 'users.view', group: 'users', desc: 'View users' },
-            { key: 'users.read', group: 'users', desc: 'Read user details' },
-            { key: 'users.create', group: 'users', desc: 'Create users' },
-            { key: 'users.update', group: 'users', desc: 'Update users' },
-            { key: 'users.delete', group: 'users', desc: 'Delete users' },
-
-            // Invite permissions
-            { key: 'invites.create', group: 'invites', desc: 'Create invitations' },
-            { key: 'invites.read', group: 'invites', desc: 'View invitations' },
-            { key: 'invites.delete', group: 'invites', desc: 'Revoke invitations' },
-
-            // Organisation settings
-            { key: 'org.settings.view', group: 'org', desc: 'View organisation settings' },
-            { key: 'org.settings.manage', group: 'org', desc: 'Manage organisation settings' },
-
-            // Organisation admin permissions
-            { key: 'org.users.view', group: 'org', desc: 'View org users' },
-            { key: 'org.users.manage', group: 'org', desc: 'Manage org users' },
-            { key: 'org.roles.view', group: 'org', desc: 'View roles and permissions' },
-            { key: 'org.roles.manage', group: 'org', desc: 'Manage roles and permissions' },
-            { key: 'org.invites.view', group: 'org', desc: 'View invitations' },
-            { key: 'org.invites.manage', group: 'org', desc: 'Manage invitations' },
-            { key: 'org.audit.view', group: 'org', desc: 'View audit logs' },
-        ];
-
-        await this.prisma.permission.createMany({
-            data: defaultPermissions.map(perm => ({
-                ...perm,
-                tenantId: orgId
+    private async createDefaultPermissions(tx: Prisma.TransactionClient, orgId: string) {
+        await tx.permission.createMany({
+            data: DEFAULT_PERMISSION_DEFINITIONS.map(permission => ({
+                key: permission.key,
+                group: permission.group,
+                desc: permission.description,
+                tenantId: orgId,
             })),
-            skipDuplicates: true
+            skipDuplicates: true,
+        });
+    }
+
+    private async ensureCreatorAccess(orgId: string, creatorGlobalUserId: string) {
+        await this.ensureOrganisationAdminRecord(orgId, creatorGlobalUserId, 'admin');
+        await this.provisioningService.ensureOrgUserWithRole(orgId, creatorGlobalUserId, 'ADMIN');
+        await this.provisioningService.ensureOrgUserWithRole(orgId, creatorGlobalUserId, 'ops_admin');
+    }
+
+    private async ensureOrganisationAdminRecord(orgId: string, globalUserId: string, role: 'owner' | 'admin' = 'admin') {
+        const existing = await this.prisma.organisationAdmin.findFirst({
+            where: {
+                organisationId: orgId,
+                globalUserId,
+            },
+        });
+
+        if (existing) {
+            if (existing.role !== role) {
+                await this.prisma.organisationAdmin.update({
+                    where: { id: existing.id },
+                    data: { role },
+                });
+            }
+            return;
+        }
+
+        await this.prisma.organisationAdmin.create({
+            data: {
+                organisationId: orgId,
+                globalUserId,
+                role,
+            },
         });
     }
 }

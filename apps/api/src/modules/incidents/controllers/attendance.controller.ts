@@ -42,7 +42,7 @@ export class AttendanceController {
         @Body() createDto: CreateAttendanceDto
     ): Promise<AttendanceResponse> {
         const actualTenantId = req.tenant?.id || tenantId;
-        const createdBy = req.principal?.orgUserId || 'system';
+        const createdBy = req.globalUser?.id || 'system';
         return this.attendanceService.createAttendance(actualTenantId, createdBy, createDto);
     }
 
@@ -56,7 +56,7 @@ export class AttendanceController {
         @Body() bulkCreateDto: BulkCreateAttendanceDto
     ): Promise<{ created: AttendanceResponse[]; errors: string[] }> {
         const actualTenantId = req.tenant?.id || tenantId;
-        const createdBy = req.principal?.orgUserId || 'system';
+        const createdBy = req.globalUser?.id || 'system';
         return this.attendanceService.bulkCreateAttendance(actualTenantId, createdBy, bulkCreateDto);
     }
 

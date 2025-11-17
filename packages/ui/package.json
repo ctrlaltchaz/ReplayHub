@@ -22,7 +22,8 @@
     "dev": "tsc --watch",
     "lint": "echo \"lint not configured\"",
     "typecheck": "tsc --noEmit",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "test": "echo \"No UI tests configured\""
   },
   "devDependencies": {
     "@types/react": "^18.2.25",

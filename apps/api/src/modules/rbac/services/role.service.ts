@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 
 export interface CreateRoleDto {
@@ -14,12 +15,12 @@ export interface UpdateRoleDto {
 }
 
 export interface AssignRoleDto {
-    orgUserId: string;
+    membershipId: string;
     roleIds: string[];
 }
 
 export interface RemoveRoleDto {
-    orgUserId: string;
+    membershipId: string;
     roleIds: string[];
 }
 
@@ -146,17 +147,23 @@ export class RoleService {
                             permission: true,
                         },
                     },
-                    users: true, // Include users to get count
+                    membershipRoles: {
+                        select: {
+                            id: true,
+                        },
+                    },
                 },
             });
 
             if (!role) return null;
 
-            // Get user count (includes both org users and global users with this role)
-            const userCount = await tx.orgUserRole.count({
+            // Get user count from membershipRoles
+            const userCount = await tx.membershipRole.count({
                 where: {
                     roleId: roleId,
-                    tenantId,
+                    membership: {
+                        tenantId,
+                    },
                 },
             });
 
@@ -307,26 +314,23 @@ export class RoleService {
 
             const created: string[] = [];
 
+            // Fetch all current permission keys so ops_admin always has complete access
+            const allPermissionKeys = (await tx.permission.findMany({
+                where: { tenantId },
+                select: { key: true },
+            })).map(permission => permission.key).sort();
+
             // Define default roles
             const defaultRoles = [
                 {
+                    name: 'ADMIN',
+                    description: 'Administrator - Full access to all features',
+                    permissions: allPermissionKeys,
+                },
+                {
                     name: 'ops_admin',
                     description: 'Operations Administrator - Full access to all features',
-                    permissions: [
-                        'calendar.view', 'calendar.manage',
-                        'events.view', 'events.create', 'events.edit', 'events.delete', 'events.manage',
-                        'runsheet.view', 'runsheet.edit', 'runsheet.approve',
-                        'checklists.run', 'checklists.manage',
-                        'inventory.view', 'inventory.update', 'inventory.book',
-                        'assets.upload', 'assets.approve', 'assets.manage',
-                        'roster.view', 'roster.manage', 'team.create', 'team.select_lineup',
-                        'players.view', 'players.edit_profile_self', 'players.edit_admin',
-                        'achievements.create', 'achievements.approve',
-                        'gamelog.view', 'gamelog.manage', 'gamelog.approve',
-                        'stats.record', 'stats.edit', 'stats.approve',
-                        'reports.view', 'reports.export',
-                        'org.settings.view', 'org.settings.manage',
-                    ],
+                    permissions: allPermissionKeys,
                 },
                 {
                     name: 'producer',
@@ -377,7 +381,13 @@ export class RoleService {
                     await this.createRole(tenantId, roleData);
                     created.push(roleData.name);
                 } catch (error) {
-                    // Role might already exist, continue
+                    if (error instanceof ConflictException) {
+                        await this.syncRolePermissions(tx, tenantId, roleData);
+                        console.info(`[RoleService] Role ${roleData.name} already exists for tenant ${tenantId}; synchronised permissions instead`);
+                    } else {
+                        const message = error instanceof Error ? error.message : String(error);
+                        console.warn(`[RoleService] Failed to seed role ${roleData.name} for tenant ${tenantId}: ${message}`);
+                    }
                     continue;
                 }
             }
@@ -386,24 +396,101 @@ export class RoleService {
         });
     }
 
+    private async syncRolePermissions(
+        tx: Prisma.TransactionClient,
+        tenantId: string,
+        roleData: { name: string; description?: string; permissions: string[] },
+    ) {
+        const role = await tx.role.findUnique({
+            where: {
+                tenantId_name: {
+                    tenantId,
+                    name: roleData.name,
+                },
+            },
+        });
+
+        if (!role) {
+            return;
+        }
+
+        if (roleData.description && role.desc !== roleData.description) {
+            await tx.role.update({
+                where: { id: role.id },
+                data: { desc: roleData.description },
+            });
+        }
+
+        const permissions = await tx.permission.findMany({
+            where: {
+                tenantId,
+                key: { in: roleData.permissions },
+            },
+            select: { id: true, key: true },
+        });
+
+        const foundKeys = new Set(permissions.map(permission => permission.key));
+        const missingKeys = roleData.permissions.filter(key => !foundKeys.has(key));
+
+        if (missingKeys.length > 0) {
+            console.warn(`[RoleService] Missing permissions while syncing role ${roleData.name} for tenant ${tenantId}: ${missingKeys.join(', ')}`);
+        }
+
+        const desiredPermissionIds = new Set(permissions.map(permission => permission.id));
+
+        const existingAssignments = await tx.rolePermission.findMany({
+            where: {
+                tenantId,
+                roleId: role.id,
+            },
+            select: { permissionId: true },
+        });
+
+        const existingPermissionIds = new Set(existingAssignments.map(assignment => assignment.permissionId));
+
+        const permissionsToAdd = permissions.filter(permission => !existingPermissionIds.has(permission.id));
+        const permissionIdsToRemove = [...existingPermissionIds].filter(permissionId => !desiredPermissionIds.has(permissionId));
+
+        if (permissionIdsToRemove.length > 0) {
+            await tx.rolePermission.deleteMany({
+                where: {
+                    tenantId,
+                    roleId: role.id,
+                    permissionId: { in: permissionIdsToRemove },
+                },
+            });
+        }
+
+        if (permissionsToAdd.length > 0) {
+            await tx.rolePermission.createMany({
+                data: permissionsToAdd.map(permission => ({
+                    tenantId,
+                    roleId: role.id,
+                    permissionId: permission.id,
+                })),
+                skipDuplicates: true,
+            });
+        }
+    }
+
     /**
      * Assign roles to a user
      */
-    async assignRoles(tenantId: string, assignRoleDto: AssignRoleDto, assignedByUserId: string) {
+    async assignRoles(tenantId: string, assignRoleDto: AssignRoleDto, assignedByMembershipId: string) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context
             await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-            // Verify user exists and belongs to tenant
-            const orgUser = await tx.orgUser.findUnique({
+            // Verify membership exists and belongs to tenant
+            const membership = await tx.userOrganisationMembership.findFirst({
                 where: {
-                    id: assignRoleDto.orgUserId,
+                    id: assignRoleDto.membershipId,
                     tenantId,
                 },
             });
 
-            if (!orgUser) {
-                throw new NotFoundException('User not found in this organization');
+            if (!membership) {
+                throw new NotFoundException('User membership not found in this organization');
             }
 
             // Verify all roles exist and belong to tenant
@@ -419,9 +506,9 @@ export class RoleService {
             }
 
             // Check for existing assignments to avoid duplicates
-            const existingAssignments = await tx.orgUserRole.findMany({
+            const existingAssignments = await tx.membershipRole.findMany({
                 where: {
-                    orgUserId: assignRoleDto.orgUserId,
+                    membershipId: assignRoleDto.membershipId,
                     roleId: { in: assignRoleDto.roleIds },
                     tenantId,
                 },
@@ -434,13 +521,13 @@ export class RoleService {
                 throw new ConflictException('All roles are already assigned to this user');
             }
 
-            // Create new role assignments
+            // Create new role assignments in MembershipRole
             const assignments = await Promise.all(
                 newRoleIds.map(roleId =>
-                    tx.orgUserRole.create({
+                    tx.membershipRole.create({
                         data: {
                             tenantId,
-                            orgUserId: assignRoleDto.orgUserId,
+                            membershipId: assignRoleDto.membershipId,
                             roleId,
                         },
                     })
@@ -458,27 +545,27 @@ export class RoleService {
     /**
      * Remove roles from a user
      */
-    async removeRoles(tenantId: string, removeRoleDto: RemoveRoleDto, removedByUserId: string) {
+    async removeRoles(tenantId: string, removeRoleDto: RemoveRoleDto, removedByMembershipId: string) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context
             await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-            // Verify user exists and belongs to tenant
-            const orgUser = await tx.orgUser.findUnique({
+            // Verify membership exists and belongs to tenant
+            const membership = await tx.userOrganisationMembership.findFirst({
                 where: {
-                    id: removeRoleDto.orgUserId,
+                    id: removeRoleDto.membershipId,
                     tenantId,
                 },
             });
 
-            if (!orgUser) {
-                throw new NotFoundException('User not found in this organization');
+            if (!membership) {
+                throw new NotFoundException('User membership not found in this organization');
             }
 
-            // Remove role assignments
-            const result = await tx.orgUserRole.deleteMany({
+            // Remove role assignments from MembershipRole
+            const result = await tx.membershipRole.deleteMany({
                 where: {
-                    orgUserId: removeRoleDto.orgUserId,
+                    membershipId: removeRoleDto.membershipId,
                     roleId: { in: removeRoleDto.roleIds },
                     tenantId,
                 },
@@ -494,14 +581,14 @@ export class RoleService {
     /**
      * Get user's roles
      */
-    async getUserRoles(tenantId: string, orgUserId: string) {
+    async getUserRoles(tenantId: string, membershipId: string) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context
             await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-            const userRoles = await tx.orgUserRole.findMany({
+            const userRoles = await tx.membershipRole.findMany({
                 where: {
-                    orgUserId,
+                    membershipId,
                     tenantId,
                 },
                 include: {

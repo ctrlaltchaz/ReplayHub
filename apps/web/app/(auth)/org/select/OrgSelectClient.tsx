@@ -89,8 +89,8 @@ export function OrgSelectClient() {
                         title="No Organizations Found"
                         description="You don't have access to any organizations yet."
                         cta={
-                            <AppButton onClick={() => router.push("/")}>
-                                Go to Dashboard
+                            <AppButton onClick={() => router.push("/admin/get-started")}>
+                                Create an Organization
                             </AppButton>
                         }
                     />
