@@ -14,10 +14,19 @@ import {
     Shield,
     Users
 } from 'lucide-react';
-import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 export default function ControlCenterPage() {
-    const [activeTab, setActiveTab] = useState('overview');
+    const searchParams = useSearchParams();
+    const tabParam = searchParams?.get('tab');
+    const [activeTab, setActiveTab] = useState(tabParam || 'overview');
+
+    useEffect(() => {
+        if (tabParam) {
+            setActiveTab(tabParam);
+        }
+    }, [tabParam]);
 
     return (
         <div className="container mx-auto py-6 space-y-6">

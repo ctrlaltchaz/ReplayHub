@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useBadgeCounts } from "@/hooks/useBadgeCounts";
 import { useQuickLinks } from "@/hooks/useQuickLinks";
-import { ADMIN_NAV, adminPath, ORG_NAV } from "@/lib/paths/org";
+import { ADMIN_NAV, ORG_NAV } from "@/lib/paths/org";
 import { hasPermission, isGlobalAdmin, PERMISSIONS } from "@/lib/permissions/utils";
 import { cn } from "@/lib/utils";
 import {
@@ -15,8 +15,7 @@ import {
     ChevronRight,
     ExternalLink as ExternalLinkIcon,
     Link2,
-    Palette,
-    Shield,
+    Palette
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -76,22 +75,11 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuClose }: SidebarProps) {
     // Load collapse state from localStorage
-    const [isCollapsed, setIsCollapsed] = React.useState(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('sidebar-collapsed');
-            return saved === 'true';
-        }
-        return false;
-    });
-
-    // Track which submenus are open
-    const [openSubmenus, setOpenSubmenus] = React.useState<Set<string>>(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('sidebar-open-submenus');
-            return saved ? new Set(JSON.parse(saved)) : new Set(['rosters']); // Default rosters open
-        }
-        return new Set(['rosters']);
-    });
+    const [isCollapsed, setIsCollapsed] = React.useState(false);
+    const [openSubmenus, setOpenSubmenus] = React.useState<Set<string>>(new Set(['rosters']));
+    const [lastOrgSlug, setLastOrgSlug] = React.useState<string | null>(null);
+    const [lastOrgName, setLastOrgName] = React.useState<string | null>(null);
+    const [isMounted, setIsMounted] = React.useState(false);
 
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -99,12 +87,26 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
     const { counts, isLoading: countsLoading } = useBadgeCounts(slug);
     const { data: quickLinks, isLoading: quickLinksLoading } = useQuickLinks(slug);
 
+    // Initialize client-side state after mount
+    React.useEffect(() => {
+        setIsMounted(true);
+        if (typeof window !== 'undefined') {
+            const savedCollapsed = localStorage.getItem('sidebar-collapsed');
+            setIsCollapsed(savedCollapsed === 'true');
+
+            const savedSubmenus = localStorage.getItem('sidebar-open-submenus');
+            setOpenSubmenus(savedSubmenus ? new Set(JSON.parse(savedSubmenus)) : new Set(['rosters']));
+
+            setLastOrgSlug(localStorage.getItem('lastOrgSlug'));
+            setLastOrgName(localStorage.getItem('lastOrgName'));
+        }
+    }, []);
+
     // Store last visited org in localStorage
     React.useEffect(() => {
         if (slug && typeof window !== 'undefined') {
             localStorage.setItem('lastOrgSlug', slug);
-            // Try to get org name from the page or fetch it
-            // For now, we'll just store the slug
+            setLastOrgSlug(slug);
         }
     }, [slug]);
 
@@ -195,9 +197,9 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                         /* Global Context - Simplified Navigation */
                         <>
                             {/* Back to Org Button */}
-                            {typeof window !== 'undefined' && localStorage.getItem('lastOrgSlug') && (
+                            {isMounted && lastOrgSlug && (
                                 <Link
-                                    href={`/org/${localStorage.getItem('lastOrgSlug')}`}
+                                    href={`/org/${lastOrgSlug}`}
                                     className={cn(
                                         "flex items-center gap-4 rounded-xl px-4 py-3 text-base transition-all duration-200",
                                         "font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-sm",
@@ -210,30 +212,32 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                                     <iconMap.overview className="h-5 w-5 shrink-0" />
                                     {!isCollapsed && (
                                         <span className="truncate font-medium font-montserrat">
-                                            Back to {localStorage.getItem('lastOrgName') || 'Organization'}
+                                            Back to {lastOrgName || 'Organization'}
                                         </span>
                                     )}
                                 </Link>
                             )}
 
-                            {/* Feedback Link */}
-                            <Link
-                                href="/feedback"
-                                className={cn(
-                                    "flex items-center gap-4 rounded-xl px-4 py-3 text-base font-medium transition-all duration-200",
-                                    "hover:bg-primary hover:text-primary-foreground hover:shadow-sm",
-                                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                                    "font-montserrat",
-                                    pathname?.startsWith("/feedback") && "bg-primary text-primary-foreground shadow-modern font-semibold",
-                                    isCollapsed && "justify-center px-3"
-                                )}
-                                title={isCollapsed ? "Bug Reports & Suggestions" : undefined}
-                            >
-                                <iconMap.MessageSquare className="h-5 w-5 shrink-0" />
-                                {!isCollapsed && <span className="truncate font-medium font-montserrat">Feedback</span>}
-                            </Link>
+                            {/* Submit Feedback Link - For all admins */}
+                            {isGlobalAdmin(globalUser) && (
+                                <Link
+                                    href="/feedback"
+                                    className={cn(
+                                        "flex items-center gap-4 rounded-xl px-4 py-3 text-base font-medium transition-all duration-200",
+                                        "hover:bg-accent hover:text-accent-foreground hover:shadow-sm",
+                                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                        "font-montserrat",
+                                        pathname?.startsWith("/feedback") && "bg-primary text-primary-foreground shadow-modern font-semibold",
+                                        isCollapsed && "justify-center px-3"
+                                    )}
+                                    title={isCollapsed ? "Submit Feedback" : undefined}
+                                >
+                                    <iconMap.MessageSquare className="h-5 w-5 shrink-0" />
+                                    {!isCollapsed && <span className="truncate font-medium font-montserrat">Submit Feedback</span>}
+                                </Link>
+                            )}
 
-                            {/* Control Center for Admins */}
+                            {/* Admin Navigation for Admins */}
                             {isGlobalAdmin(globalUser) && (
                                 <>
                                     <div className={cn(
@@ -245,20 +249,46 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                                                 Global Admin
                                             </div>
                                         )}
+                                        {ADMIN_NAV.map((item) => {
+                                            const href = item.href();
+                                            const isActive = pathname === href || pathname?.startsWith(href + '/');
+                                            const Icon = iconMap[item.key] || iconMap.overview;
+
+                                            return (
+                                                <Link
+                                                    key={item.key}
+                                                    href={href}
+                                                    className={cn(
+                                                        "flex items-center gap-4 rounded-xl px-4 py-3 text-base font-medium transition-all duration-200",
+                                                        "hover:bg-primary hover:text-primary-foreground hover:shadow-sm",
+                                                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                                        "font-montserrat",
+                                                        isActive && "bg-primary text-primary-foreground shadow-modern font-semibold",
+                                                        isCollapsed && "justify-center px-3"
+                                                    )}
+                                                    title={isCollapsed ? item.label : undefined}
+                                                >
+                                                    <Icon className="h-5 w-5 shrink-0" />
+                                                    {!isCollapsed && <span className="truncate font-medium font-montserrat">{item.label}</span>}
+                                                </Link>
+                                            );
+                                        })}
+
+                                        {/* Feedback Management Link - Admin view */}
                                         <Link
-                                            href={adminPath.controlCenter()}
+                                            href="/admin/control-center?tab=feedback"
                                             className={cn(
                                                 "flex items-center gap-4 rounded-xl px-4 py-3 text-base font-medium transition-all duration-200",
                                                 "hover:bg-primary hover:text-primary-foreground hover:shadow-sm",
                                                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                                                 "font-montserrat",
-                                                pathname?.startsWith(adminPath.controlCenter()) && "bg-primary text-primary-foreground shadow-modern font-semibold",
+                                                pathname === "/admin/control-center" && "bg-primary text-primary-foreground shadow-modern font-semibold",
                                                 isCollapsed && "justify-center px-3"
                                             )}
-                                            title={isCollapsed ? "Admin Control Center" : undefined}
+                                            title={isCollapsed ? "Review Feedback" : undefined}
                                         >
-                                            <Shield className="h-5 w-5 shrink-0" />
-                                            {!isCollapsed && <span className="truncate font-medium font-montserrat">Control Center</span>}
+                                            <iconMap.MessageSquare className="h-5 w-5 shrink-0" />
+                                            {!isCollapsed && <span className="truncate font-medium font-montserrat">Feedback</span>}
                                         </Link>
                                     </div>
                                 </>
@@ -266,32 +296,57 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                         </>
                     ) : isAdminPage ? (
                         /* Admin Navigation */
-                        ADMIN_NAV.map((item) => {
-                            // For admin pages, we assume global admin has access to all admin navigation
-                            const href = item.href();
-                            const isActive = pathname === href || pathname?.startsWith(href + '/');
-                            const Icon = iconMap[item.key] || iconMap.overview;
+                        <>
+                            {ADMIN_NAV.map((item) => {
+                                // For admin pages, we assume global admin has access to all admin navigation
+                                const href = item.href();
+                                const isActive = pathname === href || pathname?.startsWith(href + '/');
+                                const Icon = iconMap[item.key] || iconMap.overview;
 
-                            return (
+                                return (
+                                    <Link
+                                        key={item.key}
+                                        href={href}
+                                        className={cn(
+                                            "flex items-center gap-4 rounded-xl px-4 py-3 text-base transition-all duration-200",
+                                            "font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-sm",
+                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                            "font-montserrat", // Ensure Montserrat font
+                                            isActive && "bg-primary text-primary-foreground shadow-modern font-semibold",
+                                            isCollapsed && "justify-center px-3"
+                                        )}
+                                        aria-current={isActive ? "page" : undefined}
+                                        title={isCollapsed ? item.label : undefined}
+                                    >
+                                        <Icon className="h-5 w-5 shrink-0" />
+                                        {!isCollapsed && <span className="truncate font-medium font-montserrat">{item.label}</span>}
+                                    </Link>
+                                );
+                            })}
+
+                            {/* Feedback Link */}
+                            <div className={cn(
+                                "border-t pt-4 mt-4",
+                                isCollapsed && "border-t-0 pt-0 mt-0"
+                            )}>
                                 <Link
-                                    key={item.key}
-                                    href={href}
+                                    href="/feedback"
                                     className={cn(
-                                        "flex items-center gap-4 rounded-xl px-4 py-3 text-base transition-all duration-200",
-                                        "font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-sm",
+                                        "flex items-center gap-4 rounded-xl px-4 py-3 text-base font-medium transition-all duration-200",
+                                        "hover:bg-accent hover:text-accent-foreground hover:shadow-sm",
                                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                                        "font-montserrat", // Ensure Montserrat font
-                                        isActive && "bg-primary text-primary-foreground shadow-modern font-semibold",
+                                        "font-montserrat",
+                                        pathname?.startsWith("/feedback") && "bg-primary text-primary-foreground shadow-modern font-semibold",
                                         isCollapsed && "justify-center px-3"
                                     )}
-                                    aria-current={isActive ? "page" : undefined}
-                                    title={isCollapsed ? item.label : undefined}
+                                    title={isCollapsed ? "Bug Reports & Suggestions" : undefined}
                                 >
-                                    <Icon className="h-5 w-5 shrink-0" />
-                                    {!isCollapsed && <span className="truncate font-medium font-montserrat">{item.label}</span>}
+                                    <iconMap.MessageSquare className="h-5 w-5 shrink-0" />
+                                    {!isCollapsed && <span className="truncate font-medium font-montserrat">Feedback</span>}
                                 </Link>
-                            );
-                        })
+                            </div>
+                        </>
+
                     ) : (
                         /* Organization Navigation */
                         <>
@@ -605,28 +660,140 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                     <nav className="space-y-2">
                         {isAdminPage ? (
                             /* Admin Navigation */
-                            ADMIN_NAV.map((item) => {
-                                const href = item.href();
-                                const isActive = pathname === href || pathname?.startsWith(href + '/');
-                                const Icon = iconMap[item.key] || iconMap.overview;
-                                return (
+                            <>
+                                {/* Back to Org Button */}
+                                {isMounted && lastOrgSlug && (
                                     <Link
-                                        key={item.key}
-                                        href={href}
+                                        href={`/org/${lastOrgSlug}`}
+                                        onClick={onMobileMenuClose}
+                                        className={cn(
+                                            "flex items-center gap-4 rounded-xl px-4 py-3 text-base transition-all duration-200",
+                                            "font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-sm",
+                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                            "font-montserrat bg-muted"
+                                        )}
+                                    >
+                                        <iconMap.overview className="h-5 w-5 shrink-0" />
+                                        <span className="truncate font-medium font-montserrat">
+                                            Back to {lastOrgName || 'Organization'}
+                                        </span>
+                                    </Link>
+                                )}
+
+                                {/* Admin Nav Items */}
+                                {ADMIN_NAV.map((item) => {
+                                    const href = item.href();
+                                    const isActive = pathname === href || pathname?.startsWith(href + '/');
+                                    const Icon = iconMap[item.key] || iconMap.overview;
+                                    return (
+                                        <Link
+                                            key={item.key}
+                                            href={href}
+                                            onClick={onMobileMenuClose}
+                                            className={cn(
+                                                "flex items-center gap-4 rounded-xl px-4 py-3 text-base font-medium transition-all duration-200",
+                                                "hover:bg-accent hover:text-accent-foreground hover:shadow-sm",
+                                                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                                "font-montserrat",
+                                                isActive && "bg-primary text-primary-foreground shadow-modern font-semibold"
+                                            )}
+                                        >
+                                            <Icon className="h-5 w-5 shrink-0" />
+                                            <span className="truncate font-medium font-montserrat">{item.label}</span>
+                                        </Link>
+                                    );
+                                })}
+                            </>
+                        ) : globalUser && !slug ? (
+                            /* Global Context - Simplified Navigation */
+                            <>
+                                {/* Back to Org Button */}
+                                {isMounted && lastOrgSlug && (
+                                    <Link
+                                        href={`/org/${lastOrgSlug}`}
+                                        onClick={onMobileMenuClose}
+                                        className={cn(
+                                            "flex items-center gap-4 rounded-xl px-4 py-3 text-base transition-all duration-200",
+                                            "font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-sm",
+                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                            "font-montserrat bg-muted"
+                                        )}
+                                    >
+                                        <iconMap.overview className="h-5 w-5 shrink-0" />
+                                        <span className="truncate font-medium font-montserrat">
+                                            Back to {lastOrgName || 'Organization'}
+                                        </span>
+                                    </Link>
+                                )}
+
+                                {/* Submit Feedback Link - For all admins */}
+                                {isGlobalAdmin(globalUser) && (
+                                    <Link
+                                        href="/feedback"
                                         onClick={onMobileMenuClose}
                                         className={cn(
                                             "flex items-center gap-4 rounded-xl px-4 py-3 text-base font-medium transition-all duration-200",
                                             "hover:bg-accent hover:text-accent-foreground hover:shadow-sm",
                                             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                                             "font-montserrat",
-                                            isActive && "bg-primary text-primary-foreground shadow-modern font-semibold"
+                                            pathname?.startsWith("/feedback") && "bg-primary text-primary-foreground shadow-modern font-semibold"
                                         )}
                                     >
-                                        <Icon className="h-5 w-5 shrink-0" />
-                                        <span className="truncate font-medium font-montserrat">{item.label}</span>
+                                        <iconMap.MessageSquare className="h-5 w-5 shrink-0" />
+                                        <span className="truncate font-medium font-montserrat">Submit Feedback</span>
                                     </Link>
-                                );
-                            })
+                                )}
+
+                                {/* Global Admin for Admins */}
+                                {isGlobalAdmin(globalUser) && (
+                                    <>
+                                        <div className="border-t pt-4 mt-4">
+                                            <div className="px-4 py-2 text-sm font-bold text-muted-foreground uppercase tracking-wider font-montserrat">
+                                                Global Admin
+                                            </div>
+                                            {ADMIN_NAV.map((item) => {
+                                                const href = item.href();
+                                                const isActive = pathname === href || pathname?.startsWith(href + '/');
+                                                const Icon = iconMap[item.key] || iconMap.overview;
+
+                                                return (
+                                                    <Link
+                                                        key={item.key}
+                                                        href={href}
+                                                        onClick={onMobileMenuClose}
+                                                        className={cn(
+                                                            "flex items-center gap-4 rounded-xl px-4 py-3 text-base font-medium transition-all duration-200",
+                                                            "hover:bg-primary hover:text-primary-foreground hover:shadow-sm",
+                                                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                                            "font-montserrat",
+                                                            isActive && "bg-primary text-primary-foreground shadow-modern font-semibold"
+                                                        )}
+                                                    >
+                                                        <Icon className="h-5 w-5 shrink-0" />
+                                                        <span className="truncate font-medium font-montserrat">{item.label}</span>
+                                                    </Link>
+                                                );
+                                            })}
+
+                                            {/* Feedback Management Link - Admin view */}
+                                            <Link
+                                                href="/admin/control-center?tab=feedback"
+                                                onClick={onMobileMenuClose}
+                                                className={cn(
+                                                    "flex items-center gap-4 rounded-xl px-4 py-3 text-base font-medium transition-all duration-200",
+                                                    "hover:bg-primary hover:text-primary-foreground hover:shadow-sm",
+                                                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                                    "font-montserrat",
+                                                    pathname === "/admin/control-center" && "bg-primary text-primary-foreground shadow-modern font-semibold"
+                                                )}
+                                            >
+                                                <iconMap.MessageSquare className="h-5 w-5 shrink-0" />
+                                                <span className="truncate font-medium font-montserrat">Feedback</span>
+                                            </Link>
+                                        </div>
+                                    </>
+                                )}
+                            </>
                         ) : (
                             /* Organization Navigation */
                             <>
@@ -850,47 +1017,6 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                                     );
                                 })()}
                             </>
-                        )}
-
-                        {/* Feedback Section - Mobile */}
-                        {globalUser && (
-                            <div className="border-t pt-4 mt-4">
-                                <Link
-                                    href="/feedback"
-                                    onClick={onMobileMenuClose}
-                                    className={cn(
-                                        "flex items-center gap-4 rounded-xl px-4 py-3 text-base font-medium transition-all duration-200",
-                                        "hover:bg-accent hover:text-accent-foreground hover:shadow-sm",
-                                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                                        pathname?.startsWith("/feedback") && "bg-primary text-primary-foreground shadow-modern"
-                                    )}
-                                >
-                                    <iconMap.MessageSquare className="h-5 w-5 shrink-0" />
-                                    <span className="truncate font-medium">Feedback</span>
-                                </Link>
-                            </div>
-                        )}
-
-                        {/* Global Admin Section - Mobile */}
-                        {isGlobalAdmin(globalUser) && !slug && (
-                            <div className="border-t pt-4 mt-4">
-                                <div className="px-4 py-2 text-sm font-bold text-muted-foreground uppercase tracking-wider font-montserrat">
-                                    Global Admin
-                                </div>
-                                <Link
-                                    href={adminPath.controlCenter()}
-                                    onClick={onMobileMenuClose}
-                                    className={cn(
-                                        "flex items-center gap-4 rounded-xl px-4 py-3 text-base font-medium transition-all duration-200",
-                                        "hover:bg-accent hover:text-accent-foreground hover:shadow-sm",
-                                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                                        pathname?.startsWith("/admin") && "bg-primary text-primary-foreground shadow-modern"
-                                    )}
-                                >
-                                    <Shield className="h-5 w-5 shrink-0" />
-                                    <span className="truncate font-medium">Control Center</span>
-                                </Link>
-                            </div>
                         )}
                     </nav>
                 </div>
