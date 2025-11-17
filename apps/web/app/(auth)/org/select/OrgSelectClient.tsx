@@ -13,6 +13,12 @@ interface Organization {
     name: string;
     slug: string;
     description?: string;
+    brandingJson?: {
+        logoUrl?: string;
+        iconUrl?: string;
+        primaryColor?: string;
+        description?: string;
+    };
 }
 
 export function OrgSelectClient() {
@@ -25,8 +31,11 @@ export function OrgSelectClient() {
         const fetchOrganizations = async () => {
             try {
                 setIsLoading(true);
-                const response = await apiGet<{ organizations: Organization[] }>('/global/orgs');
-                const orgs = response.organizations || [];
+                console.log('Fetching organizations from /global/orgs');
+                const response = await apiGet<{ organisations?: Organization[], organizations?: Organization[] }>('/global/orgs');
+                console.log('API Response:', response);
+                const orgs = response.organisations || response.organizations || [];
+                console.log('Organizations found:', orgs.length, orgs);
 
                 // Auto-redirect if only one org
                 if (orgs.length === 1) {
@@ -110,38 +119,53 @@ export function OrgSelectClient() {
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {organizations.map((org) => (
-                        <Card
-                            key={org.id}
-                            className="hover:shadow-lg transition-shadow cursor-pointer"
-                            onClick={() => handleSelectOrg(org.slug)}
-                        >
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Building2 className="h-5 w-5 text-blue-600" />
-                                    {org.name}
-                                </CardTitle>
-                                {org.description && (
-                                    <CardDescription>
-                                        {org.description}
-                                    </CardDescription>
-                                )}
-                            </CardHeader>
-                            <CardContent>
-                                <AppButton
-                                    variant="outline"
-                                    className="w-full"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleSelectOrg(org.slug);
-                                    }}
-                                >
-                                    Access Organization
-                                    <ArrowRight className="ml-2 h-4 w-4" />
-                                </AppButton>
-                            </CardContent>
-                        </Card>
-                    ))}
+                    {organizations.map((org) => {
+                        const logoUrl = org.brandingJson?.logoUrl || org.brandingJson?.iconUrl;
+                        const description = org.brandingJson?.description || org.description;
+
+                        return (
+                            <Card
+                                key={org.id}
+                                className="hover:shadow-lg transition-shadow cursor-pointer"
+                                onClick={() => handleSelectOrg(org.slug)}
+                            >
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                            {logoUrl ? (
+                                                <img
+                                                    src={logoUrl}
+                                                    alt={org.name}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <Building2 className="h-5 w-5 text-muted-foreground" />
+                                            )}
+                                        </div>
+                                        <span className="font-montserrat">{org.name}</span>
+                                    </CardTitle>
+                                    {description && (
+                                        <CardDescription className="mt-2">
+                                            {description}
+                                        </CardDescription>
+                                    )}
+                                </CardHeader>
+                                <CardContent>
+                                    <AppButton
+                                        variant="outline"
+                                        className="w-full"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleSelectOrg(org.slug);
+                                        }}
+                                    >
+                                        Access Organization
+                                        <ArrowRight className="ml-2 h-4 w-4" />
+                                    </AppButton>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
                 </div>
 
                 <div className="mt-12 text-center">

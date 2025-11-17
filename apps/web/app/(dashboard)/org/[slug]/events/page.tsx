@@ -22,7 +22,7 @@ export default function EventsPage() {
     const { toast } = useToast();
 
     const [filters, setFilters] = useState<EventsQueryParams>({});
-    const [showCompleted, setShowCompleted] = useState(true);
+    const [showCompleted, setShowCompleted] = useState(false);
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [showEditDialog, setShowEditDialog] = useState(false);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);

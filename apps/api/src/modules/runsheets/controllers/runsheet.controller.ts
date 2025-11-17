@@ -8,7 +8,7 @@ import {
     Put,
     Query,
     Req,
-    UseGuards,
+    UseGuards
 } from '@nestjs/common';
 import { Request } from 'express';
 import { TenantGuard } from '../../../common/tenant/guards/tenant.guard';
@@ -18,6 +18,7 @@ import { PermissionGuard } from '../../rbac/guards/permission.guard';
 import {
     BulkCreateRunsheetItemsDto,
     CreateRunsheetDto,
+    ReorderRunsheetItemsDto,
     RunsheetQueryDto,
     UpdateRunsheetDto,
     UpdateRunsheetItemDto
@@ -229,6 +230,22 @@ export class RunsheetController {
         return this.runsheetService.addItems(req.tenant!.id, runsheetId, itemsDto);
     }
 
+    @Put('runsheets/:id/items/reorder')
+    @Can('runsheet.edit')
+    @UseGuards(PermissionGuard)
+    async reorderItems(
+        @Req() req: Request,
+        @Param('id') runsheetId: string,
+        @Body() body: ReorderRunsheetItemsDto,
+    ) {
+        const timestamp = new Date().toISOString();
+        console.log(`[${timestamp}] [REORDER] Raw request body:`, req.body);
+        console.log(`[${timestamp}] [REORDER] Validated body:`, body);
+        console.log(`[${timestamp}] [REORDER] Body type:`, body.constructor.name);
+        console.log(`[${timestamp}] [REORDER] itemIds:`, body.itemIds);
+        return this.runsheetService.reorderItems(req.tenant!.id, runsheetId, body.itemIds);
+    }
+
     @Put('runsheets/:id/items/:itemId')
     @Can('runsheet.edit')
     @UseGuards(PermissionGuard)
@@ -239,17 +256,6 @@ export class RunsheetController {
         @Body() updateItemDto: UpdateRunsheetItemDto,
     ) {
         return this.runsheetService.updateItem(req.tenant!.id, runsheetId, itemId, updateItemDto);
-    }
-
-    @Put('runsheets/:id/items/reorder')
-    @Can('runsheet.edit')
-    @UseGuards(PermissionGuard)
-    async reorderItems(
-        @Req() req: Request,
-        @Param('id') runsheetId: string,
-        @Body() body: { itemIds: string[] },
-    ) {
-        return this.runsheetService.reorderItems(req.tenant!.id, runsheetId, body.itemIds);
     }
 
     @Delete('runsheets/:id/items/:itemId')

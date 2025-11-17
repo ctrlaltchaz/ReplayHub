@@ -27,7 +27,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, CheckCircle, Clock, Copy, Download, Edit, FileText, GripVertical, Lock, Plus, RotateCcw, Save, Trash2, User } from "lucide-react";
+import { ArrowLeft, Check, CheckCircle, Clock, Copy, Download, Edit, FileText, GripVertical, Lock, Plus, RotateCcw, Save, Trash2, User } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -61,9 +61,10 @@ interface SortableItemProps {
     onEdit: (item: RunsheetItem) => void;
     onDelete: (item: RunsheetItem) => void;
     orgUsers?: Array<{ id: string; displayName: string; email: string }>;
+    showCheckmark?: boolean;
 }
 
-function SortableItem({ item, index, isLocked, formatDuration, calculateCumulativeTime, onEdit, onDelete, orgUsers }: SortableItemProps) {
+function SortableItem({ item, index, isLocked, formatDuration, calculateCumulativeTime, onEdit, onDelete, orgUsers, showCheckmark }: SortableItemProps) {
     const {
         attributes,
         listeners,
@@ -104,6 +105,11 @@ function SortableItem({ item, index, isLocked, formatDuration, calculateCumulati
                 <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
                         <h4 className="font-semibold font-montserrat">{item.title}</h4>
+                        {showCheckmark && (
+                            <div className="animate-in fade-in slide-in-from-left-2 duration-300">
+                                <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
+                            </div>
+                        )}
                         {item.type && (
                             <Badge variant="outline" className="text-xs capitalize">
                                 {item.type}
@@ -194,6 +200,7 @@ export default function RunsheetDetailPage() {
     const [showDeleteItemDialog, setShowDeleteItemDialog] = useState(false);
     const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
     const [selectedItem, setSelectedItem] = useState<RunsheetItem | null>(null);
+    const [reorderedItemIds, setReorderedItemIds] = useState<Set<string>>(new Set());
 
     const { data: runsheet, isLoading, error } = useRunsheet(slug, runsheetId);
     const { data: orgUsers } = useOrgUsers(slug);
@@ -471,10 +478,14 @@ export default function RunsheetDetailPage() {
                 itemIds: reorderedItems.map(item => item.id)
             });
 
-            toast({
-                title: "Items reordered",
-                description: "The runsheet items have been reordered successfully."
-            });
+            // Show checkmark on all items
+            const allItemIds = new Set(reorderedItems.map(item => item.id));
+            setReorderedItemIds(allItemIds);
+
+            // Hide checkmarks after 2 seconds
+            setTimeout(() => {
+                setReorderedItemIds(new Set());
+            }, 2000);
         } catch (error) {
             toast({
                 title: "Failed to reorder items",
@@ -674,6 +685,7 @@ export default function RunsheetDetailPage() {
                                                 formatDuration={formatDuration}
                                                 calculateCumulativeTime={calculateCumulativeTime}
                                                 orgUsers={orgUsers}
+                                                showCheckmark={reorderedItemIds.has(item.id)}
                                                 onEdit={(item) => {
                                                     setSelectedItem(item);
                                                     setShowEditItemDialog(true);

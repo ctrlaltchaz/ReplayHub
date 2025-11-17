@@ -1,4 +1,4 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, INestApplication, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as compression from 'compression';
@@ -7,6 +7,12 @@ import * as session from 'express-session';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { traceScheduling } from './middleware/trace-scheduling.middleware';
+
+// Custom logger with timestamps
+const log = (message: string, ...args: any[]) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${message}`, ...args);
+};
 
 function dumpRoutes(app: INestApplication) {
   if (process.env.NODE_ENV === 'production') return;
@@ -189,15 +195,20 @@ async function bootstrap() {
     preflightContinue: false,
   });
 
-  console.log('[CORS] Allowed origins:', corsOrigins);
-  console.log('[CORS] Credentials enabled: true');
+  log('[CORS] Allowed origins:', corsOrigins);
+  log('[CORS] Credentials enabled: true');
 
-  // Global validation pipe
+  // Global validation pipe with custom error handler
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false, // Temporarily disabled for debugging
       transform: true,
+      exceptionFactory: (errors) => {
+        log('[VALIDATION ERROR] Validation failed:', JSON.stringify(errors, null, 2));
+        const messages = errors.map(error => Object.values(error.constraints || {}).join(', '));
+        return new BadRequestException(messages);
+      },
     })
   );
 
@@ -223,8 +234,8 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`🚀 Backend server running on http://localhost:${port}`);
-  console.log(`📖 API Documentation: http://localhost:${port}/api/docs`);
+  log(`🚀 Backend server running on http://localhost:${port}`);
+  log(`📖 API Documentation: http://localhost:${port}/api/docs`);
 }
 
 bootstrap();

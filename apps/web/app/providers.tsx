@@ -17,7 +17,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
             return undefined;
         }
         const parts = pathname.split('/');
-        return parts[2]; // /org/[slug]/...
+        const slug = parts[2]; // /org/[slug]/...
+
+        // Exclude special routes that aren't org slugs
+        if (slug === 'select') {
+            return undefined;
+        }
+
+        return slug;
     }, [pathname]);
 
     return (

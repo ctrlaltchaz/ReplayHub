@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { ArrayNotEmpty, IsArray, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateRunsheetDto {
     @IsString()
@@ -134,4 +134,11 @@ export class RunsheetQueryDto {
     @IsOptional()
     @IsString()
     cursor?: string;
+}
+
+export class ReorderRunsheetItemsDto {
+    @IsArray()
+    @ArrayNotEmpty()
+    @IsString({ each: true })
+    itemIds: string[];
 }

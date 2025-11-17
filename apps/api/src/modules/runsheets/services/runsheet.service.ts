@@ -517,6 +517,11 @@ export class RunsheetService {
         });
     }
     async reorderItems(tenantId: string, runsheetId: string, itemIds: string[]) {
+        const timestamp = new Date().toISOString();
+        console.log(`[${timestamp}] [REORDER SERVICE] Starting reorder for runsheet ${runsheetId}`);
+        console.log(`[${timestamp}] [REORDER SERVICE] Tenant ID: ${tenantId}`);
+        console.log(`[${timestamp}] [REORDER SERVICE] Item IDs to reorder:`, itemIds);
+
         return await this.prisma.$transaction(async (tx) => {
             await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
@@ -525,15 +530,36 @@ export class RunsheetService {
                 include: { items: true }
             });
 
+            console.log(`[${timestamp}] [REORDER SERVICE] Found runsheet:`, runsheet ? 'YES' : 'NO');
+            if (runsheet) {
+                console.log(`[${timestamp}] [REORDER SERVICE] Runsheet has ${runsheet.items.length} items`);
+                console.log(`[${timestamp}] [REORDER SERVICE] Existing item IDs:`, runsheet.items.map(i => i.id));
+            }
+
             if (!runsheet) throw new NotFoundException('Runsheet not found');
             if (runsheet.status === 'locked') throw new ConflictException('Cannot modify locked runsheet');
-            if (itemIds.length !== runsheet.items.length) throw new BadRequestException('Invalid item list');
+            if (itemIds.length !== runsheet.items.length) {
+                console.log(`[${timestamp}] [REORDER SERVICE] ERROR: Item count mismatch. Expected ${runsheet.items.length}, got ${itemIds.length}`);
+                throw new BadRequestException('Invalid item list');
+            }
 
             const runsheetItemIds = new Set(runsheet.items.map(item => item.id));
             for (const itemId of itemIds) {
-                if (!runsheetItemIds.has(itemId)) throw new BadRequestException('Item does not belong to runsheet');
+                if (!runsheetItemIds.has(itemId)) {
+                    console.log(`[${timestamp}] [REORDER SERVICE] ERROR: Item ${itemId} not found in runsheet`);
+                    throw new BadRequestException('Item does not belong to runsheet');
+                }
             }
 
+            // First pass: Set all items to temporary negative indices to avoid unique constraint violations
+            for (let index = 0; index < itemIds.length; index++) {
+                await tx.runsheetItem.update({
+                    where: { id: itemIds[index] },
+                    data: { idx: -(index + 1) }
+                });
+            }
+
+            // Second pass: Set final positive indices
             for (let index = 0; index < itemIds.length; index++) {
                 await tx.runsheetItem.update({
                     where: { id: itemIds[index] },
@@ -541,6 +567,7 @@ export class RunsheetService {
                 });
             }
 
+            console.log(`[${timestamp}] [REORDER SERVICE] Reorder completed successfully`);
             return tx.runsheet.findFirst({
                 where: { id: runsheetId, tenantId },
                 include: { items: { orderBy: { idx: 'asc' } } }
