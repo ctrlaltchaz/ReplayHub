@@ -328,7 +328,7 @@ function UniversalLoginContent() {
     };
 
     // Show loading while checking authentication
-    if (authLoading) {
+    if (isLoadingGlobal) {
         return (
             <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-[#2ef6fc] via-[#1ac4cf] to-[#fc040e]">
