@@ -99,7 +99,7 @@ function extractMemberships(response?: UniversalLoginResponse | null): UnifiedOr
 function UniversalLoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { refresh, globalUser, isLoading: authLoading } = useAuth();
+    const { refresh, globalUser, isLoadingGlobal } = useAuth();
 
     // Form state
     const [email, setEmail] = useState("");
@@ -118,7 +118,7 @@ function UniversalLoginContent() {
 
     // Check if user is already logged in and redirect
     React.useEffect(() => {
-        if (!authLoading && globalUser) {
+        if (!isLoadingGlobal && globalUser) {
             // User is already logged in, redirect them
             const redirectTo = searchParams?.get('redirect');
 
