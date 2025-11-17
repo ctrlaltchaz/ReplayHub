@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { UnifiedTenantAuthGuard } from '../../common/tenant/guards/unified-tenant-auth.guard';
 import { TenantModule } from '../../common/tenant/tenant.module';
 import { DatabaseModule } from '../../database/database.module';
@@ -9,6 +10,7 @@ import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RbacModule } from '../rbac/rbac.module';
 
 // Services
+import { EventRemindersService } from '../events/event-reminders.service';
 import { BookingsService } from './services/bookings.service';
 import { CalendarUtilsService } from './services/calendar-utils.service';
 import { EventsService } from './services/events.service';
@@ -21,6 +23,7 @@ import { ResourcesController } from './controllers/resources.controller';
 
 @Module({
     imports: [
+        ScheduleModule.forRoot(),
         forwardRef(() => TenantModule),
         forwardRef(() => GlobalAuthModule),
         forwardRef(() => OrgAuthModule),
@@ -33,6 +36,7 @@ import { ResourcesController } from './controllers/resources.controller';
         EventsService,
         ResourcesService,
         BookingsService,
+        EventRemindersService,
         UnifiedTenantAuthGuard,
         PermissionGuard,
     ],
