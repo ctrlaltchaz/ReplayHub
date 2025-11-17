@@ -9,6 +9,11 @@ export interface Runsheet {
     createdAt: string;
     updatedAt: string;
     items?: RunsheetItem[];
+    event?: {
+        id: string;
+        title: string;
+        startAt: string;
+    } | null;
 }
 
 export interface RunsheetItem {
