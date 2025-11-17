@@ -122,6 +122,15 @@ export function EventsTable({
                                     )}
                                 </TableCell>
                                 <TableCell>
+                                    {event.opponent ? (
+                                        <div className="flex items-center text-sm">
+                                            <span className="line-clamp-1">{event.opponent}</span>
+                                        </div>
+                                    ) : (
+                                        <span className="text-muted-foreground text-sm">—</span>
+                                    )}
+                                </TableCell>
+                                <TableCell>
                                     {event.productionLead ? (
                                         <div className="flex items-center text-sm">
                                             <User className="h-3 w-3 mr-1 text-muted-foreground" />
@@ -217,6 +226,7 @@ function EventsTableSkeleton() {
                         <TableHead className="w-[250px]">Title</TableHead>
                         <TableHead className="w-[120px]">Game</TableHead>
                         <TableHead className="w-[120px]">Type</TableHead>
+                        <TableHead className="w-[140px]">Opponent</TableHead>
                         <TableHead className="w-[140px]">Production Lead</TableHead>
                         <TableHead className="w-[140px]">Start Time</TableHead>
                         <TableHead className="w-[100px]">Duration</TableHead>
@@ -241,6 +251,12 @@ function EventsTableSkeleton() {
                             </TableCell>
                             <TableCell>
                                 <div className="h-4 bg-muted animate-pulse rounded w-24" />
+                            </TableCell>
+                            <TableCell>
+                                <div className="h-4 bg-muted animate-pulse rounded w-24" />
+                            </TableCell>
+                            <TableCell>
+                                <div className="h-4 bg-muted animate-pulse rounded w-16" />
                             </TableCell>
                             <TableCell>
                                 <div className="h-4 bg-muted animate-pulse rounded w-16" />
