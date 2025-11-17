@@ -74,6 +74,8 @@ scripts/
 
 # SQL scripts and test files
 *.sql
+!database/migrations/*.sql
+!apps/api/prisma/migrations/**/*.sql
 *.ps1
 *.sh
 add-*.js
