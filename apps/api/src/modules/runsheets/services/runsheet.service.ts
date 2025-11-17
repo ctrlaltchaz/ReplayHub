@@ -113,6 +113,8 @@ export class RunsheetService {
 
             // Manually fetch events for runsheets that have eventId
             const eventIds = items.filter(r => r.eventId).map(r => r.eventId);
+            console.log('[RUNSHEET SERVICE] Event IDs to fetch:', eventIds);
+            
             const events = eventIds.length > 0 ? await tx.event.findMany({
                 where: {
                     id: { in: eventIds },
@@ -124,6 +126,8 @@ export class RunsheetService {
                     startAt: true
                 }
             }) : [];
+
+            console.log('[RUNSHEET SERVICE] Events fetched:', events);
 
             // Map events to runsheets
             const eventsMap = new Map(events.map(e => [e.id, e]));
