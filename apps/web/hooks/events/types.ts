@@ -16,6 +16,8 @@ export interface Event {
     duration?: number;
     location?: string;
     teamId?: string;
+    teamName?: string;
+    teamLogoUrl?: string;
     lineupId?: string;
     // Tournament-specific fields
     opponent?: string;
@@ -30,6 +32,9 @@ export interface Event {
     createdBy: string;
     createdAt: string;
     updatedAt: string;
+    // Runsheet link
+    runsheetId?: string;
+    runsheetTitle?: string;
 }
 
 export interface CreateEventData {

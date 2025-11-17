@@ -39,6 +39,13 @@ export default function RunsheetsPage() {
 
     const runsheets = runsheetsData?.data || [];
 
+    // Debug: log runsheet data to see event field
+    console.log('Runsheets data:', runsheets.map(r => ({
+        title: r.title,
+        eventId: r.eventId,
+        event: r.event
+    })));
+
     // Filter by search query (client-side)
     const filteredRunsheets = runsheets.filter(runsheet =>
         runsheet.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -229,10 +236,10 @@ export default function RunsheetsPage() {
                                                 </div>
 
                                                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                                    {runsheet.eventId && (
+                                                    {runsheet.event?.title && (
                                                         <div className="flex items-center gap-1">
                                                             <Calendar className="h-4 w-4" />
-                                                            <span>Linked to event</span>
+                                                            <span>Linked to {runsheet.event.title}</span>
                                                         </div>
                                                     )}
                                                     <div className="flex items-center gap-1">

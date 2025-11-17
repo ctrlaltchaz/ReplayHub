@@ -148,9 +148,12 @@ export class EventsService {
         e.created_by_global_user_id as "createdBy",
         e.created_at as "createdAt",
         e.updated_at as "updatedAt",
-        e.tenant_id as "tenantId"
+        e.tenant_id as "tenantId",
+        r.id as "runsheetId",
+        r.title as "runsheetTitle"
       FROM events e
       LEFT JOIN global_users pl ON e.production_lead_global_user_id = pl.id
+      LEFT JOIN runsheets r ON r.event_id = e.id AND r.tenant_id = e.tenant_id
       WHERE e.tenant_id = $1
     `;
 
@@ -256,6 +259,8 @@ export class EventsService {
         t.name as "teamName",
         l.title as "lineupName",
         ou.name as "creatorName",
+        rs.id as "runsheetId",
+        rs.title as "runsheetTitle",
         COALESCE(
           json_agg(
             json_build_object(
@@ -272,10 +277,11 @@ export class EventsService {
       LEFT JOIN teams t ON e.team_id = t.id AND t.tenant_id = e.tenant_id
       LEFT JOIN lineups l ON e.lineup_id = l.id AND l.tenant_id = e.tenant_id
       LEFT JOIN global_users ou ON e.created_by_global_user_id = ou.id
+      LEFT JOIN runsheets rs ON rs.event_id = e.id AND rs.tenant_id = e.tenant_id
       LEFT JOIN bookings b ON e.id = b.event_id AND b.tenant_id = e.tenant_id
       LEFT JOIN resources r ON b.resource_id = r.id AND r.tenant_id = e.tenant_id
       WHERE e.tenant_id = $1 AND e.id = $2
-      GROUP BY e.id, t.name, l.title, ou.name, pl.name
+      GROUP BY e.id, t.name, l.title, ou.name, pl.name, rs.id, rs.title
     `, tenantId, id) as any[];
 
             if (!events.length) {

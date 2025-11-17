@@ -101,6 +101,11 @@ export function EventsTable({
                                                 {event.broadcastChannel}
                                             </div>
                                         )}
+                                        {event.runsheetTitle && (
+                                            <div className="text-xs text-muted-foreground">
+                                                Linked to runsheet {event.runsheetTitle}
+                                            </div>
+                                        )}
                                     </div>
                                 </TableCell>
                                 <TableCell>

@@ -48,7 +48,7 @@ export function RunsheetEditDialog({
     // Fetch events for the dropdown
     const { data: eventsData } = useQuery({
         queryKey: ['events', slug],
-        queryFn: () => apiGet<{ data: any[] }>(`/org/${slug}/events`),
+        queryFn: () => apiGet<any[]>(`/org/${slug}/events`),
         enabled: open && !!slug,
     });
 
@@ -78,7 +78,7 @@ export function RunsheetEditDialog({
         }
     };
 
-    const events = eventsData?.data || [];
+    const events = eventsData || [];
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
@@ -113,7 +113,7 @@ export function RunsheetEditDialog({
                                     <SelectItem value="_none">No event</SelectItem>
                                     {events.map((event: any) => (
                                         <SelectItem key={event.id} value={event.id}>
-                                            {event.name} {event.date ? `(${new Date(event.date).toLocaleDateString('en-GB')})` : ''}
+                                            {event.title} {event.startAt ? `(${new Date(event.startAt).toLocaleDateString('en-GB')})` : ''}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

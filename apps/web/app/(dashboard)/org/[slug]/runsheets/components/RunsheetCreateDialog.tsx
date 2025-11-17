@@ -48,7 +48,7 @@ export function RunsheetCreateDialog({
     // Fetch events for the dropdown
     const { data: eventsData } = useQuery({
         queryKey: ['events', slug],
-        queryFn: () => apiGet<{ data: any[] }>(`/org/${slug}/events`),
+        queryFn: () => apiGet<any[]>(`/org/${slug}/events`),
         enabled: open && !!slug,
     });
 
@@ -96,7 +96,7 @@ export function RunsheetCreateDialog({
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     };
 
-    const events = eventsData?.data || [];
+    const events = eventsData || [];
     const templates = templatesData?.data || [];
     const selectedTemplate = templates.find(t => t.id === templateId);
 
@@ -134,7 +134,7 @@ export function RunsheetCreateDialog({
                                     <SelectItem value="_none">No event</SelectItem>
                                     {events.map((event: any) => (
                                         <SelectItem key={event.id} value={event.id}>
-                                            {event.name} {event.date ? `(${new Date(event.date).toLocaleDateString('en-GB')})` : ''}
+                                            {event.title} {event.startAt ? `(${new Date(event.startAt).toLocaleDateString('en-GB')})` : ''}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

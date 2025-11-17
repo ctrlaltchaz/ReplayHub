@@ -524,6 +524,7 @@ model Runsheet {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
+  event Event?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
   items RunsheetItem[]
 
   @@index([tenantId])
@@ -878,9 +879,10 @@ model Event {
   lineup                     Lineup?     @relation(fields: [lineupId], references: [id])
   createdByGlobalUser        GlobalUser? @relation("EventCreator", fields: [createdByGlobalUserId], references: [id])
   productionLeadGlobalUser   GlobalUser? @relation("EventProductionLead", fields: [productionLeadGlobalUserId], references: [id])
-  bookings          Booking[]
-  incidents         Incident[]  // Incidents related to this event
-  attendance        Attendance[] // Attendance records for this event
+  runsheets     Runsheet[]
+  bookings      Booking[]
+  incidents     Incident[]  // Incidents related to this event
+  attendance    Attendance[] // Attendance records for this event
 
   @@index([tenantId, startAt, endAt])
   @@index([tenantId, eventType])

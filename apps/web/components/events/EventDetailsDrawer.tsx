@@ -2,6 +2,7 @@
 
 import { format, parseISO } from "date-fns";
 import { Calendar, Clock, ExternalLink, FileText, MapPin, Package, Radio, Trophy, User, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useEvent } from "../../hooks/events";
 import { Badge } from "../ui/badge";
@@ -46,6 +47,7 @@ export function EventDetailsDrawer({
 }: EventDetailsDrawerProps) {
     const { data: event, isLoading, error } = useEvent(slug, eventId || '');
     const [lineupDrawerOpen, setLineupDrawerOpen] = useState(false);
+    const router = useRouter();
 
     const formatDateTime = (dateString: string) => {
         try {
@@ -143,11 +145,21 @@ export function EventDetailsDrawer({
         (event.opponent || event.tournamentName || event.tournamentStage || event.bestOf);
     const hasLinkedData = event.rosterId || event.checklistId;
 
+    const handleViewRunsheet = () => {
+        if (event.runsheetId) {
+            router.push(`/org/${slug}/runsheets/${event.runsheetId}`);
+            onOpenChange(false);
+        }
+    };
+
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent className="sm:max-w-[550px] overflow-y-auto">
                 <SheetHeader>
-                    <SheetTitle className="text-xl pr-6">{event.title}</SheetTitle>
+                    <SheetTitle className="text-lg font-montserrat pr-6 flex items-center gap-2">
+                        <Calendar className="h-5 w-5" />
+                        {event.title}
+                    </SheetTitle>
                 </SheetHeader>
 
                 <div className="space-y-6 mt-6">
@@ -169,11 +181,38 @@ export function EventDetailsDrawer({
                         )}
                     </div>
 
+                    {/* Linked Runsheet */}
+                    {event.runsheetTitle && (
+                        <>
+                            <div className="space-y-3">
+                                <h3 className="text-sm font-montserrat font-semibold flex items-center gap-2">
+                                    <FileText className="h-4 w-4" />
+                                    Linked Runsheet
+                                </h3>
+                                <div className="flex items-center justify-between bg-muted/50 p-3 rounded-lg">
+                                    <div>
+                                        <div className="font-medium">{event.runsheetTitle}</div>
+                                        <div className="text-xs text-muted-foreground">Click to view runsheet details</div>
+                                    </div>
+                                    <Button
+                                        onClick={handleViewRunsheet}
+                                        size="sm"
+                                        variant="outline"
+                                    >
+                                        <ExternalLink className="h-3 w-3 mr-1" />
+                                        View
+                                    </Button>
+                                </div>
+                            </div>
+                            <Separator />
+                        </>
+                    )}
+
                     {/* Production Information */}
                     {hasProductionInfo && (
                         <>
                             <div className="space-y-3">
-                                <h3 className="font-semibold flex items-center gap-2">
+                                <h3 className="text-sm font-montserrat font-semibold flex items-center gap-2">
                                     <Radio className="h-4 w-4" />
                                     Production Details
                                 </h3>
@@ -232,28 +271,63 @@ export function EventDetailsDrawer({
                     {hasTournamentInfo && (
                         <>
                             <div className="space-y-3">
-                                <h3 className="font-semibold flex items-center gap-2">
+                                <h3 className="text-sm font-montserrat font-semibold flex items-center gap-2">
                                     <Trophy className="h-4 w-4" />
                                     Tournament Details
                                 </h3>
 
-                                <div className="space-y-2 text-sm">
-                                    {event.opponent && (
-                                        <div className="flex items-start gap-2">
-                                            <Users className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                                            <div>
-                                                <div className="font-medium">Opponent</div>
-                                                <div className="text-muted-foreground">{event.opponent}</div>
+                                {/* Match Card */}
+                                {event.teamName && event.opponent && (
+                                    <div className="bg-gradient-to-br from-muted/50 to-muted/30 rounded-lg p-4 border">
+                                        <div className="flex items-center justify-between gap-4">
+                                            {/* Home Team */}
+                                            <div className="flex-1 flex flex-col items-center gap-2">
+                                                <div className="w-16 h-16 rounded-full bg-background border-2 flex items-center justify-center overflow-hidden">
+                                                    {event.teamLogoUrl ? (
+                                                        <img
+                                                            src={event.teamLogoUrl}
+                                                            alt={event.teamName}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <Users className="h-8 w-8 text-muted-foreground" />
+                                                    )}
+                                                </div>
+                                                <div className="text-center">
+                                                    <div className="font-montserrat font-semibold text-sm">{event.teamName}</div>
+                                                </div>
+                                            </div>
+
+                                            {/* VS Divider */}
+                                            <div className="flex flex-col items-center gap-1 px-2">
+                                                <div className="font-montserrat font-bold text-xl text-muted-foreground">VS</div>
+                                                {event.bestOf && event.bestOf > 1 && (
+                                                    <div className="text-xs text-muted-foreground">BO{event.bestOf}</div>
+                                                )}
+                                            </div>
+
+                                            {/* Opponent Team */}
+                                            <div className="flex-1 flex flex-col items-center gap-2">
+                                                <div className="w-16 h-16 rounded-full bg-background border-2 flex items-center justify-center overflow-hidden">
+                                                    <Users className="h-8 w-8 text-muted-foreground" />
+                                                </div>
+                                                <div className="text-center">
+                                                    <div className="font-montserrat font-semibold text-sm">{event.opponent}</div>
+                                                </div>
                                             </div>
                                         </div>
-                                    )}
+                                    </div>
+                                )}
 
+                                <div className="space-y-2 text-sm">
                                     {event.tournamentName && (
-                                        <div className="flex items-start gap-2">
-                                            <Trophy className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                                            <div>
-                                                <div className="font-medium">Tournament</div>
-                                                <div className="text-muted-foreground">{event.tournamentName}</div>
+                                        <div className="bg-muted/30 rounded-lg p-3 border flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-background border flex items-center justify-center flex-shrink-0">
+                                                <Trophy className="h-5 w-5 text-amber-500" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="text-xs text-muted-foreground">Tournament</div>
+                                                <div className="font-montserrat font-semibold">{event.tournamentName}</div>
                                             </div>
                                         </div>
                                     )}
@@ -267,16 +341,6 @@ export function EventDetailsDrawer({
                                             </div>
                                         </div>
                                     )}
-
-                                    {event.bestOf && event.bestOf > 1 && (
-                                        <div className="flex items-start gap-2">
-                                            <FileText className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                                            <div>
-                                                <div className="font-medium">Series Format</div>
-                                                <div className="text-muted-foreground">Best of {event.bestOf}</div>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                             <Separator />
@@ -285,7 +349,7 @@ export function EventDetailsDrawer({
 
                     {/* Date & Time */}
                     <div className="space-y-3">
-                        <h3 className="font-semibold flex items-center gap-2">
+                        <h3 className="text-sm font-montserrat font-semibold flex items-center gap-2">
                             <Calendar className="h-4 w-4" />
                             Schedule
                         </h3>
@@ -325,7 +389,7 @@ export function EventDetailsDrawer({
                     {event.location && (
                         <>
                             <div className="space-y-3">
-                                <h3 className="font-semibold flex items-center gap-2">
+                                <h3 className="text-sm font-montserrat font-semibold flex items-center gap-2">
                                     <MapPin className="h-4 w-4" />
                                     Location
                                 </h3>
@@ -339,7 +403,7 @@ export function EventDetailsDrawer({
                     {hasLinkedData && (
                         <>
                             <div className="space-y-3">
-                                <h3 className="font-semibold text-sm">Linked Resources</h3>
+                                <h3 className="text-sm font-montserrat font-semibold">Linked Resources</h3>
                                 <div className="space-y-2 text-sm">
                                     {event.rosterId && (
                                         <div className="flex items-center justify-between">
@@ -363,7 +427,7 @@ export function EventDetailsDrawer({
                     {event.notes && (
                         <>
                             <div className="space-y-3">
-                                <h3 className="font-semibold flex items-center gap-2">
+                                <h3 className="text-sm font-montserrat font-semibold flex items-center gap-2">
                                     <FileText className="h-4 w-4" />
                                     Notes
                                 </h3>
@@ -377,12 +441,12 @@ export function EventDetailsDrawer({
                     {event.teamId && (
                         <>
                             <div className="space-y-3">
-                                <h3 className="font-semibold flex items-center gap-2">
-                                    <User className="h-4 w-4" />
-                                    Team Event
+                                <h3 className="text-sm font-montserrat font-semibold flex items-center gap-2">
+                                    <Users className="h-4 w-4" />
+                                    Team
                                 </h3>
-                                <p className="text-sm text-muted-foreground">
-                                    This event is associated with a team.
+                                <p className="text-sm">
+                                    {event.teamName || 'Team event'}
                                 </p>
                             </div>
                             <Separator />
@@ -391,7 +455,7 @@ export function EventDetailsDrawer({
 
                     {/* Metadata */}
                     <div className="space-y-3">
-                        <h3 className="font-semibold text-sm">Event Details</h3>
+                        <h3 className="text-sm font-montserrat font-semibold">Event Details</h3>
                         <div className="text-xs text-muted-foreground space-y-1">
                             <div>Created: {format(parseISO(event.createdAt), 'MMM dd, yyyy \'at\' h:mm a')}</div>
                             <div>Updated: {format(parseISO(event.updatedAt), 'MMM dd, yyyy \'at\' h:mm a')}</div>

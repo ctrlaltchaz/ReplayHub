@@ -103,6 +103,13 @@ export class RunsheetService {
                 include: {
                     items: {
                         orderBy: { idx: 'asc' }
+                    },
+                    event: {
+                        select: {
+                            id: true,
+                            title: true,
+                            startAt: true
+                        }
                     }
                 },
                 orderBy: { createdAt: 'desc' },
