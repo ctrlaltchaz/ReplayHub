@@ -228,8 +228,8 @@ export default function NewChecklistPage({ params }: NewChecklistPageProps) {
         } catch (error) {
             console.error('Failed to create:', error);
             toast({
-                title: 'Unable to create checklist',
-                description: 'Something went wrong. Please try again.',
+                title: type === 'template' ? 'Unable to create template' : 'Unable to create checklist',
+                description: error instanceof Error ? error.message : 'Something went wrong. Please try again.',
                 variant: 'destructive',
             });
         }
