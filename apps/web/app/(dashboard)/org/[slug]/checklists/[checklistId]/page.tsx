@@ -7,7 +7,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ChecklistExecutionView } from '../components/ChecklistExecutionView';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { EditChecklistDialog } from '../components/EditChecklistDialog';
 import { useChecklist } from '../hooks/useChecklist';
 import { useDeleteChecklist } from '../hooks/useDeleteChecklist';
 
@@ -18,7 +17,6 @@ export default function ChecklistDetailPage() {
     const checklistId = params?.checklistId as string;
     const { toast } = useToast();
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-    const [showEditDialog, setShowEditDialog] = useState(false);
 
     const { data: checklist, isLoading, error } = useChecklist(slug, checklistId);
     const deleteChecklist = useDeleteChecklist(slug);
@@ -69,7 +67,7 @@ export default function ChecklistDetailPage() {
                     Back to Checklists
                 </Button>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setShowEditDialog(true)}>
+                    <Button variant="outline" size="sm" onClick={() => router.push(`/org/${slug}/checklists/${checklistId}/edit`)}>
                         <Edit className="w-4 h-4 mr-2" />
                         Edit
                     </Button>
@@ -80,12 +78,6 @@ export default function ChecklistDetailPage() {
                 </div>
             </div>
             <ChecklistExecutionView checklist={checklist} orgSlug={slug} />
-            <EditChecklistDialog
-                open={showEditDialog}
-                onOpenChange={setShowEditDialog}
-                orgSlug={slug}
-                checklist={checklist}
-            />
             <ConfirmDialog
                 open={showDeleteDialog}
                 onOpenChange={setShowDeleteDialog}
