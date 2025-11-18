@@ -93,18 +93,19 @@ export default function EditChecklistPage({ params }: EditChecklistPageProps) {
     useEffect(() => {
         if (!checklist) return;
 
-        if (checklist.templateId) {
-            return;
-        }
-
-        setTitle(checklist.title || '');
-        setScope(checklist.scope || 'general');
-        setDueAt(checklist.dueAt ? checklist.dueAt.split('T')[0] : '');
-        setAssigneeId(checklist.assigneeId || '');
+        const computedTitle = checklist.title || checklist.template?.title || '';
+        const computedScope = (checklist.scope as ChecklistScope) || (checklist.template?.scope as ChecklistScope) || 'general';
         const seeds =
             Array.isArray(checklist.itemsJson) && checklist.itemsJson.length > 0
                 ? checklist.itemsJson
-                : [{ ...DEFAULT_ITEM }];
+                : Array.isArray(checklist.template?.itemsJson) && checklist.template.itemsJson.length > 0
+                    ? checklist.template.itemsJson
+                    : [{ ...DEFAULT_ITEM }];
+
+        setTitle(computedTitle);
+        setScope(computedScope);
+        setDueAt(checklist.dueAt ? checklist.dueAt.split('T')[0] : '');
+        setAssigneeId(checklist.assigneeId || '');
         setItems(seeds);
     }, [checklist]);
 
@@ -202,16 +203,19 @@ export default function EditChecklistPage({ params }: EditChecklistPageProps) {
         ? orgUsers?.find((user) => user.id === assigneeId)?.displayName ?? 'Assigned'
         : 'Not assigned';
 
-    const summaryRows = useMemo(
-        () => [
+    const summaryRows = useMemo(() => {
+        const base = [
             { label: 'Title', value: title || 'Untitled checklist' },
             { label: 'Scope', value: formatScope(scope) },
             { label: 'Items', value: `${items.length} ${items.length === 1 ? 'item' : 'items'}` },
             { label: 'Due Date', value: dueAt ? new Date(dueAt).toLocaleDateString() : 'Not set' },
             { label: 'Assignee', value: assigneeName },
-        ],
-        [title, scope, items.length, dueAt, assigneeName]
-    );
+        ];
+        if (isTemplateBased) {
+            base.unshift({ label: 'Template', value: checklist?.template?.title || 'Template' });
+        }
+        return base;
+    }, [title, scope, items.length, dueAt, assigneeName, isTemplateBased, checklist?.template?.title]);
 
     const checklistItems = (
         <Card id="items">
@@ -432,36 +436,6 @@ export default function EditChecklistPage({ params }: EditChecklistPageProps) {
         );
     }
 
-    if (isTemplateBased) {
-        return (
-            <div className="container mx-auto p-6 max-w-3xl">
-                <Button variant="ghost" onClick={() => router.back()} className="mb-6 gap-2 px-0">
-                    <ArrowLeft className="h-4 w-4" />
-                    Back
-                </Button>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Template-Based Checklist</CardTitle>
-                        <CardDescription>
-                            This checklist comes directly from a template. Edit the template to update new runs, or finish this run from the checklist view.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <p className="text-sm text-muted-foreground">
-                            If you need a standalone version you can edit, create a new checklist from scratch.
-                        </p>
-                        <div className="flex gap-3">
-                            <Button variant="outline" onClick={() => router.push(`/org/${params.slug}/checklists/${params.checklistId}`)}>
-                                Back to Checklist
-                            </Button>
-                            <Button onClick={() => router.push(`/org/${params.slug}/checklists/new?type=template`)}>Create Template</Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
-
     return (
         <div className="w-full max-w-6xl mx-auto p-6">
             <div className="mb-8 space-y-4">
@@ -474,6 +448,11 @@ export default function EditChecklistPage({ params }: EditChecklistPageProps) {
                     <p className="text-muted-foreground mt-2 text-base">
                         Update tasks, timing, or ownership with the same guided builder you use when creating a checklist.
                     </p>
+                    {isTemplateBased && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                            Originally created from <strong>{checklist?.template?.title || 'a template'}</strong>. Changes here only affect this checklist.
+                        </p>
+                    )}
                 </div>
             </div>
 

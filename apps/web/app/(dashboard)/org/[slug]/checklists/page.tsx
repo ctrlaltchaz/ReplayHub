@@ -17,7 +17,6 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { ConfirmDialog } from './components/ConfirmDialog';
-import { EditTemplateDialog } from './components/EditTemplateDialog';
 import { NewChecklistDialog } from './components/NewChecklistDialog';
 import { useChecklistTemplates } from './hooks/useChecklistTemplates';
 import { useChecklists } from './hooks/useChecklists';
@@ -33,8 +32,6 @@ export default function ChecklistsPage() {
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [showNewChecklistDialog, setShowNewChecklistDialog] = useState(false);
-    const [showEditTemplate, setShowEditTemplate] = useState(false);
-    const [selectedTemplate, setSelectedTemplate] = useState<ChecklistTemplate | null>(null);
     const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
     const [checklistToDelete, setChecklistToDelete] = useState<string | null>(null);
     const [completingChecklistId, setCompletingChecklistId] = useState<string | null>(null);
@@ -49,8 +46,7 @@ export default function ChecklistsPage() {
     const completedChecklists = checklists?.filter((c) => c.status === 'done') || [];
 
     const handleEditTemplate = (template: ChecklistTemplate) => {
-        setSelectedTemplate(template);
-        setShowEditTemplate(true);
+        router.push(`/org/${slug}/checklists/templates/${template.id}/edit`);
     };
 
     const handleMarkChecklistComplete = async (id: string) => {
@@ -266,7 +262,7 @@ export default function ChecklistsPage() {
                                                                     <span className="text-muted-foreground">Progress</span>
                                                                     <span className="font-medium">{Math.round(progress)}%</span>
                                                                 </div>
-                                                                <Progress value={progress} className="h-2" />
+            <Progress value={progress} className="h-2" />
                                                                 <div className="text-xs text-muted-foreground">
                                                                     {checklist.dueAt
                                                                         ? `Due ${new Date(checklist.dueAt).toLocaleDateString()}`
@@ -435,7 +431,6 @@ export default function ChecklistsPage() {
                     </TabsContent>
                 </Tabs>
                 <NewChecklistDialog open={showNewChecklistDialog} onOpenChange={setShowNewChecklistDialog} orgSlug={slug} />
-                <EditTemplateDialog open={showEditTemplate} onOpenChange={setShowEditTemplate} orgSlug={slug} template={selectedTemplate} />
                 <ConfirmDialog
                     open={!!templateToDelete}
                     onOpenChange={(open) => !open && setTemplateToDelete(null)}

@@ -265,6 +265,10 @@ export class ChecklistService {
                 where.status = query.status;
             }
 
+            if (query.templateId) {
+                where.templateId = query.templateId;
+            }
+
             if (query.scopeRef) {
                 where.scopeRef = query.scopeRef;
             }

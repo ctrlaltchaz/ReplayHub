@@ -129,6 +129,14 @@ export class ChecklistTemplateQueryDto {
 
 export class ChecklistQueryDto {
     @IsOptional()
+    @IsString()
+    eventId?: string;
+
+    @IsOptional()
+    @IsString()
+    templateId?: string;
+
+    @IsOptional()
     @IsEnum(['pending', 'in_progress', 'done', 'failed'])
     status?: 'pending' | 'in_progress' | 'done' | 'failed';
 

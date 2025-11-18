@@ -8,6 +8,7 @@ export function useChecklists(orgSlug: string, query?: ChecklistQueryDto) {
         queryFn: async () => {
             const params = new URLSearchParams();
             if (query?.eventId) params.append('eventId', query.eventId);
+            if (query?.templateId) params.append('templateId', query.templateId);
             if (query?.status) params.append('status', query.status);
             if (query?.assigneeId) params.append('assigneeId', query.assigneeId);
             if (query?.limit) params.append('limit', query.limit.toString());

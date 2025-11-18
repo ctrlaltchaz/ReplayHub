@@ -108,6 +108,7 @@ export interface ChecklistTemplateQueryDto {
 
 export interface ChecklistQueryDto {
     eventId?: string;
+    templateId?: string;
     status?: ChecklistStatus;
     scopeRef?: string;
     assigneeId?: string;
