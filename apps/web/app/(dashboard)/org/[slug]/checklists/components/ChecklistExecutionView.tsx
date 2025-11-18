@@ -116,7 +116,7 @@ export function ChecklistExecutionView({ checklist, orgSlug }: ChecklistExecutio
             <Card>
                 <CardHeader>
                     <div className="flex items-center justify-between">
-                        <CardTitle>{checklist.template?.title || 'Checklist'}</CardTitle>
+                        <CardTitle>{checklist.title || checklist.template?.title || 'Checklist'}</CardTitle>
                         <Badge variant={checklist.status === 'done' ? 'default' : 'secondary'}>
                             {checklist.status}
                         </Badge>

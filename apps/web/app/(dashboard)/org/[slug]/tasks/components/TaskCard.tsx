@@ -14,9 +14,10 @@ interface TaskCardProps {
     orgSlug: string;
     onToggle: () => void;
     toggleLoading?: boolean;
+    compact?: boolean;
 }
 
-export function TaskCard({ task, orgSlug, onToggle, toggleLoading }: TaskCardProps) {
+export function TaskCard({ task, orgSlug, onToggle, toggleLoading, compact = false }: TaskCardProps) {
     const dueDate = task.dueAt ? new Date(task.dueAt) : null;
     const completedDate = task.completedAt ? new Date(task.completedAt) : null;
     const isOverdue = Boolean(dueDate && !completedDate && isPast(dueDate));
@@ -26,6 +27,63 @@ export function TaskCard({ task, orgSlug, onToggle, toggleLoading }: TaskCardPro
     const assignmentContext = task.assignedOrgUserId
         ? 'Directly assigned to you'
         : 'Checklist assigned to you';
+
+    if (compact) {
+        return (
+            <Card className="shadow-sm">
+                <CardContent className="space-y-3 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p className="font-semibold text-sm flex items-center gap-2">
+                                <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
+                                {task.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                {checklistTitle} · Item #{task.itemIndex + 1}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Checkbox checked={Boolean(task.completedAt)} onCheckedChange={onToggle} disabled={toggleLoading} />
+                            <span className="text-xs text-muted-foreground">
+                                {task.completedAt ? 'Completed' : 'Mark complete'}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                        {dueDate ? (
+                            <div className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                <span>{format(dueDate, 'PP')}</span>
+                                {!completedDate && (
+                                    <span>({formatDistanceToNow(dueDate, { addSuffix: true })})</span>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                <span>No due date</span>
+                            </div>
+                        )}
+                        {task.priority && (
+                            <Badge variant="outline" className="capitalize">
+                                {task.priority} priority
+                            </Badge>
+                        )}
+                        {isOverdue && <Badge variant="destructive">Overdue</Badge>}
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{assignmentContext}</span>
+                        <Button asChild variant="ghost" size="sm">
+                            <Link href={checklistUrl}>
+                                View
+                                <ExternalLink className="ml-1 h-3 w-3" />
+                            </Link>
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
 
     return (
         <Card className="shadow-sm">

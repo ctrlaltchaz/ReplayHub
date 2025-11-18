@@ -223,7 +223,7 @@ export default function ChecklistsPage() {
                                                                     className="text-lg cursor-pointer hover:underline flex-1"
                                                                     onClick={() => router.push(`/org/${slug}/checklists/${checklist.id}`)}
                                                                 >
-                                                                    {checklist.template?.title || checklist.title || 'Checklist'}
+                                                                    {checklist.title || checklist.template?.title || 'Checklist'}
                                                                 </CardTitle>
                                                                 <div className="flex items-center gap-1">
                                                                     <Badge variant={checklist.status === 'in_progress' ? 'secondary' : 'outline'}>
@@ -325,7 +325,7 @@ export default function ChecklistsPage() {
                                                         className="text-lg cursor-pointer hover:underline flex-1"
                                                         onClick={() => router.push(`/org/${slug}/checklists/${checklist.id}`)}
                                                     >
-                                                        {checklist.template?.title || checklist.title || 'Checklist'}
+                                                        {checklist.title || checklist.template?.title || 'Checklist'}
                                                     </CardTitle>
                                                     <Badge variant="default">Done</Badge>
                                                 </div>

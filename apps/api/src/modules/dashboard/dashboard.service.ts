@@ -44,7 +44,7 @@ export class DashboardService {
             const checklistsCount = await tx.checklist.count({
                 where: {
                     status: {
-                        notIn: ['COMPLETED', 'ARCHIVED']
+                        in: ['pending', 'in_progress']
                     }
                 }
             });

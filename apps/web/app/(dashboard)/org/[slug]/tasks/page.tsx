@@ -7,16 +7,19 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
+import { cn } from '@/lib/utils';
 import { useMyChecklistTasks } from '../checklists/hooks/useMyChecklistTasks';
 import type { ChecklistTask } from '@/types/checklist';
-import { Loader2, RefreshCcw, Search, ClipboardList, AlertCircle } from 'lucide-react';
+import { Loader2, RefreshCcw, Search, ClipboardList, AlertCircle, ExternalLink, ChevronDown } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { TaskCard } from './components/TaskCard';
 import { getApiUrl } from '@/lib/api/config';
 import type { Checklist } from '@/types/checklist';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/use-toast';
+import { format, formatDistanceToNow } from 'date-fns';
 
 type TaskStatusFilter = 'open' | 'completed';
 type PriorityFilter = 'all' | 'low' | 'medium' | 'high';
@@ -35,6 +38,7 @@ export default function TasksPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [cursor, setCursor] = useState<string | undefined>(undefined);
     const [tasks, setTasks] = useState<ChecklistTask[]>([]);
+    const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
     const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
 
     // Debounce search input
@@ -143,6 +147,38 @@ export default function TasksPage() {
         }
     };
 
+    const groupedCompletedTasks = useMemo(() => {
+        if (statusFilter !== 'completed') return [];
+        const groups: Record<string, { checklistId: string; checklistTitle: string; completedAt?: string | null; tasks: ChecklistTask[] }> = {};
+        tasks.forEach((task) => {
+            const key = task.checklistId;
+            if (!groups[key]) {
+                groups[key] = {
+                    checklistId: task.checklistId,
+                    checklistTitle: task.checklistTitle || task.templateTitle || 'Checklist',
+                    completedAt: task.completedAt,
+                    tasks: [],
+                };
+            }
+            if (!groups[key].completedAt || (task.completedAt && task.completedAt > groups[key].completedAt)) {
+                groups[key].completedAt = task.completedAt;
+            }
+            groups[key].tasks.push(task);
+        });
+        return Object.values(groups).sort((a, b) => {
+            const dateA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+            const dateB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+            return dateB - dateA;
+        });
+    }, [tasks, statusFilter]);
+
+    const toggleGroup = (groupId: string) => {
+        setOpenGroups((prev) => ({
+            ...prev,
+            [groupId]: !prev[groupId],
+        }));
+    };
+
     return (
         <div className="container mx-auto space-y-6 p-4 sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -217,15 +253,67 @@ export default function TasksPage() {
 
             {hasTasks && (
                 <div className="space-y-4">
-                    {tasks.map((task) => (
-                        <TaskCard
-                            key={task.id}
-                            task={task}
-                            orgSlug={slug}
-                            onToggle={() => handleToggleTask(task)}
-                            toggleLoading={updatingTaskId === task.id}
-                        />
-                    ))}
+                    {statusFilter === 'completed'
+                        ? groupedCompletedTasks.map((group) => {
+                            const isOpen = openGroups[group.checklistId] ?? false;
+                            return (
+                                <Card key={group.checklistId}>
+                                    <CardContent className="space-y-4 pt-6">
+                                        <div className="flex flex-wrap items-center justify-between gap-4">
+                                            <div className="space-y-1">
+                                                <p className="text-sm text-muted-foreground uppercase tracking-wide">Checklist</p>
+                                                <p className="text-lg font-semibold">{group.checklistTitle}</p>
+                                                {group.completedAt && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Completed {format(new Date(group.completedAt), 'PPpp')} ({formatDistanceToNow(new Date(group.completedAt), { addSuffix: true })})
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Button variant="outline" size="sm" asChild>
+                                                    <Link href={`/org/${slug}/checklists/${group.checklistId}`}>
+                                                        View Checklist
+                                                        <ExternalLink className="ml-2 h-4 w-4" />
+                                                    </Link>
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => toggleGroup(group.checklistId)}
+                                                    aria-label={isOpen ? 'Collapse checklist tasks' : 'Expand checklist tasks'}
+                                                >
+                                                    <ChevronDown className={cn('h-5 w-5 transition-transform', isOpen && 'rotate-180')} />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        {isOpen && (
+                                            <div className="space-y-3 border-t pt-4">
+                                                {group.tasks.map((task) => (
+                                                    <TaskCard
+                                                        key={task.id}
+                                                        task={task}
+                                                        orgSlug={slug}
+                                                        onToggle={() => handleToggleTask(task)}
+                                                        toggleLoading={updatingTaskId === task.id}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            );
+                        })
+                        : tasks.map((task) => (
+                            <TaskCard
+                                key={task.id}
+                                task={task}
+                                orgSlug={slug}
+                                onToggle={() => handleToggleTask(task)}
+                                toggleLoading={updatingTaskId === task.id}
+                                compact
+                            />
+                        ))}
                 </div>
             )}
 

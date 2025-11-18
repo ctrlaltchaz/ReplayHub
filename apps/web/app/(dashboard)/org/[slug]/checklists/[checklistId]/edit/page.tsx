@@ -14,6 +14,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { useChecklist } from '../../hooks/useChecklist';
+import { useCreateChecklistTemplate } from '../../hooks/useCreateChecklistTemplate';
 import { useUpdateChecklist } from '../../hooks/useUpdateChecklist';
 
 interface EditChecklistPageProps {
@@ -79,6 +80,7 @@ export default function EditChecklistPage({ params }: EditChecklistPageProps) {
     const { toast } = useToast();
     const { data: checklist, isLoading, error } = useChecklist(params.slug, params.checklistId);
     const updateChecklist = useUpdateChecklist(params.slug, params.checklistId);
+    const createTemplate = useCreateChecklistTemplate(params.slug);
     const { data: orgUsers } = useOrgUsers(params.slug);
 
     const [title, setTitle] = useState('');
@@ -183,7 +185,7 @@ export default function EditChecklistPage({ params }: EditChecklistPageProps) {
                 itemsJson: validItems,
             });
             toast({ title: 'Checklist updated', description: 'Your edits are live.' });
-            router.push(`/org/${params.slug}/checklists/${params.checklistId}`);
+            router.push(`/org/${params.slug}/checklists`);
         } catch (err) {
             console.error(err);
             toast({
@@ -378,6 +380,34 @@ export default function EditChecklistPage({ params }: EditChecklistPageProps) {
         </Card>
     );
 
+    const handleSaveAsTemplate = async () => {
+        if (!title.trim()) {
+            toast({ title: 'Template needs a title', description: 'Give the template a name before saving.', variant: 'destructive' });
+            return;
+        }
+
+        const validItems = items.filter((item) => item.text.trim());
+        if (validItems.length === 0) {
+            toast({ title: 'Add at least one task', description: 'Templates need at least one task.', variant: 'destructive' });
+            return;
+        }
+
+        try {
+            await createTemplate.mutateAsync({
+                title: title.trim(),
+                scope,
+                itemsJson: validItems,
+            });
+            toast({ title: 'Template created', description: 'You can now reuse this checklist anytime.' });
+        } catch (err) {
+            toast({
+                title: 'Unable to save template',
+                description: err instanceof Error ? err.message : 'Please try again.',
+                variant: 'destructive',
+            });
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="container mx-auto p-6">
@@ -516,20 +546,37 @@ export default function EditChecklistPage({ params }: EditChecklistPageProps) {
                         </CardContent>
                     </Card>
 
-                    <div id="review" className="flex flex-col gap-3 border rounded-xl p-4 md:flex-row md:items-center md:justify-between">
-                        <div>
-                            <p className="font-semibold">Ready to save your changes?</p>
-                            <p className="text-sm text-muted-foreground">Updates apply immediately. You can always come back and adjust.</p>
-                        </div>
-                        <div className="flex gap-3">
-                            <Button type="button" variant="outline" onClick={() => router.push(`/org/${params.slug}/checklists/${params.checklistId}`)}>
-                                Cancel
-                            </Button>
-                            <Button type="submit" disabled={updateChecklist.isPending}>
-                                {updateChecklist.isPending ? 'Saving...' : 'Save Changes'}
-                            </Button>
-                        </div>
-                    </div>
+                    <Card id="review">
+                        <CardHeader>
+                            <CardTitle>Review & Publish</CardTitle>
+                            <CardDescription>Save changes or turn this checklist into a reusable template.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex flex-wrap gap-3">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => router.push(`/org/${params.slug}/checklists/${params.checklistId}`)}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button type="submit" disabled={updateChecklist.isPending}>
+                                    {updateChecklist.isPending ? 'Saving...' : 'Save Changes'}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={handleSaveAsTemplate}
+                                    disabled={createTemplate.isPending}
+                                >
+                                    {createTemplate.isPending ? 'Saving Template...' : 'Save as Template'}
+                                </Button>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                Saving as a template won’t overwrite this checklist—it simply creates a reusable version under Templates.
+                            </p>
+                        </CardContent>
+                    </Card>
                 </form>
 
                 <aside className="space-y-4 order-2">

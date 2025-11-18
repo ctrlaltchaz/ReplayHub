@@ -90,6 +90,7 @@ export default function NewChecklistPage({ params }: NewChecklistPageProps) {
     const [selectedTemplateId, setSelectedTemplateId] = useState('');
     const [templateSearch, setTemplateSearch] = useState('');
     const [activeStep, setActiveStep] = useState('');
+    const [titleDirty, setTitleDirty] = useState(false);
 
     useEffect(() => {
         // If creating a template, skip template selection
@@ -135,6 +136,16 @@ export default function NewChecklistPage({ params }: NewChecklistPageProps) {
         setItems(items.slice(0, -1));
     };
 
+    const handleTemplateSelect = (templateId: string) => {
+        setSelectedTemplateId(templateId);
+        setTitleDirty(false);
+    };
+
+    const handleTitleChange = (value: string) => {
+        setTitle(value);
+        setTitleDirty(true);
+    };
+
     const handleMoveItem = (index: number, direction: 'up' | 'down') => {
         const targetIndex = direction === 'up' ? index - 1 : index + 1;
         if (targetIndex < 0 || targetIndex >= items.length) return;
@@ -157,6 +168,17 @@ export default function NewChecklistPage({ params }: NewChecklistPageProps) {
             return;
         }
 
+        if (mode === 'template' && type !== 'template' && !title.trim()) {
+            toast({
+                title: 'Checklist name required',
+                description: 'Give this checklist a name before creating it.',
+                variant: 'destructive',
+            });
+            setActiveStep('details');
+            document.getElementById('details')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
+
         try {
             // Creating a template
             if (type === 'template') {
@@ -174,6 +196,7 @@ export default function NewChecklistPage({ params }: NewChecklistPageProps) {
             if (mode === 'template') {
                 const dto: CreateChecklistDto = {
                     templateId: selectedTemplateId,
+                    title: title.trim() || undefined,
                     dueAt: dueAt || undefined,
                     assigneeId: assigneeId || undefined,
                 };
@@ -333,6 +356,12 @@ export default function NewChecklistPage({ params }: NewChecklistPageProps) {
         [templates, selectedTemplateId]
     );
 
+    useEffect(() => {
+        if (isFromTemplate && selectedTemplate && !titleDirty) {
+            setTitle(selectedTemplate.title || '');
+        }
+    }, [isFromTemplate, selectedTemplate, titleDirty]);
+
     const itemsCount = isFromTemplate ? selectedTemplate?.itemsJson?.length ?? 0 : items.length;
     const creationLabel = isTemplate ? 'Template' : isFromTemplate ? 'From Template' : 'From Scratch';
     const assigneeName = assigneeId
@@ -342,8 +371,8 @@ export default function NewChecklistPage({ params }: NewChecklistPageProps) {
     const summaryRows = [
         { label: 'Mode', value: creationLabel },
         {
-            label: isFromTemplate ? 'Template' : 'Title',
-            value: isFromTemplate ? selectedTemplate?.title ?? 'Not selected' : title || 'Not set',
+            label: isFromTemplate ? 'Checklist Name' : 'Title',
+            value: isFromTemplate ? title || selectedTemplate?.title || 'Not set' : title || 'Not set',
         },
         { label: 'Scope', value: formatScope(isFromTemplate ? selectedTemplate?.scope : scope) },
     ];
@@ -611,7 +640,7 @@ export default function NewChecklistPage({ params }: NewChecklistPageProps) {
                                                 <button
                                                     key={template.id}
                                                     type="button"
-                                                    onClick={() => setSelectedTemplateId(template.id)}
+                                                    onClick={() => handleTemplateSelect(template.id)}
                                                     className={cn(
                                                         'rounded-xl border p-4 text-left transition hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30',
                                                         isSelected && 'border-primary ring-2 ring-primary/40 bg-primary/5'
@@ -645,44 +674,73 @@ export default function NewChecklistPage({ params }: NewChecklistPageProps) {
                         </Card>
                     )}
 
-                    {!isFromTemplate && (
-                        <Card id="details">
-                            <CardHeader>
-                                <CardTitle>Basic Details</CardTitle>
-                                <CardDescription>
-                                    {isTemplate
+                    <Card id="details">
+                        <CardHeader>
+                            <CardTitle>Basic Details</CardTitle>
+                            <CardDescription>
+                                {isFromTemplate
+                                    ? 'Give this run a name and confirm the scope pulled in from the template.'
+                                    : isTemplate
                                         ? 'Give your template a clear name and scope.'
                                         : 'Describe what this checklist is for and who it applies to.'}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="title">Title *</Label>
-                                    <Input
-                                        id="title"
-                                        value={title}
-                                        onChange={(e) => setTitle(e.target.value)}
-                                        placeholder="e.g., Match Day Setup"
-                                        required
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="scope">Scope *</Label>
-                                    <Select value={scope} onValueChange={(value) => setScope(value as ChecklistScope)} required>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select scope" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="event">Event</SelectItem>
-                                            <SelectItem value="room">Room</SelectItem>
-                                            <SelectItem value="kit">Kit</SelectItem>
-                                            <SelectItem value="general">General</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {isFromTemplate ? (
+                                <>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="title">Checklist Name *</Label>
+                                        <Input
+                                            id="title"
+                                            value={title}
+                                            onChange={(e) => handleTitleChange(e.target.value)}
+                                            placeholder={
+                                                selectedTemplate
+                                                    ? `${selectedTemplate.title} (customize if needed)`
+                                                    : 'Checklist name'
+                                            }
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label>Scope</Label>
+                                        <p className="text-sm text-muted-foreground">
+                                            {selectedTemplate
+                                                ? formatScope(selectedTemplate.scope)
+                                                : 'Select a template to view scope'}
+                                        </p>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="title">Title *</Label>
+                                        <Input
+                                            id="title"
+                                            value={title}
+                                            onChange={(e) => handleTitleChange(e.target.value)}
+                                            placeholder="e.g., Match Day Setup"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="scope">Scope *</Label>
+                                        <Select value={scope} onValueChange={(value) => setScope(value as ChecklistScope)} required>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select scope" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="event">Event</SelectItem>
+                                                <SelectItem value="room">Room</SelectItem>
+                                                <SelectItem value="kit">Kit</SelectItem>
+                                                <SelectItem value="general">General</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </>
+                            )}
+                        </CardContent>
+                    </Card>
 
                     {showItemsCard && checklistItems}
 

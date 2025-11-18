@@ -217,6 +217,7 @@ export class ChecklistService {
                         data: {
                             tenantId,
                             templateId: createChecklistDto.templateId,
+                            title: createChecklistDto.title ?? null,
                             scopeRef: createChecklistDto.scopeRef,
                             dueAt: createChecklistDto.dueAt ? new Date(createChecklistDto.dueAt) : null,
                             assigneeId: createChecklistDto.assigneeId
