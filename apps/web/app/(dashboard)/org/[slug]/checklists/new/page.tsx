@@ -12,7 +12,9 @@ import { cn } from '@/lib/utils';
 import type { ChecklistScope, ChecklistTemplateItem, CreateChecklistDto } from '@/types/checklist';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+    ArrowDown,
     ArrowLeft,
+    ArrowUp,
     CalendarClock,
     CheckCircle2,
     ClipboardList,
@@ -131,6 +133,14 @@ export default function NewChecklistPage({ params }: NewChecklistPageProps) {
     const handleRemoveLastItem = () => {
         if (items.length <= 1) return;
         setItems(items.slice(0, -1));
+    };
+
+    const handleMoveItem = (index: number, direction: 'up' | 'down') => {
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= items.length) return;
+        const next = [...items];
+        [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+        setItems(next);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -388,15 +398,40 @@ export default function NewChecklistPage({ params }: NewChecklistPageProps) {
                                 {item.category && <p className="text-xs text-muted-foreground/70">{item.category}</p>}
                             </div>
                             {items.length > 1 && (
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleRemoveItem(index)}
-                                    aria-label={`Remove item ${index + 1}`}
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => handleMoveItem(index, 'up')}
+                                        disabled={index === 0}
+                                        aria-label={`Move item ${index + 1} up`}
+                                    >
+                                        <ArrowUp className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => handleMoveItem(index, 'down')}
+                                        disabled={index === items.length - 1}
+                                        aria-label={`Move item ${index + 1} down`}
+                                    >
+                                        <ArrowDown className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => handleRemoveItem(index)}
+                                        aria-label={`Remove item ${index + 1}`}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             )}
                         </div>
 
@@ -521,7 +556,7 @@ export default function NewChecklistPage({ params }: NewChecklistPageProps) {
     return (
         <div className="w-full max-w-6xl mx-auto p-6">
             <div className="mb-8 space-y-4">
-                <Button variant="ghost" onClick={() => router.back()} className="inline-flex items-center gap-2 px-0">
+                <Button variant="ghost" onClick={() => router.push(`/org/${params.slug}/checklists`)} className="inline-flex items-center gap-2 px-0">
                     <ArrowLeft className="h-4 w-4" />
                     Back to Checklists
                 </Button>
