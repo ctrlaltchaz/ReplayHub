@@ -39,6 +39,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
     "player-stats": require("lucide-react").BarChart3,
     runsheets: require("lucide-react").FileText,
     checklists: require("lucide-react").CheckSquare,
+    tasks: require("lucide-react").ClipboardList,
     inventory: require("lucide-react").Package,
     assets: require("lucide-react").Package2,
     incidents: require("lucide-react").AlertTriangle,
@@ -154,6 +155,8 @@ export function Sidebar({ slug, className, mobileMenuOpen = false, onMobileMenuC
                 return counts.events;
             case 'checklists':
                 return counts.checklists;
+            case 'tasks':
+                return counts.tasks;
             default:
                 return 0;
         }

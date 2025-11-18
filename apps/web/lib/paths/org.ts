@@ -26,6 +26,7 @@ export const orgPath = {
     gamelog: (slug: OrgSlug) => `/org/${slug}/gamelog`,
     runsheets: (slug: OrgSlug) => `/org/${slug}/runsheets`,
     checklists: (slug: OrgSlug) => `/org/${slug}/checklists`,
+    tasks: (slug: OrgSlug) => `/org/${slug}/tasks`,
     inventory: (slug: OrgSlug) => `/org/${slug}/inventory`,
     assets: (slug: OrgSlug) => `/org/${slug}/assets`,
     incidents: (slug: OrgSlug) => `/org/${slug}/incidents`,
@@ -46,6 +47,7 @@ export type NavItem = {
 
 export const ORG_NAV: NavItem[] = [
     { key: 'overview', label: 'Overview', href: orgPath.overview },
+    { key: 'tasks', label: 'Your Tasks', href: orgPath.tasks, required: PERMISSIONS.CHECKLISTS_VIEW },
     { key: 'profile', label: 'My Profile', href: orgPath.profile },
     { key: 'events', label: 'Events', href: orgPath.events, required: PERMISSIONS.EVENTS_VIEW },
     { key: 'calendar', label: 'Calendar', href: orgPath.calendar, required: PERMISSIONS.EVENTS_VIEW },

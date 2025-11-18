@@ -11,7 +11,7 @@ export class DashboardController {
 
     @Get('counts')
     async getCounts(@Req() req: Request): Promise<BadgeCounts> {
-        const counts = await this.dashboardService.getBadgeCounts(req.tenant!.id);
+        const counts = await this.dashboardService.getBadgeCounts(req.tenant!.id, req.orgUser?.id);
         return counts;
     }
 }

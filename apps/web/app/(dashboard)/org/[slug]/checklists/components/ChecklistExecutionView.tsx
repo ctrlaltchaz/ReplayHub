@@ -1,12 +1,17 @@
 'use client';
 
+import { useOrgUsers } from '@/app/(dashboard)/org/[slug]/runsheets/hooks/useOrgUsers';
+import { useAuth } from '@/context/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
+import { cn } from '@/lib/utils';
 import type { Checklist, ChecklistTemplateItem } from '@/types/checklist';
+import { useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, Clock, User } from 'lucide-react';
+import { format } from 'date-fns';
 import { useMemo, useState } from 'react';
 import { useUpdateChecklist } from '../hooks/useUpdateChecklist';
 
@@ -17,6 +22,9 @@ interface ChecklistExecutionViewProps {
 
 export function ChecklistExecutionView({ checklist, orgSlug }: ChecklistExecutionViewProps) {
     const { toast } = useToast();
+    const { orgUser } = useAuth();
+    const { data: orgUsers } = useOrgUsers(orgSlug);
+    const queryClient = useQueryClient();
     const updateChecklist = useUpdateChecklist(orgSlug, checklist.id);
     const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
@@ -75,7 +83,7 @@ export function ChecklistExecutionView({ checklist, orgSlug }: ChecklistExecutio
                 {
                     idx: index,
                     completedAt: new Date().toISOString(),
-                    completedBy: 'current-user', // TODO: Get from auth context
+                    completedBy: orgUser?.id || 'current-user',
                 },
             ];
         }
@@ -84,6 +92,7 @@ export function ChecklistExecutionView({ checklist, orgSlug }: ChecklistExecutio
             await updateChecklist.mutateAsync({
                 completedItems: newCompletedItems,
             });
+            queryClient.invalidateQueries({ queryKey: ['my-checklist-tasks', orgSlug] });
         } catch (error) {
             toast({
                 title: 'Error',
@@ -163,11 +172,21 @@ export function ChecklistExecutionView({ checklist, orgSlug }: ChecklistExecutio
                             <CardContent className="space-y-3">
                                 {categoryItems.map(({ item, index }) => {
                                     const isCompleted = completedIndices.has(index);
+                                    const completionMeta = checklist.completedItems.find((ci) => ci.idx === index);
+                                    const isAssignedToMe = Boolean(item.assignedTo && orgUser?.id === item.assignedTo);
+                                    const assignedName = item.assignedTo
+                                        ? orgUsers?.find((user) => user.id === item.assignedTo)?.displayName ||
+                                        orgUsers?.find((user) => user.id === item.assignedTo)?.email ||
+                                        'member'
+                                        : null;
                                     return (
                                         <div
                                             key={index}
-                                            className={`flex items-start gap-3 p-3 rounded-lg border ${isCompleted ? 'bg-muted/50' : 'bg-background'
-                                                }`}
+                                            className={cn(
+                                                'flex items-start gap-3 p-3 rounded-lg border transition-colors',
+                                                isCompleted ? 'bg-muted/50' : 'bg-background',
+                                                isAssignedToMe && !isCompleted && 'border-primary/60 bg-primary/5'
+                                            )}
                                         >
                                             <Checkbox
                                                 checked={isCompleted}
@@ -202,17 +221,27 @@ export function ChecklistExecutionView({ checklist, orgSlug }: ChecklistExecutio
                                                         </div>
                                                     )}
                                                     {item.assignedTo && (
-                                                        <div className="flex items-center gap-1 text-xs">
+                                                        <Badge
+                                                            variant={isAssignedToMe ? 'secondary' : 'outline'}
+                                                            className="flex items-center gap-1 text-xs"
+                                                        >
                                                             <User className="w-3 h-3" />
-                                                            <span className="text-muted-foreground">
-                                                                Assigned
+                                                            <span>
+                                                                {isAssignedToMe
+                                                                    ? 'Assigned to you'
+                                                                    : `Assigned to ${assignedName}`}
                                                             </span>
-                                                        </div>
+                                                        </Badge>
                                                     )}
                                                     {item.evidence && (
                                                         <Badge variant="outline" className="text-xs">
                                                             Evidence Required
                                                         </Badge>
+                                                    )}
+                                                    {completionMeta?.completedAt && (
+                                                        <div className="text-xs text-muted-foreground">
+                                                            Completed at {format(new Date(completionMeta.completedAt), 'PP p')}
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>

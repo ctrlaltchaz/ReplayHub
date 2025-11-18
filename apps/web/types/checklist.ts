@@ -123,3 +123,44 @@ export interface ChecklistTemplatesResponse {
 export interface ChecklistsResponse {
     data: Checklist[];
 }
+
+export interface ChecklistTask {
+    id: string;
+    checklistId: string;
+    templateId?: string | null;
+    templateTitle?: string | null;
+    checklistTitle?: string | null;
+    checklistScope?: ChecklistScope;
+    scopeRef?: string | null;
+    title: string;
+    category?: string | null;
+    priority?: ChecklistPriority | null;
+    required: boolean;
+    evidence: boolean;
+    estimatedMinutes?: number | null;
+    dueAt?: string | null;
+    checklistStatus: ChecklistStatus;
+    checklistAssigneeId?: string | null;
+    assignedOrgUserId?: string | null;
+    completedAt?: string | null;
+    completedBy?: string | null;
+    itemIndex: number;
+}
+
+export interface ChecklistTaskQuery {
+    status?: 'open' | 'completed';
+    priority?: ChecklistPriority;
+    dueBefore?: string;
+    dueAfter?: string;
+    search?: string;
+    cursor?: string;
+    limit?: number;
+}
+
+export interface ChecklistTaskResponse {
+    data: ChecklistTask[];
+    pagination: {
+        hasMore: boolean;
+        nextCursor: string | null;
+    };
+}

@@ -4,6 +4,7 @@ interface BadgeCounts {
     incidents: number;
     events: number;
     checklists: number;
+    tasks: number;
 }
 
 /**
@@ -20,7 +21,7 @@ export function useBadgeCounts(orgSlug?: string) {
     );
 
     return {
-        counts: data || { incidents: 0, events: 0, checklists: 0 },
+        counts: data || { incidents: 0, events: 0, checklists: 0, tasks: 0 },
         isLoading,
     };
 }

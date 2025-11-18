@@ -18,6 +18,7 @@ import { Can } from '../../rbac/decorators/can.decorator';
 import { PermissionGuard } from '../../rbac/guards/permission.guard';
 import {
     ChecklistQueryDto,
+    ChecklistTaskQueryDto,
     ChecklistTemplateQueryDto,
     CreateChecklistDto,
     CreateChecklistRunDto,
@@ -98,6 +99,26 @@ export class ChecklistController {
         @Body() createChecklistDto: CreateChecklistDto,
     ) {
         return this.checklistService.createChecklist(req.tenant!.id, createChecklistDto);
+    }
+
+    @Get('checklists/tasks/my')
+    @UseGuards(TenantGuard, UnifiedTenantAuthGuard, PermissionGuard)
+    @Can('checklists.view')
+    async getMyTasks(
+        @Req() req: Request,
+        @Query() query: ChecklistTaskQueryDto,
+    ) {
+        if (!req.orgUser) {
+            throw new ForbiddenException('User context is required');
+        }
+
+        return this.checklistService.findAssignedTasks(
+            req.tenant!.id,
+            req.orgUser.id,
+            query,
+            req.globalUser?.id,
+            req.orgUser.email,
+        );
     }
 
     @Get('checklists')

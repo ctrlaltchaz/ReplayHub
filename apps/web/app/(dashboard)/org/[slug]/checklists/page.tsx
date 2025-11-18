@@ -10,9 +10,10 @@ import { useToast } from '@/components/ui/use-toast';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
 import { PERMISSIONS } from '@/lib/permissions/utils';
 import type { ChecklistTemplate } from '@/types/checklist';
-import { ClipboardCheck, Clock, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ClipboardCheck, ClipboardList, Clock, Loader2, Pencil, Plus, Trash2, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { EditTemplateDialog } from './components/EditTemplateDialog';
 import { NewChecklistDialog } from './components/NewChecklistDialog';
@@ -20,6 +21,7 @@ import { useChecklistTemplates } from './hooks/useChecklistTemplates';
 import { useChecklists } from './hooks/useChecklists';
 import { useDeleteChecklist } from './hooks/useDeleteChecklist';
 import { useDeleteChecklistTemplate } from './hooks/useDeleteChecklistTemplate';
+import { useMyChecklistTasks } from './hooks/useMyChecklistTasks';
 
 export default function ChecklistsPage() {
     usePageTitle('Checklists');
@@ -34,6 +36,8 @@ export default function ChecklistsPage() {
     const [checklistToDelete, setChecklistToDelete] = useState<string | null>(null);
     const { data: templates, isLoading: templatesLoading } = useChecklistTemplates(slug);
     const { data: checklists, isLoading: checklistsLoading } = useChecklists(slug);
+    const tasksPreviewQuery = useMemo(() => ({ status: 'open' as const, limit: 3 }), []);
+    const { data: taskPreview, isLoading: tasksPreviewLoading } = useMyChecklistTasks(slug, tasksPreviewQuery);
     const deleteTemplate = useDeleteChecklistTemplate(slug);
     const deleteChecklist = useDeleteChecklist(slug);
 
@@ -87,6 +91,59 @@ export default function ChecklistsPage() {
                         <p className="text-muted-foreground text-sm sm:text-base">Manage checklists and templates</p>
                     </div>
                 </div>
+
+                <Card className="border-dashed bg-muted/40">
+                    <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="space-y-1.5">
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                                <ClipboardList className="h-5 w-5 text-muted-foreground" />
+                                Your assigned tasks
+                            </CardTitle>
+                            <p className="text-sm text-muted-foreground">
+                                Jump straight into the checklist items waiting on you.
+                            </p>
+                        </div>
+                        <Button asChild>
+                            <Link href={`/org/${slug}/tasks`}>
+                                View tasks
+                                <ArrowRight className="ml-2 h-4 w-4" />
+                            </Link>
+                        </Button>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {tasksPreviewLoading ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Loading your tasks...
+                            </div>
+                        ) : taskPreview && taskPreview.data.length > 0 ? (
+                            <div className="space-y-2">
+                                {taskPreview.data.map((task) => (
+                                    <div key={task.id} className="flex items-center justify-between text-sm">
+                                        <div className="flex flex-col">
+                                            <span className="font-medium">{task.title}</span>
+                                            <span className="text-muted-foreground text-xs">
+                                                {task.checklistTitle || 'Checklist'} · Item #{task.itemIndex + 1}
+                                            </span>
+                                        </div>
+                                        <div className="text-xs text-muted-foreground text-right">
+                                            {task.dueAt ? `Due ${new Date(task.dueAt).toLocaleDateString()}` : 'No due date'}
+                                        </div>
+                                    </div>
+                                ))}
+                                {taskPreview.pagination.hasMore && (
+                                    <p className="text-xs text-muted-foreground">
+                                        More tasks are waiting in Your Tasks
+                                    </p>
+                                )}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">
+                                You have no open tasks. Enjoy the calm!
+                            </p>
+                        )}
+                    </CardContent>
+                </Card>
 
                 <Tabs defaultValue="checklists" className="space-y-4">
                     <TabsList className="w-full sm:w-auto">

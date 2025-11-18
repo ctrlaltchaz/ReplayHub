@@ -150,3 +150,35 @@ export class ChecklistQueryDto {
     @IsString()
     cursor?: string;
 }
+
+export class ChecklistTaskQueryDto {
+    @IsOptional()
+    @IsEnum(['open', 'completed'])
+    status?: 'open' | 'completed';
+
+    @IsOptional()
+    @IsEnum(['low', 'medium', 'high'])
+    priority?: 'low' | 'medium' | 'high';
+
+    @IsOptional()
+    @IsDateString()
+    dueBefore?: string;
+
+    @IsOptional()
+    @IsDateString()
+    dueAfter?: string;
+
+    @IsOptional()
+    @IsString()
+    search?: string;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    limit?: number;
+
+    @IsOptional()
+    @IsString()
+    cursor?: string;
+}
