@@ -47,6 +47,11 @@ export interface ChecklistTaskResponse {
 export class ChecklistService {
     constructor(private prisma: PrismaService) { }
 
+    private async setTenantContext(tx: Prisma.TransactionClient, tenantId: string) {
+        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+        await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+    }
+
     private async autoCompleteExpiredChecklists(tx: Prisma.TransactionClient, tenantId: string) {
         const now = new Date();
         await tx.checklist.updateMany({
@@ -63,8 +68,7 @@ export class ChecklistService {
 
     async createTemplate(tenantId: string, createTemplateDto: CreateChecklistTemplateDto, createdBy: string) {
         return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+            await this.setTenantContext(tx, tenantId);
 
             return tx.checklistTemplate.create({
                 data: {
@@ -80,8 +84,7 @@ export class ChecklistService {
 
     async findTemplates(tenantId: string, query: ChecklistTemplateQueryDto) {
         return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+            await this.setTenantContext(tx, tenantId);
 
             const where: any = { tenantId };
 
@@ -117,8 +120,7 @@ export class ChecklistService {
 
     async findTemplate(tenantId: string, id: string) {
         return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+            await this.setTenantContext(tx, tenantId);
 
             const template = await tx.checklistTemplate.findFirst({
                 where: { id, tenantId }
@@ -134,8 +136,7 @@ export class ChecklistService {
 
     async updateTemplate(tenantId: string, id: string, updateTemplateDto: UpdateChecklistTemplateDto) {
         return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+            await this.setTenantContext(tx, tenantId);
 
             const existingTemplate = await tx.checklistTemplate.findFirst({
                 where: { id, tenantId }
@@ -159,8 +160,7 @@ export class ChecklistService {
 
     async deleteTemplate(tenantId: string, id: string) {
         return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+            await this.setTenantContext(tx, tenantId);
 
             const existingTemplate = await tx.checklistTemplate.findFirst({
                 where: { id, tenantId }
@@ -198,7 +198,7 @@ export class ChecklistService {
             return await this.prisma.$transaction(async (tx) => {
                 // Set tenant context for RLS
                 console.log('[createChecklist] Setting RLS context...');
-                await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+                await this.setTenantContext(tx, tenantId);
                 console.log('[createChecklist] RLS context set successfully');
 
                 // If templateId is provided, validate template exists
@@ -256,7 +256,7 @@ export class ChecklistService {
     async findChecklists(tenantId: string, query: ChecklistQueryDto) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+            await this.setTenantContext(tx, tenantId);
             await this.autoCompleteExpiredChecklists(tx, tenantId);
 
             const where: any = { tenantId };
@@ -285,8 +285,7 @@ export class ChecklistService {
 
     async findChecklist(tenantId: string, id: string) {
         return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+            await this.setTenantContext(tx, tenantId);
 
             const checklist = await tx.checklist.findFirst({
                 where: { id, tenantId },
@@ -314,7 +313,7 @@ export class ChecklistService {
         orgUserEmail?: string,
     ): Promise<ChecklistTaskResponse> {
         return await this.prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+            await this.setTenantContext(tx, tenantId);
             await this.autoCompleteExpiredChecklists(tx, tenantId);
 
             const limit = Math.min(query.limit ?? 25, 100);
@@ -604,8 +603,7 @@ export class ChecklistService {
 
     async updateChecklist(tenantId: string, id: string, updateChecklistDto: UpdateChecklistDto) {
         return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+            await this.setTenantContext(tx, tenantId);
 
             const existingChecklist = await tx.checklist.findFirst({
                 where: { id, tenantId }
@@ -632,7 +630,7 @@ export class ChecklistService {
 
     async updateChecklistCompletedItems(tenantId: string, id: string, completedItems: any[]) {
         return await this.prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+            await this.setTenantContext(tx, tenantId);
 
             const checklist = await tx.checklist.findFirst({
                 where: { id, tenantId },
@@ -656,8 +654,7 @@ export class ChecklistService {
 
     async deleteChecklist(tenantId: string, id: string) {
         return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+            await this.setTenantContext(tx, tenantId);
 
             const existingChecklist = await tx.checklist.findFirst({
                 where: { id, tenantId }
@@ -686,8 +683,7 @@ export class ChecklistService {
 
     async createRun(tenantId: string, checklistId: string, createRunDto: CreateChecklistRunDto, runnerId: string, userId?: string) {
         return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+            await this.setTenantContext(tx, tenantId);
 
             // Check if checklist exists
             const checklist = await tx.checklist.findFirst({
@@ -738,8 +734,7 @@ export class ChecklistService {
 
     async getRuns(tenantId: string, checklistId: string) {
         return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+            await this.setTenantContext(tx, tenantId);
 
             // Check if checklist exists
             const checklist = await tx.checklist.findFirst({
