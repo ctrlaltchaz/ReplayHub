@@ -30,6 +30,8 @@ type BuilderStep = {
     icon: LucideIcon;
 };
 
+const UNASSIGNED_VALUE = 'unassigned';
+
 const formatScope = (value?: ChecklistScope) => {
     if (!value) return 'Not set';
     return value.charAt(0).toUpperCase() + value.slice(1);
@@ -279,12 +281,17 @@ export default function EditChecklistPage({ params }: EditChecklistPageProps) {
                         <div className="grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
                                 <Label className="text-sm">Assigned To</Label>
-                                <Select value={item.assignedTo} onValueChange={(value) => handleItemChange(index, 'assignedTo', value)}>
+                                <Select
+                                    value={item.assignedTo || UNASSIGNED_VALUE}
+                                    onValueChange={(value) =>
+                                        handleItemChange(index, 'assignedTo', value === UNASSIGNED_VALUE ? '' : value)
+                                    }
+                                >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select member" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">Anyone</SelectItem>
+                                        <SelectItem value={UNASSIGNED_VALUE}>Anyone</SelectItem>
                                         {orgUsers?.map((user) => (
                                             <SelectItem key={user.id} value={user.id}>
                                                 {user.displayName}
@@ -456,12 +463,15 @@ export default function EditChecklistPage({ params }: EditChecklistPageProps) {
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="assigneeId">Assigned To</Label>
-                                <Select value={assigneeId} onValueChange={setAssigneeId}>
+                                <Select
+                                    value={assigneeId || UNASSIGNED_VALUE}
+                                    onValueChange={(value) => setAssigneeId(value === UNASSIGNED_VALUE ? '' : value)}
+                                >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select member" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">Unassigned</SelectItem>
+                                        <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
                                         {orgUsers?.map((user) => (
                                             <SelectItem key={user.id} value={user.id}>
                                                 {user.displayName}
