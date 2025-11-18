@@ -5,6 +5,7 @@ import {
     ForbiddenException,
     Get,
     Param,
+    Patch,
     Post,
     Put,
     Query,
@@ -99,6 +100,31 @@ export class ChecklistController {
         @Body() createChecklistDto: CreateChecklistDto,
     ) {
         return this.checklistService.createChecklist(req.tenant!.id, createChecklistDto);
+    }
+
+    @Patch('checklists/:id/completed-items')
+    @UseGuards(TenantGuard, UnifiedTenantAuthGuard)
+    async updateChecklistCompletedItems(
+        @Req() req: Request,
+        @Param('id') id: string,
+        @Body() updateChecklistDto: UpdateChecklistDto,
+    ) {
+        if (!req.orgUser) {
+            throw new ForbiddenException('User context is required');
+        }
+
+        const permissions = req.orgUser.permissions || [];
+        const canRun = permissions.includes('checklists.run') || permissions.includes('checklists.manage');
+
+        if (!canRun) {
+            throw new ForbiddenException('Not authorized to update checklist progress');
+        }
+
+        return this.checklistService.updateChecklistCompletedItems(
+            req.tenant!.id,
+            id,
+            updateChecklistDto.completedItems ?? [],
+        );
     }
 
     @Get('checklists/tasks/my')

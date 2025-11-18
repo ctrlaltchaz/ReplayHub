@@ -7,9 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
+import { getApiUrl } from '@/lib/api/config';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
 import { PERMISSIONS } from '@/lib/permissions/utils';
 import type { ChecklistTemplate } from '@/types/checklist';
+import { useQueryClient } from '@tanstack/react-query';
 import { ClipboardCheck, ClipboardList, Clock, Loader2, Pencil, Plus, Trash2, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -29,11 +31,13 @@ export default function ChecklistsPage() {
     const router = useRouter();
     const slug = params?.slug as string;
     const { toast } = useToast();
+    const queryClient = useQueryClient();
     const [showNewChecklistDialog, setShowNewChecklistDialog] = useState(false);
     const [showEditTemplate, setShowEditTemplate] = useState(false);
     const [selectedTemplate, setSelectedTemplate] = useState<ChecklistTemplate | null>(null);
     const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
     const [checklistToDelete, setChecklistToDelete] = useState<string | null>(null);
+    const [completingChecklistId, setCompletingChecklistId] = useState<string | null>(null);
     const { data: templates, isLoading: templatesLoading } = useChecklistTemplates(slug);
     const { data: checklists, isLoading: checklistsLoading } = useChecklists(slug);
     const tasksPreviewQuery = useMemo(() => ({ status: 'open' as const, limit: 3 }), []);
@@ -41,12 +45,41 @@ export default function ChecklistsPage() {
     const deleteTemplate = useDeleteChecklistTemplate(slug);
     const deleteChecklist = useDeleteChecklist(slug);
 
-    const activeChecklists = checklists?.filter(c => c.status !== 'done') || [];
-    const completedChecklists = checklists?.filter(c => c.status === 'done') || [];
+    const activeChecklists = checklists?.filter((c) => c.status !== 'done') || [];
+    const completedChecklists = checklists?.filter((c) => c.status === 'done') || [];
 
     const handleEditTemplate = (template: ChecklistTemplate) => {
         setSelectedTemplate(template);
         setShowEditTemplate(true);
+    };
+
+    const handleMarkChecklistComplete = async (id: string) => {
+        if (!slug) return;
+        setCompletingChecklistId(id);
+        try {
+            const response = await fetch(getApiUrl(`/org/${slug}/checklists/${id}`), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ status: 'done' }),
+            });
+            if (!response.ok) {
+                throw new Error('Failed to complete checklist');
+            }
+            toast({ title: 'Checklist completed', description: 'Checklist marked as complete.' });
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['checklists', slug] }),
+                queryClient.invalidateQueries({ queryKey: ['my-checklist-tasks', slug] }),
+            ]);
+        } catch (error: any) {
+            toast({
+                title: 'Error',
+                description: error.message || 'Failed to complete checklist',
+                variant: 'destructive',
+            });
+        } finally {
+            setCompletingChecklistId(null);
+        }
     };
 
     const handleDeleteTemplate = async () => {
@@ -145,12 +178,13 @@ export default function ChecklistsPage() {
                     </CardContent>
                 </Card>
 
-                <Tabs defaultValue="checklists" className="space-y-4">
+                <Tabs defaultValue="active" className="space-y-4">
                     <TabsList className="w-full sm:w-auto">
-                        <TabsTrigger value="checklists" className="flex-1 sm:flex-initial">Checklists</TabsTrigger>
+                        <TabsTrigger value="active" className="flex-1 sm:flex-initial">Active</TabsTrigger>
+                        <TabsTrigger value="completed" className="flex-1 sm:flex-initial">Completed</TabsTrigger>
                         <TabsTrigger value="templates" className="flex-1 sm:flex-initial">Templates</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="checklists" className="space-y-4">
+                    <TabsContent value="active" className="space-y-4">
                         <div className="flex justify-end">
                             <PermissionGuard required={PERMISSIONS.CHECKLISTS_MANAGE}>
                                 <Button onClick={() => setShowNewChecklistDialog(true)} className="w-full sm:w-auto">
@@ -195,6 +229,20 @@ export default function ChecklistsPage() {
                                                                     <Badge variant={checklist.status === 'in_progress' ? 'secondary' : 'outline'}>
                                                                         {checklist.status}
                                                                     </Badge>
+                                                                    <PermissionGuard required={PERMISSIONS.CHECKLISTS_MANAGE}>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            className="h-8"
+                                                                            disabled={completingChecklistId === checklist.id}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleMarkChecklistComplete(checklist.id);
+                                                                            }}
+                                                                        >
+                                                                            {completingChecklistId === checklist.id ? 'Finishing...' : 'Complete'}
+                                                                        </Button>
+                                                                    </PermissionGuard>
                                                                     <Button
                                                                         variant="ghost"
                                                                         size="sm"
@@ -219,6 +267,11 @@ export default function ChecklistsPage() {
                                                                     <span className="font-medium">{Math.round(progress)}%</span>
                                                                 </div>
                                                                 <Progress value={progress} className="h-2" />
+                                                                <div className="text-xs text-muted-foreground">
+                                                                    {checklist.dueAt
+                                                                        ? `Due ${new Date(checklist.dueAt).toLocaleDateString()}`
+                                                                        : 'No due date'} · {totalItems} items
+                                                                </div>
                                                                 <p className="text-xs text-muted-foreground">
                                                                     {completedCount} of {totalItems} completed
                                                                 </p>
@@ -229,62 +282,6 @@ export default function ChecklistsPage() {
                                                                     Due: {new Date(checklist.dueAt).toLocaleDateString()}
                                                                 </div>
                                                             )}
-                                                        </CardContent>
-                                                    </Card>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Completed Checklists */}
-                                {completedChecklists.length > 0 && (
-                                    <div className="space-y-3">
-                                        <h3 className="text-lg font-semibold">Completed</h3>
-                                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                            {completedChecklists.map((checklist) => {
-                                                const totalItems = Array.isArray(checklist.template?.itemsJson)
-                                                    ? checklist.template.itemsJson.length
-                                                    : Array.isArray(checklist.itemsJson)
-                                                        ? checklist.itemsJson.length
-                                                        : 0;
-
-                                                return (
-                                                    <Card
-                                                        key={checklist.id}
-                                                        className="hover:shadow-md transition-shadow opacity-75"
-                                                    >
-                                                        <CardHeader>
-                                                            <div className="flex items-start justify-between gap-2">
-                                                                <CardTitle
-                                                                    className="text-lg cursor-pointer hover:underline flex-1"
-                                                                    onClick={() => router.push(`/org/${slug}/checklists/${checklist.id}`)}
-                                                                >
-                                                                    {checklist.template?.title || checklist.title || 'Checklist'}
-                                                                </CardTitle>
-                                                                <div className="flex items-center gap-1">
-                                                                    <Badge variant="default">done</Badge>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            setChecklistToDelete(checklist.id);
-                                                                        }}
-                                                                    >
-                                                                        <Trash2 className="h-4 w-4" />
-                                                                    </Button>
-                                                                </div>
-                                                            </div>
-                                                        </CardHeader>
-                                                        <CardContent
-                                                            className="cursor-pointer"
-                                                            onClick={() => router.push(`/org/${slug}/checklists/${checklist.id}`)}
-                                                        >
-                                                            <p className="text-xs text-muted-foreground">
-                                                                All {totalItems} items completed
-                                                            </p>
                                                         </CardContent>
                                                     </Card>
                                                 );
@@ -305,6 +302,54 @@ export default function ChecklistsPage() {
                                             New Checklist
                                         </Button>
                                     </PermissionGuard>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </TabsContent>
+                    <TabsContent value="completed" className="space-y-4">
+                        {completedChecklists.length > 0 ? (
+                            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                {completedChecklists.map((checklist) => {
+                                    const totalItems = Array.isArray(checklist.template?.itemsJson)
+                                        ? checklist.template.itemsJson.length
+                                        : Array.isArray(checklist.itemsJson)
+                                            ? checklist.itemsJson.length
+                                            : 0;
+                                    const completedCount = checklist.completedItems.length;
+                                    const progress = totalItems > 0 ? (completedCount / totalItems) * 100 : 0;
+                                    return (
+                                        <Card key={checklist.id} className="hover:shadow-md transition-shadow">
+                                            <CardHeader>
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <CardTitle
+                                                        className="text-lg cursor-pointer hover:underline flex-1"
+                                                        onClick={() => router.push(`/org/${slug}/checklists/${checklist.id}`)}
+                                                    >
+                                                        {checklist.template?.title || checklist.title || 'Checklist'}
+                                                    </CardTitle>
+                                                    <Badge variant="default">Done</Badge>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="space-y-3 text-sm text-muted-foreground">
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span>Progress</span>
+                                                    <span className="font-medium">{Math.round(progress)}%</span>
+                                                </div>
+                                                <Progress value={progress} className="h-2" />
+                                                <p>Total items: {totalItems}</p>
+                                                {checklist.dueAt && (
+                                                    <p>Due {new Date(checklist.dueAt).toLocaleDateString()}</p>
+                                                )}
+                                                <p>Completed on {new Date(checklist.updatedAt).toLocaleDateString()}</p>
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <Card>
+                                <CardContent className="text-center py-12 text-muted-foreground">
+                                    No completed checklists yet.
                                 </CardContent>
                             </Card>
                         )}

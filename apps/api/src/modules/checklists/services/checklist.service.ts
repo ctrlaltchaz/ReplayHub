@@ -47,6 +47,18 @@ export interface ChecklistTaskResponse {
 export class ChecklistService {
     constructor(private prisma: PrismaService) { }
 
+    private async autoCompleteExpiredChecklists(tx: Prisma.TransactionClient, tenantId: string) {
+        const now = new Date();
+        await tx.checklist.updateMany({
+            where: {
+                tenantId,
+                dueAt: { lt: now },
+                status: { in: ['pending', 'in_progress'] },
+            },
+            data: { status: 'done' },
+        });
+    }
+
     // Checklist Templates
 
     async createTemplate(tenantId: string, createTemplateDto: CreateChecklistTemplateDto, createdBy: string) {
@@ -244,6 +256,7 @@ export class ChecklistService {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
             await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+            await this.autoCompleteExpiredChecklists(tx, tenantId);
 
             const where: any = { tenantId };
 
@@ -301,6 +314,7 @@ export class ChecklistService {
     ): Promise<ChecklistTaskResponse> {
         return await this.prisma.$transaction(async (tx) => {
             await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+            await this.autoCompleteExpiredChecklists(tx, tenantId);
 
             const limit = Math.min(query.limit ?? 25, 100);
             const statusFilter = query.status ?? 'open';
@@ -611,6 +625,30 @@ export class ChecklistService {
                 include: {
                     template: true
                 }
+            });
+        });
+    }
+
+    async updateChecklistCompletedItems(tenantId: string, id: string, completedItems: any[]) {
+        return await this.prisma.$transaction(async (tx) => {
+            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+
+            const checklist = await tx.checklist.findFirst({
+                where: { id, tenantId },
+            });
+
+            if (!checklist) {
+                throw new NotFoundException('Checklist not found');
+            }
+
+            return tx.checklist.update({
+                where: { id },
+                data: {
+                    completedItems: completedItems as any,
+                },
+                include: {
+                    template: true,
+                },
             });
         });
     }

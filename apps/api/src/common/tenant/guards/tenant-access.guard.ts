@@ -19,20 +19,29 @@ export class TenantAccessGuard implements CanActivate {
             throw new UnauthorizedException('Organization user authentication required');
         }
 
-        // Get the full org user to verify tenant membership
-        const orgUser = await this.prisma.orgUser.findUnique({
+        // request.orgUser.id now represents the membership ID.
+        const membership = await this.prisma.userOrganisationMembership.findUnique({
             where: { id: request.orgUser.id },
-            select: { id: true, email: true, tenantId: true }
+            select: { id: true, tenantId: true, email: true },
         });
 
-        if (!orgUser) {
+        // Fallback to legacy org user record for backwards compatibility
+        const orgUser = membership
+            ? null
+            : await this.prisma.orgUser.findUnique({
+                where: { id: request.orgUser.id },
+                select: { id: true, tenantId: true, email: true },
+            });
+
+        if (!membership && !orgUser) {
             throw new UnauthorizedException('User not found');
         }
 
-        // Verify user belongs to the current tenant
-        if (orgUser.tenantId !== request.tenant.id) {
+        const resourceTenantId = membership?.tenantId ?? orgUser!.tenantId;
+
+        if (resourceTenantId !== request.tenant.id) {
             console.warn(
-                `[TenantAccessGuard] User ${orgUser.id} (tenant: ${orgUser.tenantId.substring(0, 8)}...) ` +
+                `[TenantAccessGuard] User ${request.orgUser.id} (tenant: ${resourceTenantId.substring(0, 8)}...) ` +
                 `attempted to access tenant ${request.tenant.id.substring(0, 8)}... (${request.tenant.slug})`
             );
 

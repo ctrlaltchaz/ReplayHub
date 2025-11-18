@@ -1,16 +1,19 @@
 'use client';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import { apiGet } from '@/lib/api/client';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
 import { hasPermission, PERMISSIONS } from '@/lib/permissions/utils';
-import { AlertTriangle, Calendar, Lightbulb, Package, RefreshCw, Target, Trophy, Users, X } from 'lucide-react';
+import { AlertTriangle, Calendar, ClipboardList, Lightbulb, Package, RefreshCw, Target, Trophy, Users, X } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { NextEventWidget } from './components/NextEventWidget';
+import { useMyChecklistTasks } from '../checklists/hooks/useMyChecklistTasks';
+import Link from 'next/link';
 
 interface OrgOverview {
     totalEvents?: number;
@@ -48,6 +51,7 @@ export default function OverviewPage() {
     const params = useParams();
     const slug = params?.slug as string;
     const { permissions } = useAuth();
+    const { data: taskPreview, isLoading: tasksLoading } = useMyChecklistTasks(slug, { status: 'open', limit: 5 });
 
     usePageTitle('Overview');
 
@@ -174,6 +178,61 @@ export default function OverviewPage() {
                         Welcome to your esports operations dashboard
                     </p>
                 </div>
+
+                {/* Tasks card */}
+                <Card className="hover:shadow-lg transition-shadow">
+                    <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <CardTitle className="flex items-center gap-2 font-montserrat">
+                                <ClipboardList className="h-5 w-5 text-primary" />
+                                Your Tasks
+                            </CardTitle>
+                            <CardDescription>Checklist items assigned to you</CardDescription>
+                        </div>
+                        <Button asChild size="sm">
+                            <Link href={`/org/${slug}/tasks`}>View all</Link>
+                        </Button>
+                    </CardHeader>
+                    <CardContent>
+                        {tasksLoading ? (
+                            <div className="space-y-3 animate-pulse">
+                                <div className="h-4 bg-muted rounded w-3/4" />
+                                <div className="h-4 bg-muted rounded w-1/2" />
+                                <div className="h-4 bg-muted rounded w-2/3" />
+                            </div>
+                        ) : taskPreview && taskPreview.data.length > 0 ? (
+                            <div className="space-y-3">
+                                {taskPreview.data.map((task) => (
+                                    <div key={task.id} className="flex flex-col gap-1 border-b pb-3 last:border-b-0 last:pb-0">
+                                        <div className="flex items-center justify-between">
+                                            <p className="font-semibold text-sm">{task.title}</p>
+                                            <Badge variant="outline">
+                                                {task.priority ? `${task.priority} priority` : 'Open'}
+                                            </Badge>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                            <span>{task.checklistTitle || task.templateTitle || 'Checklist'} · Item #{task.itemIndex + 1}</span>
+                                            {task.dueAt ? (
+                                                <span>Due {new Date(task.dueAt).toLocaleDateString()}</span>
+                                            ) : (
+                                                <span>No due date</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                                {taskPreview.pagination.hasMore && (
+                                    <p className="text-xs text-muted-foreground">
+                                        More tasks in the Your Tasks view
+                                    </p>
+                                )}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">
+                                No open tasks assigned to you right now.
+                            </p>
+                        )}
+                    </CardContent>
+                </Card>
 
                 {/* Next Event Widget for Players */}
                 <NextEventWidget slug={slug} />

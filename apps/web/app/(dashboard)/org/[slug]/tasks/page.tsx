@@ -110,8 +110,8 @@ export default function TasksPage() {
                     },
                 ];
 
-            const updateResponse = await fetch(getApiUrl(`/org/${slug}/checklists/${task.checklistId}`), {
-                method: 'PUT',
+            const updateResponse = await fetch(getApiUrl(`/org/${slug}/checklists/${task.checklistId}/completed-items`), {
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({ completedItems: updatedCompletedItems }),

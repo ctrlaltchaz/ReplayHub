@@ -9,11 +9,10 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import type { Checklist, ChecklistTemplateItem } from '@/types/checklist';
-import { useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, Clock, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { useMemo, useState } from 'react';
-import { useUpdateChecklist } from '../hooks/useUpdateChecklist';
+import { useUpdateChecklistItems } from '../hooks/useUpdateChecklistItems';
 
 interface ChecklistExecutionViewProps {
     checklist: Checklist;
@@ -24,8 +23,7 @@ export function ChecklistExecutionView({ checklist, orgSlug }: ChecklistExecutio
     const { toast } = useToast();
     const { orgUser } = useAuth();
     const { data: orgUsers } = useOrgUsers(orgSlug);
-    const queryClient = useQueryClient();
-    const updateChecklist = useUpdateChecklist(orgSlug, checklist.id);
+    const updateChecklistItems = useUpdateChecklistItems(orgSlug, checklist.id);
     const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
     const items = useMemo(() => {
@@ -89,10 +87,7 @@ export function ChecklistExecutionView({ checklist, orgSlug }: ChecklistExecutio
         }
 
         try {
-            await updateChecklist.mutateAsync({
-                completedItems: newCompletedItems,
-            });
-            queryClient.invalidateQueries({ queryKey: ['my-checklist-tasks', orgSlug] });
+            await updateChecklistItems.mutateAsync(newCompletedItems);
         } catch (error) {
             toast({
                 title: 'Error',
