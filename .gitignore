@@ -68,6 +68,9 @@ apps/api/prisma/migrations/**/migration.sql
 docs/
 scripts/
 !scripts/post-build-web.js
+# Allow API maintenance scripts to remain tracked
+!apps/api/scripts/
+!apps/api/scripts/**
 *.md
 !README.md
 !package.json
