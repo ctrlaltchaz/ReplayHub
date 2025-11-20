@@ -11,6 +11,7 @@
     ".next/",
     "build/",
     "apps/api/src/generated/",
+    "apps/api/scripts/",
     "**/*.d.ts"
   ],
   "overrides": [
