@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "ES6"
-    ],
+    "lib": ["dom", "dom.iterable", "ES6"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -22,27 +18,22 @@
     "declarationMap": true,
     "baseUrl": ".",
     "paths": {
-      "@esports-ops/ui": [
-        "./packages/ui/src/index.ts"
-      ],
-      "@esports-ops/ui/*": [
-        "./packages/ui/src/*"
-      ]
+      "@esports-ops/ui": ["./packages/ui/src/index.ts"],
+      "@esports-ops/ui/*": ["./packages/ui/src/*"]
     }
   },
   "include": [
-    "apps/**/*.ts",
-    "apps/**/*.tsx",
-    "apps/**/*.d.ts",
+    "apps/api/**/*.ts",
+    "apps/api/**/*.tsx",
+    "apps/api/**/*.d.ts",
+    "apps/web/**/*.ts",
+    "apps/web/**/*.tsx",
+    "apps/web/**/*.d.ts",
     "packages/**/*.ts",
     "packages/**/*.tsx",
     "packages/**/*.d.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    ".next"
-  ],
+  "exclude": ["node_modules", "dist", ".next", "apps/mobile"],
   "references": [
     {
       "path": "./apps/api"

@@ -19,54 +19,63 @@ ReplayHub is a comprehensive multi-tenant esports operations platform designed t
 ## ✨ Key Features
 
 ### 🏆 Team & Roster Management
+
 - Create and manage multiple teams
 - Player profiles with stats visibility controls
 - Roster tracking and player assignments
 - Discord integration for team communications
 
 ### 📅 Event & Tournament Management
+
 - Schedule matches and tournaments
 - Event checklists and runsheets
 - Automated notifications
 - Calendar integration
 
 ### 📦 Inventory & Asset Management
+
 - Track equipment and assets
 - Check-in/check-out system
 - Asset versioning
 - Approval workflows
 
 ### 🚨 Incident & Report Management
+
 - Real-time incident reporting
 - Priority-based workflow
 - Status tracking
 - Team notifications
 
 ### 📊 Game Log & Statistics
+
 - Match history tracking
 - Performance analytics
 - Player statistics
 - Game data management
 
 ### 🎨 Customization
+
 - Theming system with custom colors
 - Organization branding
 - Quick links management
 - Personalized dashboards
 
 ### 🔐 Security & Permissions
+
 - Role-based access control (RBAC)
 - Row-level security (RLS)
 - Multi-tenant isolation
 - Audit logging
 
 ### 💬 Feedback System
+
 - Bug reporting
 - Feature suggestions
 - Admin management dashboard
 - Internal/public comments
 
 ### 🌐 Discord Integration
+
 - OAuth authentication
 - Direct message notifications
 - Channel webhooks
@@ -75,6 +84,7 @@ ReplayHub is a comprehensive multi-tenant esports operations platform designed t
 ## 🛠️ Technology Stack
 
 ### Backend
+
 - **Framework**: NestJS
 - **Database**: PostgreSQL with Prisma ORM
 - **Cache/Queue**: Redis
@@ -82,6 +92,7 @@ ReplayHub is a comprehensive multi-tenant esports operations platform designed t
 - **Validation**: Zod schemas
 
 ### Frontend
+
 - **Framework**: Next.js 14 (App Router)
 - **UI Library**: Radix UI Components
 - **Styling**: Tailwind CSS
@@ -90,10 +101,18 @@ ReplayHub is a comprehensive multi-tenant esports operations platform designed t
 - **Theming**: CSS Variables + Theme System
 
 ### Infrastructure
+
 - **Containerization**: Docker & Docker Compose
 - **Storage**: Local disk / MinIO
 - **Process Manager**: PM2 (production)
 - **Reverse Proxy**: Nginx
+
+## 📱 Mobile Shell
+
+- `apps/mobile` contains an Expo-powered React Native wrapper around the web app
+- Native login screen uses the same universal auth endpoints and stores credentials in SecureStore
+- After a successful login the embedded WebView shares the issued session cookie, so the full Next.js experience loads inside the app
+- Run `npm run mobile` (or `cd apps/mobile && npm start`) to boot the Expo dev server; see `docs/mobile-app.md` for environment variables and store build steps
 
 ## 📁 Project Structure
 
@@ -118,6 +137,7 @@ IMPROVEDAPP/
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Node.js 18+
 - PostgreSQL 15+
 - Redis (optional, for caching)
@@ -126,12 +146,14 @@ IMPROVEDAPP/
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone <repository-url>
    cd IMPROVEDAPP
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    cd apps/api && npm install
@@ -139,24 +161,27 @@ IMPROVEDAPP/
    ```
 
 3. **Configure environment variables**
-   
+
    Create `.env.local` files in both `apps/api` and `apps/web`:
-   
+
    **apps/api/.env.local**
+
    ```env
    DATABASE_URL="postgresql://user:password@localhost:5432/esports_ops"
    SESSION_SECRET="your-secret-key"
    REDIS_URL="redis://localhost:6379"
    PORT=3001
    ```
-   
+
    **apps/web/.env.local**
+
    ```env
    NEXT_PUBLIC_API_URL="http://localhost:3001/api"
    NEXT_PUBLIC_API_BASE="/api"
    ```
 
 4. **Set up the database**
+
    ```bash
    cd apps/api
    npx prisma migrate dev
@@ -164,13 +189,15 @@ IMPROVEDAPP/
    ```
 
 5. **Start the development servers**
-   
+
    Terminal 1 (API):
+
    ```bash
    npm run dev:api
    ```
-   
+
    Terminal 2 (Web):
+
    ```bash
    npm run dev:web
    ```
@@ -195,18 +222,21 @@ docker-compose down
 ## 👥 User Roles & Permissions
 
 ### Global Admin
+
 - Full system access
 - Manage all organizations
 - View admin control center
 - Access feedback submissions
 
 ### Organization Admin
+
 - Manage organization settings
 - Create and manage teams
 - Assign permissions
 - View all organization data
 
 ### Team Member
+
 - View assigned team data
 - Submit feedback
 - Manage own profile
@@ -215,18 +245,23 @@ docker-compose down
 ## 📝 Key Modules
 
 ### Organizations
+
 Multi-tenant architecture with complete data isolation between organizations.
 
 ### RBAC (Role-Based Access Control)
+
 Flexible permission system using Casbin-style policies for fine-grained access control.
 
 ### Audit System
+
 Comprehensive audit trail for all critical operations with context capture.
 
 ### Discord Integration
+
 OAuth flow for user authentication and automated notifications via webhooks and DMs.
 
 ### Feedback System
+
 Built-in bug reporting and feature suggestion system with admin dashboard.
 
 ## 🔒 Security Features
@@ -243,6 +278,7 @@ Built-in bug reporting and feature suggestion system with admin dashboard.
 ## 📊 Database Schema
 
 The platform uses PostgreSQL with the following main entities:
+
 - Organizations (Tenants)
 - Users (Global & Organization-scoped)
 - Roles & Permissions
@@ -256,6 +292,7 @@ The platform uses PostgreSQL with the following main entities:
 ## 🎨 Theming
 
 Organizations can customize their experience with:
+
 - Primary, secondary, accent colors
 - Background and foreground colors
 - Border radius adjustments
@@ -265,6 +302,7 @@ Organizations can customize their experience with:
 ## 🔄 API Architecture
 
 RESTful API with:
+
 - Module-based organization
 - Guard-based authentication
 - Tenant context middleware
@@ -292,6 +330,7 @@ Proprietary - All rights reserved.
 ## 🆘 Support
 
 For technical support or questions:
+
 - Create a feedback submission in the app
 - Contact your organization administrator
 - Reach out to the ReplayHub support team

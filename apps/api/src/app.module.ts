@@ -36,6 +36,8 @@ import { RbacModule } from './modules/rbac/rbac.module';
 
 // Business modules
 import { AssetsModule } from './modules/assets/assets.module';
+import { AttendanceLoggerModule } from './modules/attendance-logger/attendance-logger.module';
+import { ProductionSessionsModule } from './modules/attendance-sessions/attendance-sessions.module';
 import { ChecklistsModule } from './modules/checklists/checklists.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DiscordModule } from './modules/discord/discord.module';
@@ -80,7 +82,7 @@ import { UsersModule } from './modules/users/users.module';
 
     // Org-scoped modules
     OrgAuthModule,
-    IncidentsModule,  // Before RbacModule to test route precedence
+    IncidentsModule, // Before RbacModule to test route precedence
     RbacModule,
     InviteModule,
     OrgUserModule,
@@ -103,7 +105,9 @@ import { UsersModule } from './modules/users/users.module';
     GameLogModule,
     SchedulingModule,
     DashboardModule,
+    AttendanceLoggerModule,
     DiscordModule,
+    ProductionSessionsModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -119,8 +123,6 @@ import { UsersModule } from './modules/users/users.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(PermissionLoggingMiddleware)
-      .forRoutes('org/*/inventory/*', 'org/*/assets/*');
+    consumer.apply(PermissionLoggingMiddleware).forRoutes('org/*/inventory/*', 'org/*/assets/*');
   }
 }

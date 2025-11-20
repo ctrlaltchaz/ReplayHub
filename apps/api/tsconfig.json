@@ -12,25 +12,17 @@
     "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
+    "types": ["node", "express", "multer", "jest"],
     "strictNullChecks": false,
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
-      "@/*": [
-        "src/*"
-      ],
-      "@/common/*": [
-        "src/common/*"
-      ],
-      "@/modules/*": [
-        "src/modules/*"
-      ]
+      "@/*": ["src/*"],
+      "@/common/*": ["src/common/*"],
+      "@/modules/*": ["src/modules/*"]
     }
   },
-  "exclude": [
-    "**/*.spec.ts",
-    "**/*.test.ts"
-  ]
+  "exclude": ["**/*.spec.ts", "**/*.test.ts"]
 }

@@ -1,10 +1,11 @@
 {
   "name": "esports-operations-platform",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Multi-tenant esports operations platform monorepo",
   "private": true,
   "workspaces": [
-    "apps/*",
+    "apps/api",
+    "apps/web",
     "packages/*"
   ],
   "scripts": {
@@ -28,7 +29,8 @@
     "db:migrate:show": "npm run migration:show --workspace=apps/api",
     "db:create": "npm run migration:create --workspace=apps/api --",
     "seed:tenant-perms": "cd apps/api && npx ts-node -r tsconfig-paths/register scripts/seed-tenant-permissions.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "mobile": "cd apps/mobile && npx expo start"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.1.0",
