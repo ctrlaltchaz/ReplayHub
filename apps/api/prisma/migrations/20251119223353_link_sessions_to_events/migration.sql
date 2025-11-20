@@ -1,3 +1,16 @@
+-- Ensure tenant context GUCs exist for policies that reference current_setting('app.tenant_id')
+DO $$
+BEGIN
+    PERFORM set_config('app.tenant_id', current_setting('app.tenant_id', true), false);
+    PERFORM set_config('app.current_tenant_id', current_setting('app.current_tenant_id', true), false);
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Fallback to a bootstrap value if not already present
+        PERFORM set_config('app.tenant_id', 'bootstrap', false);
+        PERFORM set_config('app.current_tenant_id', 'bootstrap', false);
+END
+$$;
+
 DO $$
 BEGIN
     ALTER TABLE "public"."production_sessions" DROP CONSTRAINT IF EXISTS "production_sessions_tenant_id_fkey";
