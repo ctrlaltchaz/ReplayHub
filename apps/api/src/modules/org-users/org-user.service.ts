@@ -159,9 +159,7 @@ export class OrgUserService {
           (user.globalUserId && membershipByUserId.get(user.globalUserId)) ||
           membershipByEmail.get(user.email);
 
-        const membershipRoles = membership
-          ? membership.roles.map(mr => mr.role.key || mr.role.name)
-          : [];
+        const membershipRoles = membership ? membership.roles.map(mr => mr.role.name) : [];
 
         const orgUserRoles = user.roles.map(ur => ur.role.name);
 
@@ -218,9 +216,7 @@ export class OrgUserService {
           })
         : null;
 
-      const membershipRoles = membership
-        ? membership.roles.map(mr => mr.role.key || mr.role.name)
-        : [];
+      const membershipRoles = membership ? membership.roles.map(mr => mr.role.name) : [];
 
       return {
         id: user.id,
@@ -294,9 +290,7 @@ export class OrgUserService {
           })
         : null;
 
-      const membershipRoles = membership
-        ? membership.roles.map(mr => mr.role.key || mr.role.name)
-        : [];
+      const membershipRoles = membership ? membership.roles.map(mr => mr.role.name) : [];
 
       return {
         id: updatedUser.id,
