@@ -91,7 +91,21 @@ export function Sidebar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { globalUser, permissions, isLoadingOrg, isPermissionsReady } = useAuth();
-  const { counts, isLoading: countsLoading } = useBadgeCounts(slug);
+
+  // Only fetch badge counts if the user can see the related modules
+  const canSeeIncidents = hasPermission(permissions, PERMISSIONS.INCIDENTS_VIEW);
+  const canSeeEvents = hasPermission(permissions, [
+    PERMISSIONS.EVENTS_VIEW,
+    PERMISSIONS.CALENDAR_VIEW,
+  ]);
+  const canSeeChecklists = hasPermission(permissions, [
+    PERMISSIONS.CHECKLISTS_VIEW,
+    PERMISSIONS.CHECKLISTS_RUN,
+  ]);
+  const canSeeTasks = canSeeChecklists; // tasks derive from checklists
+  const enableBadgeCounts = canSeeIncidents || canSeeEvents || canSeeChecklists || canSeeTasks;
+
+  const { counts, isLoading: countsLoading } = useBadgeCounts(slug, enableBadgeCounts);
   const { data: quickLinks, isLoading: quickLinksLoading } = useQuickLinks(slug);
 
   // Initialize client-side state after mount
