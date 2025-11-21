@@ -1,13 +1,14 @@
 /**
- * Quick audit script to list users and their roles per organisation and flag common issues.
+ * Audit + repair users/roles per organisation.
  *
  * Run (from repo root):
  *   npx ts-node apps/api/scripts/check-org-user-roles.ts          # all orgs
  *   npx ts-node apps/api/scripts/check-org-user-roles.ts --org myorgslug
  *
- * Requires DATABASE_URL to be set (same as Nest API).
+ * DATABASE_URL must be set.
  */
 import { PrismaClient } from '@prisma/client';
+import * as readline from 'readline';
 
 interface CliArgs {
   org?: string;
@@ -16,7 +17,6 @@ interface CliArgs {
 function parseArgs(): CliArgs {
   const args = process.argv.slice(2);
   const parsed: CliArgs = {};
-
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === '--org' || arg === '-o') {
@@ -24,9 +24,13 @@ function parseArgs(): CliArgs {
       i++;
     }
   }
-
   return parsed;
 }
+
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+const ask = (q: string) =>
+  new Promise<string>(resolve => rl.question(q, ans => resolve(ans.trim())));
+const confirm = async (msg: string) => (await ask(`${msg} [y/N]: `)).toLowerCase() === 'y';
 
 void (async () => {
   const prisma = new PrismaClient();
@@ -45,21 +49,15 @@ void (async () => {
     for (const organisation of orgs) {
       console.log(`\n=== ${organisation.name} (${organisation.slug}) ===`);
 
-      // Fetch memberships + roles
       const memberships = await prisma.userOrganisationMembership.findMany({
         where: { tenantId: organisation.id },
-        include: {
-          roles: { include: { role: true } },
-        },
+        include: { roles: { include: { role: true } } },
         orderBy: { createdAt: 'desc' },
       });
 
-      // Fetch org users + roles
       const orgUsers = await prisma.orgUser.findMany({
         where: { tenantId: organisation.id },
-        include: {
-          roles: { include: { role: true } },
-        },
+        include: { roles: { include: { role: true } } },
         orderBy: { createdAt: 'desc' },
       });
 
@@ -92,22 +90,102 @@ void (async () => {
           } | membershipId=${membership?.id || 'n/a'} | roles: ${roleSource}`
         );
 
-        // Flag issues
+        // Issue: no membership
         if (!membership) {
           issues++;
           console.warn(
             `  ! No membership found; create membership for globalUserId=${user.globalUserId} (email=${user.email})`
           );
-        } else if (membershipRoles.length === 0 && orgUserRoles.length > 0) {
+          if (await confirm('    Create membership now?')) {
+            const newMembership = await prisma.userOrganisationMembership.create({
+              data: {
+                tenantId: organisation.id,
+                userId: user.globalUserId || undefined,
+                email: user.email,
+                displayName,
+                isActive: user.isActive,
+              },
+            });
+            if (orgUserRoles.length > 0) {
+              const roleRecords = await prisma.role.findMany({
+                where: { tenantId: organisation.id, name: { in: orgUserRoles } },
+              });
+              if (roleRecords.length) {
+                await prisma.membershipRole.createMany({
+                  data: roleRecords.map(r => ({
+                    tenantId: organisation.id,
+                    membershipId: newMembership.id,
+                    roleId: r.id,
+                  })),
+                });
+              }
+            }
+            console.log(
+              `    ✓ Created membership ${newMembership.id} and synced roles [${orgUserRoles.join(', ') || 'none'}]`
+            );
+          }
+          continue;
+        }
+
+        // Issue: membership has no roles but orgUser does
+        if (membershipRoles.length === 0 && orgUserRoles.length > 0) {
           issues++;
           console.warn(
-            `  ! Membership has no roles but orgUser does; consider syncing membership roles: [${orgUserRoles.join(
-              ', '
-            )}]`
+            `  ! Membership has no roles but orgUser does; sync membership roles? [${orgUserRoles.join(', ')}]`
           );
-        } else if (membershipRoles.length === 0 && orgUserRoles.length === 0) {
+          if (await confirm('    Sync membership roles from orgUser?')) {
+            const roleRecords = await prisma.role.findMany({
+              where: { tenantId: organisation.id, name: { in: orgUserRoles } },
+            });
+            await prisma.membershipRole.deleteMany({
+              where: { tenantId: organisation.id, membershipId: membership.id },
+            });
+            if (roleRecords.length) {
+              await prisma.membershipRole.createMany({
+                data: roleRecords.map(r => ({
+                  tenantId: organisation.id,
+                  membershipId: membership.id,
+                  roleId: r.id,
+                })),
+              });
+              console.log(
+                `    ✓ Synced membership roles to [${roleRecords.map(r => r.name).join(', ')}]`
+              );
+            } else {
+              console.log('    ! No matching roles found; skipped syncing.');
+            }
+          }
+          continue;
+        }
+
+        // Issue: no roles anywhere
+        if (membershipRoles.length === 0 && orgUserRoles.length === 0) {
           issues++;
           console.warn(`  ! No roles assigned (orgUser or membership)`);
+          if (await confirm('    Assign a role to this membership?')) {
+            const roleName = await ask('    Role name to assign: ');
+            if (roleName) {
+              const roleRecord = await prisma.role.findFirst({
+                where: { tenantId: organisation.id, name: roleName },
+              });
+              if (roleRecord) {
+                await prisma.membershipRole.create({
+                  data: {
+                    tenantId: organisation.id,
+                    membershipId: membership.id,
+                    roleId: roleRecord.id,
+                  },
+                });
+                console.log(
+                  `    ✓ Assigned role ${roleRecord.name} to membership ${membership.id}`
+                );
+              } else {
+                console.log(`    ! Role "${roleName}" not found; skipped.`);
+              }
+            } else {
+              console.log('    ! No role provided; skipped.');
+            }
+          }
         }
       }
 
@@ -119,15 +197,13 @@ void (async () => {
         console.log('  ✓ No role/membership issues detected.');
       } else {
         console.log(`  ! Detected ${issues} potential issue(s).`);
-        console.log(
-          '    Suggested fixes: ensure each org user has a membership and membership roles synced (assign roles via UI or update membershipRoles in DB).'
-        );
       }
     }
   } catch (err) {
     console.error('Script failed:', err);
     process.exit(1);
   } finally {
+    rl.close();
     await prisma.$disconnect();
   }
 })();
