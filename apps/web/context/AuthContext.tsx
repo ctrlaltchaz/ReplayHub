@@ -105,6 +105,7 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
     data: orgUser,
     isLoading: isLoadingOrg,
     isFetched: isOrgFetched,
+    isError: isOrgError,
     refetch: refetchOrg,
   } = useOrgMe(effectiveOrgSlug, {
     enabled: !!effectiveOrgSlug,
@@ -132,10 +133,11 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
   const isPermissionsReady = React.useMemo(() => {
     if (!effectiveOrgSlug) return true; // Not in org context, no permissions needed
     if (isLoadingOrg) return false; // Still loading
-    // Only ready if the query has completed AND we have valid orgUser data
-    // This handles the case where the query fails or returns null
-    return isOrgFetched && orgUser !== undefined && orgUser !== null;
-  }, [effectiveOrgSlug, isLoadingOrg, isOrgFetched, orgUser]);
+    // If the org query errored (common for limited roles), treat as ready even without orgUser
+    if (isOrgError) return true;
+    // Ready when the query has completed (orgUser may be null if the user lacks access)
+    return isOrgFetched;
+  }, [effectiveOrgSlug, isLoadingOrg, isOrgFetched, isOrgError]);
 
   // Debug logging for permissions
   React.useEffect(() => {
