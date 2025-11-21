@@ -58,6 +58,7 @@ export async function fetchJson<T>(path: string, init: FetchOptions = {}): Promi
       // Handle 401 Unauthorized - redirect to login with return URL
       if (res.status === 401) {
         const lowerPath = path.toLowerCase();
+        const errorMsg = (errorData?.message || "").toLowerCase();
 
         // Avoid automatic redirects for org-scoped auth/me checks and other org endpoints,
         // which can legitimately 401 for limited roles and would otherwise cause loops.
@@ -65,8 +66,14 @@ export async function fetchJson<T>(path: string, init: FetchOptions = {}): Promi
         const isSessionCheck =
           lowerPath.includes("/auth/session") || lowerPath.endsWith("/auth/me");
 
+        // If truly unauthenticated (no session), redirect regardless of endpoint.
+        const isUnauthenticated =
+          errorMsg.includes("not authenticated") ||
+          errorMsg.includes("unauthorized") ||
+          errorMsg.includes("no active session");
+
         const shouldRedirect =
-          !isOrgEndpoint &&
+          (isUnauthenticated || !isOrgEndpoint) &&
           !isSessionCheck &&
           typeof window !== "undefined" &&
           !window.location.pathname.startsWith("/login") &&
