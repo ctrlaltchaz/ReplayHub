@@ -1,6 +1,6 @@
 {
   "name": "esports-operations-platform",
-  "version": "1.2.1",
+  "version": "0.2.2 (beta)",
   "description": "Multi-tenant esports operations platform monorepo",
   "private": true,
   "workspaces": [

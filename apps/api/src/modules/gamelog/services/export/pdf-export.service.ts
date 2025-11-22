@@ -4,15 +4,21 @@ import * as path from 'path';
 import * as playwright from 'playwright';
 import { PrismaService } from '../../../../database/prisma.service';
 import { MatchReportExport, MatchResponse } from '../../dto/gamelog.dto';
+import { PlayerStatService } from '../playerstat.service';
 
 @Injectable()
 export class PdfExportService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private playerStatService: PlayerStatService
+  ) {}
 
   async generateMatchReport(tenantId: string, matchId: string): Promise<MatchReportExport> {
-    return await this.prisma.$transaction(async (tx) => {
+    return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
       await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+
+      await this.playerStatService.migrateLegacyStatsToRound(tx, tenantId, matchId);
 
       // Get match data with all related information
       const match = await tx.match.findFirst({
@@ -23,29 +29,29 @@ export class PdfExportService {
             include: {
               slots: {
                 include: {
-                  player: true
-                }
-              }
-            }
+                  player: true,
+                },
+              },
+            },
           },
           maps: {
             orderBy: { gameIdx: 'asc' },
             include: {
               playerStats: {
                 include: {
-                  player: true
-                }
-              }
-            }
+                  player: true,
+                },
+              },
+            },
           },
           playerStats: {
             include: {
               player: true,
-              mapGame: true
-            }
+              mapGame: true,
+            },
           },
-          createdByGlobalUser: true
-        }
+          createdByGlobalUser: true,
+        },
       });
 
       if (!match) {
@@ -76,7 +82,7 @@ export class PdfExportService {
           top: '1in',
           right: '0.5in',
           bottom: '1in',
-          left: '0.5in'
+          left: '0.5in',
         },
         printBackground: true,
         displayHeaderFooter: true,
@@ -89,7 +95,7 @@ export class PdfExportService {
         <div style="font-size: 10px; color: #666; width: 100%; text-align: center; padding: 10px;">
           Generated on <span class="date"></span> - Page <span class="pageNumber"></span> of <span class="totalPages"></span>
         </div>
-      `
+      `,
       });
 
       await browser.close();
@@ -101,7 +107,7 @@ export class PdfExportService {
         match: this.formatMatchForExport(match),
         filePath: `/data/${tenantId}/exports/${fileName}`,
         fileSize: stats.size,
-        exportedAt: new Date().toISOString()
+        exportedAt: new Date().toISOString(),
       };
     });
   }
@@ -360,90 +366,130 @@ export class PdfExportService {
               <div class="info-label">Duration</div>
               <div class="info-value">${duration}</div>
             </div>
-            ${mvpPlayer ? `
+            ${
+              mvpPlayer
+                ? `
             <div class="info-item">
               <div class="info-label">MVP</div>
               <div class="info-value">${mvpPlayer.player.gamerTag}</div>
             </div>
-            ` : ''}
+            `
+                : ''
+            }
           </div>
         </div>
 
-        ${match.lineup ? `
+        ${
+          match.lineup
+            ? `
         <div class="section">
           <div class="section-header">Team Lineup</div>
           <div class="section-content">
             <div class="lineup-grid">
-              ${match.lineup.slots.map((slot: any) => `
+              ${match.lineup.slots
+                .map(
+                  (slot: any) => `
                 <div class="player-card">
                   <div class="player-name">${slot.player.gamerTag}</div>
                   <div class="player-role">${slot.role || slot.player.role || 'Player'}</div>
                 </div>
-              `).join('')}
+              `
+                )
+                .join('')}
             </div>
           </div>
         </div>
-        ` : ''}
+        `
+            : ''
+        }
 
-        ${match.maps.length > 0 ? `
+        ${
+          match.maps.length > 0
+            ? `
         <div class="section">
           <div class="section-header">Map Results</div>
           <div class="section-content">
             <div class="maps-container">
-              ${match.maps.map((map: any, index: number) => `
+              ${match.maps
+                .map(
+                  (map: any, index: number) => `
                 <div class="map-card">
                   <div class="map-header">
                     <span>Game ${map.gameIdx}: ${map.title}${map.mapName ? ` - ${map.mapName}` : ''}</span>
                     <span class="map-score">${map.ourScore} - ${map.theirScore}</span>
                   </div>
-                  ${map.playerStats.length > 0 ? `
+                  ${
+                    map.playerStats.length > 0
+                      ? `
                   <table class="stats-table">
                     <thead>
                       <tr>
                         <th>Player</th>
                         <th>Role</th>
                         <th>Rating</th>
-                        ${this.getStatsHeaders(map.title).map((header: string) => `<th>${header}</th>`).join('')}
+                        ${this.getStatsHeaders(map.title)
+                          .map((header: string) => `<th>${header}</th>`)
+                          .join('')}
                       </tr>
                     </thead>
                     <tbody>
-                      ${map.playerStats.map((stat: any) => `
+                      ${map.playerStats
+                        .map(
+                          (stat: any) => `
                         <tr ${stat.isMvp ? 'class="mvp"' : ''}>
                           <td><strong>${stat.player.gamerTag}</strong></td>
                           <td>${stat.role || stat.player.role || '-'}</td>
                           <td>
                             ${stat.rating ? `<span class="rating ${this.getRatingClass(stat.rating)}">${stat.rating}</span>` : '-'}
                           </td>
-                          ${this.getStatsValues(map.title, stat.statsJson).map((value: string) => `<td>${value}</td>`).join('')}
+                          ${this.getStatsValues(map.title, stat.statsJson)
+                            .map((value: string) => `<td>${value}</td>`)
+                            .join('')}
                         </tr>
-                      `).join('')}
+                      `
+                        )
+                        .join('')}
                     </tbody>
                   </table>
-                  ` : ''}
+                  `
+                      : ''
+                  }
                 </div>
-              `).join('')}
+              `
+                )
+                .join('')}
             </div>
           </div>
         </div>
-        ` : ''}
+        `
+            : ''
+        }
 
-        ${match.notes ? `
+        ${
+          match.notes
+            ? `
         <div class="section">
           <div class="section-header">Notes</div>
           <div class="section-content">
             <div class="notes">${match.notes.replace(/\n/g, '<br>')}</div>
           </div>
         </div>
-        ` : ''}
+        `
+            : ''
+        }
 
-        ${match.vodUrl ? `
+        ${
+          match.vodUrl
+            ? `
         <div class="section">
           <div class="section-header">VOD</div>
           <div class="section-content">
             <a href="${match.vodUrl}" class="vod-link" target="_blank">Watch VOD</a>
           </div>
         </div>
-        ` : ''}
+        `
+            : ''
+        }
       </body>
       </html>
     `;
@@ -469,7 +515,7 @@ export class PdfExportService {
       notes: match.notes,
       createdBy: match.createdBy,
       createdAt: match.createdAt?.toISOString(),
-      updatedAt: match.updatedAt?.toISOString()
+      updatedAt: match.updatedAt?.toISOString(),
     };
   }
 
@@ -523,7 +569,7 @@ export class PdfExportService {
         statsJson.plants || '0',
         statsJson.defuses || '0',
         statsJson.firstKills || '0',
-        statsJson.adr ? Math.round(statsJson.adr).toString() : '0'
+        statsJson.adr ? Math.round(statsJson.adr).toString() : '0',
       ];
     }
 
@@ -535,7 +581,7 @@ export class PdfExportService {
         statsJson.cs || '0',
         statsJson.gold || '0',
         statsJson.damage || '0',
-        statsJson.wards || '0'
+        statsJson.wards || '0',
       ];
     }
 
@@ -545,7 +591,7 @@ export class PdfExportService {
         statsJson.deaths || '0',
         statsJson.damage || '0',
         statsJson.healing || '0',
-        statsJson.objectiveKills || '0'
+        statsJson.objectiveKills || '0',
       ];
     }
 
@@ -555,7 +601,7 @@ export class PdfExportService {
         statsJson.assists || '0',
         statsJson.saves || '0',
         statsJson.shots || '0',
-        statsJson.score || '0'
+        statsJson.score || '0',
       ];
     }
 
