@@ -293,7 +293,7 @@ export default function MatchDetailPage() {
         </Card>
 
         {/* Round Breakdown */}
-        {match.playerStatsByRound && match.playerStatsByRound.length > 0 && (
+        {match?.playerStatsByRound && match.playerStatsByRound.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">

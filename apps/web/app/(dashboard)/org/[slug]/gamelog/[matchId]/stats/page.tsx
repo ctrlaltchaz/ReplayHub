@@ -843,8 +843,8 @@ export default function ManageStatsPage() {
                 <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
                 <p>No new statistics added yet</p>
                 <div className="flex items-center justify-center gap-2 mt-3">
-                  <Select onValueChange={(value) => addPlayerForAllRounds(value)} className="w-56">
-                    <SelectTrigger>
+                  <Select onValueChange={(value) => addPlayerForAllRounds(value)}>
+                    <SelectTrigger className="w-56">
                       <SelectValue placeholder="Add player to all rounds" />
                     </SelectTrigger>
                     <SelectContent>
