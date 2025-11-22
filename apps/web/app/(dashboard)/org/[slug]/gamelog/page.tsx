@@ -182,18 +182,18 @@ export default function GamelogPage() {
 
         {/* Team Cards */}
         {teams.length > 0 && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
             <Card
-              className={`border-2 ${!selectedTeamId ? "border-primary" : "border-transparent"}`}
+              className={`border-2 cursor-pointer ${!selectedTeamId ? "border-primary" : "border-transparent"}`}
               onClick={() => {
                 setSelectedTeamId(null);
                 handleFilterChange("teamId", "all");
               }}
             >
-              <CardContent className="p-4 flex items-center justify-between">
+              <CardContent className="py-1 px-3 flex items-center justify-between">
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">All Teams</p>
-                  <p className="text-lg font-semibold">{data?.matches?.length || 0} matches</p>
+                  <p className="text-xs text-muted-foreground">All Teams</p>
+                  <p className="text-base font-semibold">{data?.matches?.length || 0} matches</p>
                 </div>
                 <Badge variant="secondary">Show All</Badge>
               </CardContent>
@@ -211,33 +211,35 @@ export default function GamelogPage() {
                     handleFilterChange("teamId", team.id);
                   }}
                 >
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                  <CardContent className="py-1 px-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
                         {logo ? (
                           <Image
                             src={logo}
                             alt={team.game || team.name}
-                            width={40}
-                            height={40}
+                            width={32}
+                            height={32}
                             className="rounded"
                           />
                         ) : (
-                          <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold">
                             {team.name?.[0]?.toUpperCase() || "T"}
                           </span>
                         )}
                         <div>
-                          <p className="font-semibold">{team.name}</p>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="font-semibold text-sm">{team.name}</p>
+                          <p className="text-xs text-muted-foreground">
                             {team.game || "Unknown game"}
                           </p>
                         </div>
                       </div>
-                      <Badge variant="secondary">{team.count} logged</Badge>
+                      <Badge variant="secondary" className="text-xs px-2 py-0.5">
+                        {team.count} logged
+                      </Badge>
                     </div>
                     {lastMatch && (
-                      <div className="text-sm text-muted-foreground space-y-1">
+                      <div className="text-xs text-muted-foreground space-y-1">
                         <p>Last: {lastMatch.opponent}</p>
                         {lastMatch.startedAt && (
                           <p>{format(parseISO(lastMatch.startedAt), "MMM dd, yyyy")}</p>
@@ -342,18 +344,18 @@ export default function GamelogPage() {
             </CardContent>
           </Card>
         ) : matchesForSelectedTeam && matchesForSelectedTeam.length > 0 ? (
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             {matchesForSelectedTeam.map((match: Match) => (
               <Card
                 key={match.id}
                 className="cursor-pointer hover:bg-muted/50 transition-colors"
                 onClick={() => router.push(`/org/${slug}/gamelog/${match.id}`)}
               >
-                <CardContent className="p-6">
+                <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <div className="space-y-2 flex-1">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-semibold text-lg">
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-base">
                           {match.team?.name && (
                             <span className="text-muted-foreground">{match.team.name} </span>
                           )}
@@ -368,16 +370,16 @@ export default function GamelogPage() {
                           {match.status}
                         </Badge>
                       </div>{" "}
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                         {match.score && (
                           <span className="flex items-center gap-1">
-                            <Trophy className="h-4 w-4" />
+                            <Trophy className="h-3 w-3" />
                             Score: {match.score}
                           </span>
                         )}
                         {match.tournament && (
                           <span className="flex items-center gap-1">
-                            <Award className="h-4 w-4" />
+                            <Award className="h-3 w-3" />
                             {match.tournament}
                           </span>
                         )}

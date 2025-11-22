@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePlayer } from "@/hooks/rosters/usePlayers";
 import { getServerUrl } from "@/lib/api/config";
-import { ArrowLeft, BarChart3, Lock, Target, TrendingUp, Trophy, User, Zap } from "lucide-react";
+import { ArrowLeft, BarChart3, Lock, Target, Trophy, User, Zap, Award } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -214,32 +214,39 @@ export default function PlayerStatsDetailPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center">
-                  <Zap className="h-8 w-8 text-red-500 mb-2" />
-                  <p className="text-3xl font-bold">{totalKills}</p>
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Total Kills</p>
+                  <p className="text-3xl font-bold">{totalKills}</p>
                 </div>
+                <Zap className="h-10 w-10 text-red-500" />
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center">
-                  <Trophy className="h-8 w-8 text-gray-500 mb-2" />
-                  <p className="text-3xl font-bold">{totalDeaths}</p>
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Total Deaths</p>
+                  <p className="text-3xl font-bold">{totalDeaths}</p>
                 </div>
+                <Trophy className="h-10 w-10 text-gray-500" />
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center text-center">
-                  <TrendingUp className="h-8 w-8 text-green-500 mb-2" />
-                  <p className={`text-3xl font-bold ${getRatingColor(stats.avgRating)}`}>
-                    {stats.avgRating.toFixed(1)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Avg Rating</p>
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">Games Played</p>
+                  <p className="text-3xl font-bold">{stats.totalMatches}</p>
                 </div>
+                <BarChart3 className="h-10 w-10 text-primary" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">MVPs</p>
+                  <p className="text-3xl font-bold text-primary">{stats.totalMvps}</p>
+                </div>
+                <Award className="h-10 w-10 text-primary" />
               </CardContent>
             </Card>
           </div>
