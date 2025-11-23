@@ -69,10 +69,10 @@ export function Topbar({ org, onMobileMenuToggle }: TopbarProps) {
 
       <header
         data-topbar="true"
-        className="min-h-[80px] border-b bg-card flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 shadow-modern"
+        className="min-h-[80px] border-b bg-card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-6 shadow-modern"
       >
         {/* Left side */}
-        <div className="flex items-center gap-4 sm:gap-6 min-w-0">
+        <div className="flex items-center gap-4 sm:gap-6 min-w-0 w-full sm:w-auto">
           {/* Mobile menu button */}
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMobileMenuToggle}>
             <Menu className="h-6 w-6" />
@@ -102,7 +102,7 @@ export function Topbar({ org, onMobileMenuToggle }: TopbarProps) {
         </div>
 
         {/* Right side */}
-        <div className="flex items-center gap-3 sm:gap-6 flex-wrap justify-end w-full sm:w-auto">
+        <div className="flex items-center gap-3 sm:gap-6 justify-between sm:justify-end w-full sm:w-auto">
           {/* Show different UI for admin vs org pages */}
           {isAdminPage ? (
             <Button
