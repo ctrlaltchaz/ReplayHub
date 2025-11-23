@@ -69,16 +69,16 @@ export function Topbar({ org, onMobileMenuToggle }: TopbarProps) {
 
       <header
         data-topbar="true"
-        className="h-20 border-b bg-card flex items-center justify-between px-6 shadow-modern"
+        className="min-h-[80px] border-b bg-card flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 shadow-modern"
       >
         {/* Left side */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4 sm:gap-6 min-w-0">
           {/* Mobile menu button */}
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMobileMenuToggle}>
             <Menu className="h-6 w-6" />
           </Button>
 
-          <Link href="/" className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 min-w-0">
             {fullLogoUrl ? (
               <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center">
                 <Image
@@ -94,7 +94,7 @@ export function Topbar({ org, onMobileMenuToggle }: TopbarProps) {
                 <Shield className="h-5 w-5 text-white" />
               </div>
             )}
-            <h1 className="text-2xl font-bold tracking-tight font-montserrat hidden sm:block">
+            <h1 className="text-2xl font-bold tracking-tight font-montserrat hidden md:block truncate max-w-[200px]">
               {displayName}
             </h1>
           </Link>
@@ -102,7 +102,7 @@ export function Topbar({ org, onMobileMenuToggle }: TopbarProps) {
         </div>
 
         {/* Right side */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3 sm:gap-6 flex-wrap justify-end w-full sm:w-auto">
           {/* Show different UI for admin vs org pages */}
           {isAdminPage ? (
             <Button
@@ -123,7 +123,7 @@ export function Topbar({ org, onMobileMenuToggle }: TopbarProps) {
             <Button
               variant="ghost"
               size="default"
-              className="flex items-center gap-3 px-4 py-2 hover:bg-accent"
+              className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 hover:bg-accent"
               onClick={() => {
                 setDropdownOpen(!dropdownOpen);
               }}
@@ -141,7 +141,7 @@ export function Topbar({ org, onMobileMenuToggle }: TopbarProps) {
                   <User className="h-5 w-5 text-white" />
                 )}
               </div>
-              <span className="hidden sm:inline-block text-base font-medium">
+              <span className="hidden md:inline-block text-base font-medium max-w-[140px] truncate text-left">
                 {globalUser?.name || globalUser?.email || "User"}
               </span>
             </Button>
