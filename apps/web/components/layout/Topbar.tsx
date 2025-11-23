@@ -9,7 +9,7 @@ import { adminPath } from "@/lib/paths/org";
 import { LogOut, Menu, Shield, User } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { OrgSwitcher } from "./OrgSwitcher";
@@ -24,9 +24,7 @@ interface TopbarProps {
 
 export function Topbar({ org, onMobileMenuToggle }: TopbarProps) {
   const { globalUser, logoutGlobal } = useAuth();
-  const pathname = usePathname();
   const router = useRouter();
-  const isAdminPage = pathname?.startsWith("/admin");
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   // Use organization context for branding (only available in org pages)
@@ -102,6 +100,10 @@ export function Topbar({ org, onMobileMenuToggle }: TopbarProps) {
               <span className="font-medium">
                 {globalUser?.name || globalUser?.email || "Not logged in"}
               </span>
+            </div>
+            <div className="py-2 px-2">
+              <div className="text-xs font-semibold text-muted-foreground mb-2">Organization</div>
+              <OrgSwitcher currentOrg={organization || org} />
             </div>
             <div className="h-px bg-border my-1" />
             {globalUser && (
@@ -189,21 +191,6 @@ export function Topbar({ org, onMobileMenuToggle }: TopbarProps) {
 
         {/* Right side */}
         <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-          {/* Show different UI for admin vs org pages */}
-          {isAdminPage ? (
-            <Button
-              variant="outline"
-              size="default"
-              className="flex items-center gap-3 px-4 py-2 font-montserrat"
-              disabled
-            >
-              <Shield className="h-5 w-5" />
-              <span className="hidden sm:inline-block font-semibold">Global Admin</span>
-            </Button>
-          ) : (
-            <OrgSwitcher currentOrg={organization || org} />
-          )}
-
           {/* User menu */}
           <div>{userMenu}</div>
         </div>
