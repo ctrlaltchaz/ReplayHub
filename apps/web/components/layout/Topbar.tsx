@@ -62,6 +62,92 @@ export function Topbar({ org, onMobileMenuToggle }: TopbarProps) {
     }
   };
 
+  const userMenu = (
+    <div className="relative">
+      <Button
+        variant="ghost"
+        size="default"
+        className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 hover:bg-accent"
+        onClick={() => {
+          setDropdownOpen(!dropdownOpen);
+        }}
+      >
+        <div className="h-8 w-8 rounded-full overflow-hidden gradient-primary flex items-center justify-center">
+          {avatarUrl ? (
+            <Image
+              src={avatarUrl}
+              alt={globalUser?.name || globalUser?.email || "User"}
+              width={32}
+              height={32}
+              className="object-cover"
+            />
+          ) : (
+            <User className="h-5 w-5 text-white" />
+          )}
+        </div>
+        <span className="hidden md:inline-block text-base font-medium max-w-[140px] truncate text-left">
+          {globalUser?.name || globalUser?.email || "User"}
+        </span>
+      </Button>
+
+      {dropdownOpen && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
+
+          {/* Dropdown Menu */}
+          <div className="absolute right-0 mt-2 w-64 bg-card border rounded-md shadow-lg z-50 p-2">
+            <div className="py-3 px-2 opacity-60 cursor-not-allowed">
+              <User className="inline-block mr-3 h-5 w-5" />
+              <span className="font-medium">
+                {globalUser?.name || globalUser?.email || "Not logged in"}
+              </span>
+            </div>
+            <div className="h-px bg-border my-1" />
+            {globalUser && (
+              <>
+                {(org?.slug || organization?.slug) && (
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      const slug = org?.slug || organization?.slug;
+                      router.push(`/org/${slug}/profile`);
+                    }}
+                    className="w-full py-3 px-2 hover:bg-accent rounded cursor-pointer text-left"
+                  >
+                    <User className="inline-block mr-3 h-5 w-5" />
+                    <span className="font-medium">My Profile</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    router.push(adminPath.controlCenter());
+                  }}
+                  className="w-full py-3 px-2 hover:bg-accent rounded cursor-pointer text-left"
+                >
+                  <Shield className="inline-block mr-3 h-5 w-5" />
+                  <span className="font-medium">Global Control Center</span>
+                </button>
+                <div className="h-px bg-border my-1" />
+              </>
+            )}
+            <button
+              onClick={() => {
+                setDropdownOpen(false);
+                handleLogout();
+              }}
+              className="w-full py-3 px-2 hover:bg-accent rounded cursor-pointer text-left"
+            >
+              <LogOut className="inline-block mr-3 h-5 w-5" />
+              <span className="font-medium">Logout</span>
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
   return (
     <>
       {/* Impersonation Banner (only query for global admins to avoid 401 redirects for org users) */}
@@ -69,10 +155,10 @@ export function Topbar({ org, onMobileMenuToggle }: TopbarProps) {
 
       <header
         data-topbar="true"
-        className="min-h-[80px] border-b bg-card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-6 shadow-modern"
+        className="min-h-[80px] border-b bg-card flex items-center justify-between gap-3 px-4 sm:px-6 shadow-modern"
       >
         {/* Left side */}
-        <div className="flex items-center gap-4 sm:gap-6 min-w-0 w-full sm:w-auto">
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-shrink">
           {/* Mobile menu button */}
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMobileMenuToggle}>
             <Menu className="h-6 w-6" />
@@ -94,7 +180,7 @@ export function Topbar({ org, onMobileMenuToggle }: TopbarProps) {
                 <Shield className="h-5 w-5 text-white" />
               </div>
             )}
-            <h1 className="text-2xl font-bold tracking-tight font-montserrat hidden md:block truncate max-w-[200px]">
+            <h1 className="text-lg sm:text-2xl font-bold tracking-tight font-montserrat truncate max-w-[160px] sm:max-w-[200px]">
               {displayName}
             </h1>
           </Link>
@@ -102,7 +188,7 @@ export function Topbar({ org, onMobileMenuToggle }: TopbarProps) {
         </div>
 
         {/* Right side */}
-        <div className="flex items-center gap-3 sm:gap-6 justify-between sm:justify-end w-full sm:w-auto">
+        <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
           {/* Show different UI for admin vs org pages */}
           {isAdminPage ? (
             <Button
@@ -119,89 +205,7 @@ export function Topbar({ org, onMobileMenuToggle }: TopbarProps) {
           )}
 
           {/* User menu */}
-          <div className="relative">
-            <Button
-              variant="ghost"
-              size="default"
-              className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 hover:bg-accent"
-              onClick={() => {
-                setDropdownOpen(!dropdownOpen);
-              }}
-            >
-              <div className="h-8 w-8 rounded-full overflow-hidden gradient-primary flex items-center justify-center">
-                {avatarUrl ? (
-                  <Image
-                    src={avatarUrl}
-                    alt={globalUser?.name || globalUser?.email || "User"}
-                    width={32}
-                    height={32}
-                    className="object-cover"
-                  />
-                ) : (
-                  <User className="h-5 w-5 text-white" />
-                )}
-              </div>
-              <span className="hidden md:inline-block text-base font-medium max-w-[140px] truncate text-left">
-                {globalUser?.name || globalUser?.email || "User"}
-              </span>
-            </Button>
-
-            {dropdownOpen && (
-              <>
-                {/* Backdrop */}
-                <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
-
-                {/* Dropdown Menu */}
-                <div className="absolute right-0 mt-2 w-64 bg-card border rounded-md shadow-lg z-50 p-2">
-                  <div className="py-3 px-2 opacity-60 cursor-not-allowed">
-                    <User className="inline-block mr-3 h-5 w-5" />
-                    <span className="font-medium">
-                      {globalUser?.name || globalUser?.email || "Not logged in"}
-                    </span>
-                  </div>
-                  <div className="h-px bg-border my-1" />
-                  {globalUser && (
-                    <>
-                      {(org?.slug || organization?.slug) && (
-                        <button
-                          onClick={() => {
-                            setDropdownOpen(false);
-                            const slug = org?.slug || organization?.slug;
-                            router.push(`/org/${slug}/profile`);
-                          }}
-                          className="w-full py-3 px-2 hover:bg-accent rounded cursor-pointer text-left"
-                        >
-                          <User className="inline-block mr-3 h-5 w-5" />
-                          <span className="font-medium">My Profile</span>
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          setDropdownOpen(false);
-                          router.push(adminPath.controlCenter());
-                        }}
-                        className="w-full py-3 px-2 hover:bg-accent rounded cursor-pointer text-left"
-                      >
-                        <Shield className="inline-block mr-3 h-5 w-5" />
-                        <span className="font-medium">Global Control Center</span>
-                      </button>
-                      <div className="h-px bg-border my-1" />
-                    </>
-                  )}
-                  <button
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      handleLogout();
-                    }}
-                    className="w-full py-3 px-2 hover:bg-accent rounded cursor-pointer text-left"
-                  >
-                    <LogOut className="inline-block mr-3 h-5 w-5" />
-                    <span className="font-medium">Logout</span>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          <div>{userMenu}</div>
         </div>
       </header>
     </>
