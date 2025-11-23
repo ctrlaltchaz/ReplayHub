@@ -36,7 +36,7 @@ export function Breadcrumbs({ org }: BreadcrumbsProps) {
   }
 
   // Build breadcrumb items
-  const items = [];
+  const items: { label: string; href: string; isLast: boolean }[] = [];
 
   // Show only the current page breadcrumb (no org slug)
   if (segments.length > 2 && segments[2] !== "overview") {
