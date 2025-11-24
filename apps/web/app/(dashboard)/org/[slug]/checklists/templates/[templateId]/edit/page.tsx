@@ -456,6 +456,23 @@ export default function EditTemplatePage() {
                   </div>
                 </div>
               ))}
+
+              <div className="flex flex-wrap gap-3">
+                <Button type="button" variant="secondary" onClick={handleAddItem} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add another item
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleRemoveItem(items.length - 1)}
+                  disabled={items.length <= 1}
+                  className="gap-2"
+                >
+                  <Minus className="h-4 w-4" />
+                  Remove last item
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
