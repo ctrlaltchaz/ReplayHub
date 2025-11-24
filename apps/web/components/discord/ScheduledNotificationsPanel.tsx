@@ -366,9 +366,12 @@ export function ScheduledNotificationsPanel({
                 <div className="flex items-center gap-2">
                   <Label className="text-sm text-muted-foreground">or role:</Label>
                   <Select
-                    value={form.mentionRoleId || ""}
+                    value={form.mentionRoleId || "none"}
                     onValueChange={(value) =>
-                      setForm({ ...form, mentionRoleId: value || undefined })
+                      setForm({
+                        ...form,
+                        mentionRoleId: value === "none" ? undefined : value,
+                      })
                     }
                     disabled={!roles || roles.length === 0}
                   >
@@ -376,7 +379,7 @@ export function ScheduledNotificationsPanel({
                       <SelectValue placeholder={roles?.length ? "Pick a role" : "No roles"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No role ping</SelectItem>
+                      <SelectItem value="none">No role ping</SelectItem>
                       {(roles || []).map((role) => (
                         <SelectItem key={role.id} value={role.id}>
                           {role.name}
