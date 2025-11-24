@@ -39,6 +39,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   "player-stats": require("lucide-react").BarChart3,
   runsheets: require("lucide-react").FileText,
   checklists: require("lucide-react").CheckSquare,
+  passwords: require("lucide-react").Lock,
   tasks: require("lucide-react").ClipboardList,
   inventory: require("lucide-react").Package,
   assets: require("lucide-react").Package2,

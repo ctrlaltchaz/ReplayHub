@@ -31,6 +31,14 @@ export const DEFAULT_PERMISSION_DEFINITIONS: PermissionDefinition[] = [
   { key: 'checklists.run', group: 'checklists', description: 'Execute checklists' },
   { key: 'checklists.manage', group: 'checklists', description: 'Manage checklist templates' },
 
+  { key: 'passwords', group: 'passwords', description: 'Access password manager' },
+  { key: 'passwords.view', group: 'passwords', description: 'View vault entries' },
+  {
+    key: 'passwords.manage',
+    group: 'passwords',
+    description: 'Create, edit, and delete vault entries',
+  },
+
   { key: 'inventory', group: 'inventory', description: 'Access inventory module' },
   { key: 'inventory.view', group: 'inventory', description: 'View inventory items' },
   { key: 'inventory.update', group: 'inventory', description: 'Update inventory status' },

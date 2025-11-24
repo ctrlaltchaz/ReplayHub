@@ -26,6 +26,7 @@ export const orgPath = {
   gamelog: (slug: OrgSlug) => `/org/${slug}/gamelog`,
   runsheets: (slug: OrgSlug) => `/org/${slug}/runsheets`,
   checklists: (slug: OrgSlug) => `/org/${slug}/checklists`,
+  passwords: (slug: OrgSlug) => `/org/${slug}/passwords`,
   tasks: (slug: OrgSlug) => `/org/${slug}/tasks`,
   inventory: (slug: OrgSlug) => `/org/${slug}/inventory`,
   assets: (slug: OrgSlug) => `/org/${slug}/assets`,
@@ -108,6 +109,12 @@ export const ORG_NAV: NavItem[] = [
     label: "Checklists",
     href: orgPath.checklists,
     required: PERMISSIONS.CHECKLISTS_VIEW,
+  },
+  {
+    key: "passwords",
+    label: "Passwords",
+    href: orgPath.passwords,
+    required: PERMISSIONS.PASSWORDS_VIEW,
   },
   {
     key: "inventory",

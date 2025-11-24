@@ -24,6 +24,8 @@ const PRESET_ROLES = [
       'checklists.view',
       'checklists.run',
       'checklists.manage',
+      'passwords.view',
+      'passwords.manage',
       'inventory.view',
       'inventory.update',
       'inventory.book',

@@ -46,6 +46,7 @@ import { GameLogModule } from './modules/gamelog/gamelog.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { PasswordsModule } from './modules/passwords/passwords.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { RosterModule } from './modules/roster/roster.module';
 import { RunsheetsModule } from './modules/runsheets/runsheets.module';
@@ -108,6 +109,7 @@ import { UsersModule } from './modules/users/users.module';
     AttendanceLoggerModule,
     DiscordModule,
     ProductionSessionsModule,
+    PasswordsModule,
   ],
   controllers: [HealthController],
   providers: [

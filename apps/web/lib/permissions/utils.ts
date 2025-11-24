@@ -181,6 +181,8 @@ export const PERMISSIONS = {
   CHECKLISTS_VIEW: "checklists.view" as const,
   CHECKLISTS_RUN: "checklists.run" as const,
   CHECKLISTS_MANAGE: "checklists.manage" as const,
+  PASSWORDS_VIEW: "passwords.view" as const,
+  PASSWORDS_MANAGE: "passwords.manage" as const,
   RESOURCES_VIEW: "resources.view" as const,
   RESOURCES_MANAGE: "resources.manage" as const,
 

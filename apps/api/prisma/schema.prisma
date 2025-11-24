@@ -192,6 +192,9 @@ model UserOrganisationMembership {
   roles         MembershipRole[]
   organisation  Organisation     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user          GlobalUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passwordEntriesCreated PasswordEntry[] @relation("PasswordCreatedByMembership")
+  passwordEntriesUpdated PasswordEntry[] @relation("PasswordUpdatedByMembership")
+  passwordAuditLogs      PasswordAuditLog[]
 
   @@unique([userId, tenantId])
   @@unique([tenantId, email])
@@ -982,6 +985,45 @@ model FeedbackComment {
   @@map("feedback_comments")
 }
 
+model PasswordEntry {
+  id                String               @id @default(cuid())
+  tenantId          String               @map("tenant_id")
+  title             String
+  username          String?
+  passwordEncrypted String               @map("password_encrypted")
+  url               String?
+  notes             String?
+  tags              String[]             @default([])
+  createdByMembershipId String               @map("created_by")
+  updatedByMembershipId String?              @map("updated_by")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+  lastViewedAt      DateTime?            @map("last_viewed_at")
+  createdByMembership UserOrganisationMembership @relation("PasswordCreatedByMembership", fields: [createdByMembershipId], references: [id], onDelete: Cascade)
+  updatedByMembership UserOrganisationMembership? @relation("PasswordUpdatedByMembership", fields: [updatedByMembershipId], references: [id])
+  auditLogs         PasswordAuditLog[]
+
+  @@index([tenantId])
+  @@map("password_entries")
+}
+
+model PasswordAuditLog {
+  id         String               @id @default(cuid())
+  tenantId   String               @map("tenant_id")
+  passwordId String               @map("password_id")
+  membershipId  String               @map("org_user_id")
+  action     PasswordAuditAction
+  ipAddress  String?              @map("ip_address")
+  userAgent  String?              @map("user_agent")
+  createdAt  DateTime             @default(now()) @map("created_at")
+  password   PasswordEntry        @relation(fields: [passwordId], references: [id], onDelete: Cascade)
+  membership UserOrganisationMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, passwordId])
+  @@index([tenantId, membershipId])
+  @@map("password_audit_logs")
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -991,6 +1033,13 @@ enum AuditAction {
   INVITE
   ACCEPT_INVITE
   REVOKE_INVITE
+}
+
+enum PasswordAuditAction {
+  VIEW
+  CREATE
+  UPDATE
+  DELETE
 }
 
 enum InviteMethod {
