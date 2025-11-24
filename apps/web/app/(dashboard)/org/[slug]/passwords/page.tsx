@@ -463,7 +463,14 @@ export default function PasswordsPage() {
           {editing && (
             <PasswordForm
               submitting={updateMutation.isPending}
-              initial={{ ...editing, password: "" }}
+              initial={{
+                ...editing,
+                username: editing.username ?? undefined,
+                url: editing.url ?? undefined,
+                notes: editing.notes ?? undefined,
+                tags: editing.tags,
+                password: "",
+              }}
               requirePassword={false}
               onSubmit={handleUpdate}
             />
