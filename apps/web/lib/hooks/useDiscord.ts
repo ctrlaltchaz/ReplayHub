@@ -36,7 +36,8 @@ export interface DiscordScheduledNotification {
   id: string;
   tenantId: string;
   name: string;
-  channelId: string;
+  channelId?: string | null;
+  deliveryMethod: "channel" | "dm";
   mentionRoleId?: string | null;
   mentionEveryone: boolean;
   embedTitle: string;

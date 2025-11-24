@@ -933,7 +933,8 @@ model DiscordScheduledNotification {
   id                 String   @id @default(cuid())
   tenantId           String   @map("tenant_id")
   name               String
-  channelId          String   @map("channel_id")
+  channelId          String?  @map("channel_id")
+  deliveryMethod     String   @default("channel") @map("delivery_method")
   mentionRoleId      String?  @map("mention_role_id")
   mentionEveryone    Boolean  @default(false) @map("mention_everyone")
   embedTitle         String   @map("embed_title")

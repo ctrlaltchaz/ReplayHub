@@ -40,6 +40,7 @@ type FormState = {
   id?: string;
   name: string;
   channelId: string;
+  deliveryMethod: "channel" | "dm";
   title: string;
   description: string;
   color: string;
@@ -60,6 +61,7 @@ const defaultTimezone =
 const emptyForm: FormState = {
   name: "",
   channelId: "",
+  deliveryMethod: "channel",
   title: "",
   description: "",
   color: "#5865F2",
@@ -134,14 +136,19 @@ export function ScheduledNotificationsPanel({
   const isEditing = !!form.id;
 
   const handleSubmit = async () => {
-    if (!form.name || !form.channelId || !form.title || !form.firstRunAt) {
-      setFormError("Name, channel, title, and first send time are required.");
+    if (!form.name || !form.title || !form.firstRunAt) {
+      setFormError("Name, title, and first send time are required.");
+      return;
+    }
+    if (form.deliveryMethod === "channel" && !form.channelId) {
+      setFormError("Channel is required for channel delivery.");
       return;
     }
 
-    const payload = {
+    const payload: any = {
       name: form.name,
-      channelId: form.channelId,
+      channelId: form.deliveryMethod === "channel" ? form.channelId : undefined,
+      deliveryMethod: form.deliveryMethod,
       title: form.title,
       description: form.description || undefined,
       color: form.color || undefined,
@@ -149,8 +156,9 @@ export function ScheduledNotificationsPanel({
       recurrenceType: form.recurrenceType,
       recurrenceInterval: form.recurrenceInterval,
       timezone: form.timezone || defaultTimezone,
-      mentionEveryone: form.mentionEveryone,
-      mentionRoleId: form.mentionRoleId || undefined,
+      mentionEveryone: form.deliveryMethod === "channel" ? form.mentionEveryone : false,
+      mentionRoleId:
+        form.deliveryMethod === "channel" ? form.mentionRoleId || undefined : undefined,
       endAfterRuns: form.endAfterRuns,
     };
 
@@ -174,7 +182,8 @@ export function ScheduledNotificationsPanel({
     setForm({
       id: item.id,
       name: item.name,
-      channelId: item.channelId,
+      channelId: item.channelId || "",
+      deliveryMethod: item.deliveryMethod || "channel",
       title: item.embedTitle,
       description: item.embedDescription || "",
       color: item.embedColor ? `#${item.embedColor.toString(16).padStart(6, "0")}` : "",
@@ -268,15 +277,38 @@ export function ScheduledNotificationsPanel({
                 />
               </div>
               <div className="grid gap-2">
-                <Label>Target channel</Label>
-                <ChannelSelector
-                  slug={slug}
-                  value={form.channelId}
-                  onChange={(value) => setForm({ ...form, channelId: value })}
-                  disabled={disabled}
-                  placeholder="Select a text channel"
-                />
+                <Label>Delivery</Label>
+                <Select
+                  value={form.deliveryMethod}
+                  onValueChange={(value) =>
+                    setForm({ ...form, deliveryMethod: value as FormState["deliveryMethod"] })
+                  }
+                >
+                  <SelectTrigger className="w-[220px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="channel">Post to channel</SelectItem>
+                    <SelectItem value="dm">Send direct message</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Channel posts support mentions; direct messages go to linked users with DMs
+                  enabled.
+                </p>
               </div>
+              {form.deliveryMethod === "channel" && (
+                <div className="grid gap-2">
+                  <Label>Target channel</Label>
+                  <ChannelSelector
+                    slug={slug}
+                    value={form.channelId}
+                    onChange={(value) => setForm({ ...form, channelId: value })}
+                    disabled={disabled}
+                    placeholder="Select a text channel"
+                  />
+                </div>
+              )}
               <div className="grid gap-2">
                 <Label>When to send</Label>
                 <Input
@@ -355,39 +387,49 @@ export function ScheduledNotificationsPanel({
                 />
               </div>
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id="mentionEveryone"
-                    checked={form.mentionEveryone}
-                    onCheckedChange={(checked) => setForm({ ...form, mentionEveryone: checked })}
-                  />
-                  <Label htmlFor="mentionEveryone">Ping everyone</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm text-muted-foreground">or role:</Label>
-                  <Select
-                    value={form.mentionRoleId || "none"}
-                    onValueChange={(value) =>
-                      setForm({
-                        ...form,
-                        mentionRoleId: value === "none" ? undefined : value,
-                      })
-                    }
-                    disabled={!roles || roles.length === 0}
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder={roles?.length ? "Pick a role" : "No roles"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No role ping</SelectItem>
-                      {(roles || []).map((role) => (
-                        <SelectItem key={role.id} value={role.id}>
-                          {role.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {form.deliveryMethod === "channel" ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id="mentionEveryone"
+                        checked={form.mentionEveryone}
+                        onCheckedChange={(checked) =>
+                          setForm({ ...form, mentionEveryone: checked })
+                        }
+                      />
+                      <Label htmlFor="mentionEveryone">Ping everyone</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm text-muted-foreground">or role:</Label>
+                      <Select
+                        value={form.mentionRoleId || "none"}
+                        onValueChange={(value) =>
+                          setForm({
+                            ...form,
+                            mentionRoleId: value === "none" ? undefined : value,
+                          })
+                        }
+                        disabled={!roles || roles.length === 0}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder={roles?.length ? "Pick a role" : "No roles"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No role ping</SelectItem>
+                          {(roles || []).map((role) => (
+                            <SelectItem key={role.id} value={role.id}>
+                              {role.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-xs text-muted-foreground">
+                    Direct messages will go to linked users with DMs enabled for this org.
+                  </div>
+                )}
               </div>
             </div>
             <DialogFooter className="mt-4">
@@ -439,8 +481,14 @@ export function ScheduledNotificationsPanel({
                     Next run: {formatDate(item.nextRunAt)}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {recurrenceLabel(item)} • Channel:{" "}
-                    <span className="font-mono">{item.channelId}</span>
+                    {recurrenceLabel(item)} •{" "}
+                    {item.deliveryMethod === "channel" ? (
+                      <>
+                        Channel: <span className="font-mono">{item.channelId || "—"}</span>
+                      </>
+                    ) : (
+                      "Direct message"
+                    )}
                   </div>
                   <div className="text-sm text-muted-foreground">Message: {item.embedTitle}</div>
                 </div>

@@ -36,14 +36,18 @@ export class DiscordScheduledNotificationsService {
   async create(tenantId: string, dto: CreateScheduledNotificationDto, actorId?: string) {
     const firstRun = new Date(dto.firstRunAt);
     const color = this.normalizeColor(dto.color);
+    if (dto.deliveryMethod === 'channel' && !dto.channelId) {
+      throw new BadRequestException('Channel is required for channel delivery');
+    }
 
     return this.prisma.discordScheduledNotification.create({
       data: {
         tenantId,
         name: dto.name,
-        channelId: dto.channelId,
-        mentionRoleId: dto.mentionRoleId || null,
-        mentionEveryone: dto.mentionEveryone ?? false,
+        channelId: dto.deliveryMethod === 'channel' ? dto.channelId! : null,
+        deliveryMethod: dto.deliveryMethod,
+        mentionRoleId: dto.deliveryMethod === 'channel' ? dto.mentionRoleId || null : null,
+        mentionEveryone: dto.deliveryMethod === 'channel' ? (dto.mentionEveryone ?? false) : false,
         embedTitle: dto.title,
         embedDescription: dto.description || null,
         embedUrl: dto.url || null,
@@ -72,15 +76,28 @@ export class DiscordScheduledNotificationsService {
     const nextRunAt = dto.firstRunAt ? new Date(dto.firstRunAt) : notification.nextRunAt;
     const color =
       dto.color !== undefined ? this.normalizeColor(dto.color) : notification.embedColor;
+    const deliveryMethod = dto.deliveryMethod ?? notification.deliveryMethod ?? 'channel';
+
+    if (deliveryMethod === 'channel' && !(dto.channelId ?? notification.channelId)) {
+      throw new BadRequestException('Channel is required for channel delivery');
+    }
 
     return this.prisma.discordScheduledNotification.update({
       where: { id },
       data: {
         name: dto.name ?? notification.name,
-        channelId: dto.channelId ?? notification.channelId,
+        channelId: deliveryMethod === 'channel' ? (dto.channelId ?? notification.channelId)! : null,
+        deliveryMethod,
         mentionRoleId:
-          dto.mentionRoleId !== undefined ? dto.mentionRoleId || null : notification.mentionRoleId,
-        mentionEveryone: dto.mentionEveryone ?? notification.mentionEveryone,
+          deliveryMethod === 'channel'
+            ? dto.mentionRoleId !== undefined
+              ? dto.mentionRoleId || null
+              : notification.mentionRoleId
+            : null,
+        mentionEveryone:
+          deliveryMethod === 'channel'
+            ? (dto.mentionEveryone ?? notification.mentionEveryone)
+            : false,
         embedTitle: dto.title ?? notification.embedTitle,
         embedDescription:
           dto.description !== undefined ? dto.description || null : notification.embedDescription,
@@ -181,15 +198,79 @@ export class DiscordScheduledNotificationsService {
     let errorMessage: string | null = null;
 
     try {
-      success = await this.botService.postToChannel(notification.tenantId, notification.channelId, {
-        title: notification.embedTitle,
-        description: notification.embedDescription || undefined,
-        color: notification.embedColor || undefined,
-        fields: (notification.embedFields as any) || undefined,
-        url: notification.embedUrl || undefined,
-        footer: 'ReplayHub',
-        content: this.buildContent(notification),
-      });
+      if (notification.deliveryMethod === 'dm') {
+        const recipients = await this.getEligibleDmRecipients(notification.tenantId);
+        if (!recipients.length) {
+          throw new Error('No Discord-linked users with DMs enabled for this org');
+        }
+
+        const results = await Promise.allSettled(
+          recipients.map(async link => {
+            const sent = await this.botService.sendDirectMessage(
+              notification.tenantId,
+              link.discordId,
+              {
+                title: notification.embedTitle,
+                description: notification.embedDescription || undefined,
+                color: notification.embedColor || undefined,
+                fields: (notification.embedFields as any) || undefined,
+                url: notification.embedUrl || undefined,
+              }
+            );
+
+            await this.prisma.discordNotificationLog.create({
+              data: {
+                tenantId: notification.tenantId,
+                notificationType: 'scheduled_custom',
+                deliveryMethod: 'bot_dm',
+                recipientId: link.discordId,
+                status: sent ? 'sent' : 'failed',
+                payload: { notificationId: notification.id },
+              },
+            });
+
+            return sent;
+          })
+        );
+
+        success = results.some(r => r.status === 'fulfilled' && r.value === true);
+        if (!success) {
+          throw new Error('Failed to send any direct messages');
+        }
+      } else {
+        if (!notification.channelId) {
+          throw new Error('Channel not configured for this notification');
+        }
+        success = await this.botService.postToChannel(
+          notification.tenantId,
+          notification.channelId,
+          {
+            title: notification.embedTitle,
+            description: notification.embedDescription || undefined,
+            color: notification.embedColor || undefined,
+            fields: (notification.embedFields as any) || undefined,
+            url: notification.embedUrl || undefined,
+            footer: 'ReplayHub',
+            content: this.buildContent(notification),
+          }
+        );
+
+        await this.prisma.discordNotificationLog.create({
+          data: {
+            tenantId: notification.tenantId,
+            notificationType: 'scheduled_custom',
+            deliveryMethod: 'channel',
+            channelId: notification.channelId,
+            status: success ? 'sent' : 'failed',
+            errorMessage: success ? undefined : 'Failed to post to channel',
+            payload: {
+              notificationId: notification.id,
+              embedTitle: notification.embedTitle,
+              embedDescription: notification.embedDescription,
+            },
+          },
+        });
+      }
     } catch (error: any) {
       errorMessage = error.message || 'Unknown error sending notification';
       this.logger.error(`Error sending scheduled notification ${notification.id}: ${errorMessage}`);
@@ -202,22 +283,6 @@ export class DiscordScheduledNotificationsService {
         runAt,
         status: success ? 'sent' : 'failed',
         errorMessage,
-      },
-    });
-
-    await this.prisma.discordNotificationLog.create({
-      data: {
-        tenantId: notification.tenantId,
-        notificationType: 'scheduled_custom',
-        deliveryMethod: 'channel',
-        channelId: notification.channelId,
-        status: success ? 'sent' : 'failed',
-        errorMessage: errorMessage || undefined,
-        payload: {
-          notificationId: notification.id,
-          embedTitle: notification.embedTitle,
-          embedDescription: notification.embedDescription,
-        },
       },
     });
 
@@ -288,6 +353,25 @@ export class DiscordScheduledNotificationsService {
     if (notification.mentionEveryone) return '@everyone';
     if (notification.mentionRoleId) return `<@&${notification.mentionRoleId}>`;
     return undefined;
+  }
+
+  private async getEligibleDmRecipients(tenantId: string) {
+    const orgUsers = await this.prisma.orgUser.findMany({
+      where: { tenantId, globalUserId: { not: null } },
+      select: { globalUserId: true },
+    });
+    const globalUserIds = Array.from(
+      new Set(orgUsers.map(ou => ou.globalUserId).filter((id): id is string => !!id))
+    );
+    if (!globalUserIds.length) return [];
+
+    return this.prisma.userDiscordLink.findMany({
+      where: {
+        globalUserId: { in: globalUserIds },
+        enableDMs: true,
+      },
+      select: { discordId: true },
+    });
   }
 
   private async getOrThrow(tenantId: string, id: string) {
