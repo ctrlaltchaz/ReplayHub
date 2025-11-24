@@ -273,6 +273,7 @@ export class DiscordBotService implements OnModuleInit, OnModuleDestroy {
       url?: string;
       footer?: string;
       thumbnail?: string;
+      content?: string;
     }
   ): Promise<boolean> {
     try {
@@ -328,7 +329,10 @@ export class DiscordBotService implements OnModuleInit, OnModuleDestroy {
 
       this.logger.log(`[postToChannel] Embed created, sending to channel...`);
       // Send message to channel
-      await (channel as any).send({ embeds: [embed] });
+      await (channel as any).send({
+        content: message.content,
+        embeds: [embed],
+      });
 
       this.logger.log(`[postToChannel] ✅ Message posted successfully to channel ${channelId}`);
       return true;

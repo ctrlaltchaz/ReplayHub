@@ -929,6 +929,52 @@ model DiscordNotificationLog {
   @@map("discord_notification_logs")
 }
 
+model DiscordScheduledNotification {
+  id                 String   @id @default(cuid())
+  tenantId           String   @map("tenant_id")
+  name               String
+  channelId          String   @map("channel_id")
+  mentionRoleId      String?  @map("mention_role_id")
+  mentionEveryone    Boolean  @default(false) @map("mention_everyone")
+  embedTitle         String   @map("embed_title")
+  embedDescription   String?  @map("embed_description")
+  embedColor         Int?     @map("embed_color")
+  embedFields        Json?    @map("embed_fields")
+  embedUrl           String?  @map("embed_url")
+  timezone           String
+  firstRunAt         DateTime @map("first_run_at")
+  nextRunAt          DateTime? @map("next_run_at")
+  lastRunAt          DateTime? @map("last_run_at")
+  recurrenceType     String   @default("none") @map("recurrence_type")
+  recurrenceInterval Int      @default(1) @map("recurrence_interval")
+  endAfterRuns       Int?     @map("end_after_runs")
+  totalRuns          Int      @default(0) @map("total_runs")
+  status             String   @default("active")
+  createdBy          String?  @map("created_by")
+  updatedBy          String?  @map("updated_by")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  runs               DiscordScheduledNotificationRun[]
+
+  @@index([tenantId, status, nextRunAt])
+  @@index([tenantId, status])
+  @@map("discord_scheduled_notifications")
+}
+
+model DiscordScheduledNotificationRun {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  notificationId  String   @map("notification_id")
+  runAt           DateTime @map("run_at")
+  status          String   @default("pending")
+  errorMessage    String?  @map("error_message")
+  createdAt       DateTime @default(now()) @map("created_at")
+  notification    DiscordScheduledNotification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, notificationId])
+  @@map("discord_scheduled_notification_runs")
+}
+
 model PasswordResetToken {
   id        String   @id @default(cuid())
   token     String   @unique
