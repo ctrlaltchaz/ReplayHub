@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Montserrat } from "next/font/google";
 import * as React from "react";
 import "./globals.css";
@@ -14,11 +14,16 @@ const montserrat = Montserrat({
 export const metadata: Metadata = {
   title: "ReplayHub",
   description: "Multi-tenant esports operations platform",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=5",
   icons: {
-    icon: '/icon.png',
-    apple: '/icon.png',
+    icon: "/icon.png",
+    apple: "/icon.png",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({
@@ -30,12 +35,14 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${montserrat.variable} antialiased font-sans`}
-        style={{ fontFamily: 'var(--font-montserrat), -apple-system, BlinkMacSystemFont, sans-serif' }}
+        style={{
+          fontFamily: "var(--font-montserrat), -apple-system, BlinkMacSystemFont, sans-serif",
+        }}
         suppressHydrationWarning
       >
-        <Providers>
-          {children}
-        </Providers>
+        <React.Suspense fallback={null}>
+          <Providers>{children}</Providers>
+        </React.Suspense>
       </body>
     </html>
   );

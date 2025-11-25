@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
+import { AuditModule } from '../../common/audit/audit.module';
 import { TenantModule } from '../../common/tenant/tenant.module';
 import { DatabaseModule } from '../../database/database.module';
 import { DiscordModule } from '../discord/discord.module';
@@ -21,33 +22,25 @@ import { CalendarController, EventsController } from './controllers/events.contr
 import { ResourcesController } from './controllers/resources.controller';
 
 @Module({
-    imports: [
-        ScheduleModule.forRoot(),
-        forwardRef(() => TenantModule),
-        forwardRef(() => GlobalAuthModule),
-        forwardRef(() => OrgAuthModule),
-        forwardRef(() => RbacModule),
-        DatabaseModule,
-        DiscordModule,
-    ],
-    providers: [
-        CalendarUtilsService,
-        EventsService,
-        ResourcesService,
-        BookingsService,
-        EventRemindersService,
-        PermissionGuard,
-    ],
-    controllers: [
-        EventsController,
-        CalendarController,
-        ResourcesController,
-        BookingsController,
-    ],
-    exports: [
-        EventsService,
-        ResourcesService,
-        BookingsService,
-    ],
+  imports: [
+    ScheduleModule.forRoot(),
+    forwardRef(() => TenantModule),
+    forwardRef(() => GlobalAuthModule),
+    forwardRef(() => OrgAuthModule),
+    forwardRef(() => RbacModule),
+    DatabaseModule,
+    DiscordModule,
+    AuditModule,
+  ],
+  providers: [
+    CalendarUtilsService,
+    EventsService,
+    ResourcesService,
+    BookingsService,
+    EventRemindersService,
+    PermissionGuard,
+  ],
+  controllers: [EventsController, CalendarController, ResourcesController, BookingsController],
+  exports: [EventsService, ResourcesService, BookingsService],
 })
-export class SchedulingModule { }
+export class SchedulingModule {}

@@ -4,6 +4,7 @@ import { Parser } from 'json2csv';
 import * as path from 'path';
 import { PrismaService } from '../../../../database/prisma.service';
 import { PlayerStatService } from '../playerstat.service';
+import { AuditService } from '../../../../common/audit/audit.service';
 
 export interface CsvExportResult {
   filePath: string;
@@ -16,11 +17,12 @@ export interface CsvExportResult {
 export class CsvExportService {
   constructor(
     private prisma: PrismaService,
-    private playerStatService: PlayerStatService
+    private playerStatService: PlayerStatService,
+    private readonly auditService: AuditService
   ) {}
 
   async exportMatchStats(tenantId: string, matchId: string): Promise<CsvExportResult> {
-    return await this.prisma.$transaction(async tx => {
+    const result = await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
       await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
@@ -75,6 +77,23 @@ export class CsvExportService {
         exportedAt: new Date().toISOString(),
       };
     });
+
+    await this.auditService.log({
+      tenantId,
+      action: 'player.stats.export',
+      entity: 'player_stat',
+      entityType: 'ORG_USER',
+      entityId: matchId,
+      description: 'Exported match player stats to CSV',
+      metadata: {
+        matchId,
+        filePath: result.filePath,
+        fileSize: result.fileSize,
+        recordCount: result.recordCount,
+      },
+    });
+
+    return result;
   }
 
   async exportAggregatedStats(
@@ -87,7 +106,7 @@ export class CsvExportService {
       tournament?: string;
     } = {}
   ): Promise<CsvExportResult> {
-    return await this.prisma.$transaction(async tx => {
+    const exportResult = await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
       await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
@@ -148,6 +167,27 @@ export class CsvExportService {
 
       return this.exportStatsArray(tenantId, playerStats, 'aggregated-stats');
     });
+
+    await this.auditService.log({
+      tenantId,
+      action: 'player.stats.export',
+      entity: 'player_stat',
+      entityType: 'ORG_USER',
+      entityId: exportResult.filePath,
+      description: 'Exported aggregated player stats to CSV',
+      metadata: {
+        teamId: options.teamId,
+        playerId: options.playerId,
+        from: options.from,
+        to: options.to,
+        tournament: options.tournament,
+        filePath: exportResult.filePath,
+        fileSize: exportResult.fileSize,
+        recordCount: exportResult.recordCount,
+      },
+    });
+
+    return exportResult;
   }
 
   private async exportStatsArray(

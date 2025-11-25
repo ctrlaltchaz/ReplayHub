@@ -60,9 +60,6 @@ export async function fetchJson<T>(path: string, init: FetchOptions = {}): Promi
         const lowerPath = path.toLowerCase();
         const errorMsg = (errorData?.message || "").toLowerCase();
 
-        // Avoid automatic redirects for org-scoped auth/me checks and other org endpoints,
-        // which can legitimately 401 for limited roles and would otherwise cause loops.
-        const isOrgEndpoint = lowerPath.startsWith("/org/");
         const isSessionCheck =
           lowerPath.includes("/auth/session") || lowerPath.endsWith("/auth/me");
 
@@ -72,8 +69,10 @@ export async function fetchJson<T>(path: string, init: FetchOptions = {}): Promi
           errorMsg.includes("unauthorized") ||
           errorMsg.includes("no active session");
 
+        // Only trigger login redirects when we have a clear unauthenticated signal
+        // to avoid redirecting users who hit permission-guarded endpoints.
         const shouldRedirect =
-          (isUnauthenticated || !isOrgEndpoint) &&
+          isUnauthenticated &&
           !isSessionCheck &&
           typeof window !== "undefined" &&
           !window.location.pathname.startsWith("/login") &&

@@ -15,6 +15,7 @@ const CUID_REGEX = /^c[a-z0-9]{24}$/;
 const UUID_REGEX =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
 const EVENT_ID_REGEX = new RegExp(`${UUID_REGEX.source}|${CUID_REGEX.source}`);
+const USER_ID_REGEX = new RegExp(`${UUID_REGEX.source}|${CUID_REGEX.source}`);
 
 export enum AttendanceDepartmentDto {
   BROADCASTING = 'broadcasting',
@@ -65,10 +66,10 @@ export class ClockInDto {
 
   @ApiPropertyOptional({
     description: 'Org user ID when clocking in on behalf of someone else (tutor/admin only)',
-    format: 'uuid',
+    format: 'cuid or uuid',
   })
   @IsOptional()
-  @IsUUID()
+  @Matches(USER_ID_REGEX, { message: 'orgUserId must be a cuid or uuid' })
   orgUserId?: string;
 
   @ApiProperty({ enum: AttendanceDepartmentDto })
@@ -130,10 +131,10 @@ export class AbsenceReportDto {
 
   @ApiPropertyOptional({
     description: 'Org user ID when tutor/admin logs an absence for a student',
-    format: 'uuid',
+    format: 'cuid or uuid',
   })
   @IsOptional()
-  @IsUUID()
+  @Matches(USER_ID_REGEX, { message: 'orgUserId must be a cuid or uuid' })
   orgUserId?: string;
 
   @ApiProperty({ enum: AttendanceAbsenceReasonDto })
@@ -224,9 +225,9 @@ export class AttendanceFilterQuery {
   @IsBoolean()
   autoClockOutOnly?: boolean;
 
-  @ApiPropertyOptional({ description: 'Filter by user ID', format: 'uuid' })
+  @ApiPropertyOptional({ description: 'Filter by user ID', format: 'cuid or uuid' })
   @IsOptional()
-  @IsUUID()
+  @Matches(USER_ID_REGEX, { message: 'orgUserId must be a cuid or uuid' })
   orgUserId?: string;
 }
 

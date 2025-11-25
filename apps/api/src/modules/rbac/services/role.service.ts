@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
+import { AuditService } from '../../../common/audit/audit.service';
 
 export interface CreateRoleDto {
   name: string;
@@ -46,13 +47,18 @@ export interface RoleWithPermissionsDto {
 
 @Injectable()
 export class RoleService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly auditService: AuditService
+  ) {}
 
   async createRole(
     tenantId: string,
-    createRoleDto: CreateRoleDto
+    createRoleDto: CreateRoleDto,
+    actorOrgUserId?: string,
+    actorEmail?: string | null
   ): Promise<RoleWithPermissionsDto> {
-    return await this.prisma.$transaction(async tx => {
+    const role = await this.prisma.$transaction(async tx => {
       // Set tenant context
       await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
@@ -116,6 +122,27 @@ export class RoleService {
 
       return this.mapRoleToDto(result!);
     });
+
+    const actorId = await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail);
+
+    if (actorId) {
+      await this.auditService.log({
+        tenantId,
+        action: 'role.create',
+        entity: 'role',
+        entityType: 'ROLE',
+        entityId: role.id,
+        description: `Created role ${role.name}`,
+        orgUserId: actorId,
+        metadata: {
+          name: role.name,
+          permissions: role.permissions.map(p => p.key).sort(),
+          actorEmail,
+        },
+      });
+    }
+
+    return role;
   }
 
   async getRoles(tenantId: string): Promise<RoleWithPermissionsDto[]> {
@@ -182,9 +209,19 @@ export class RoleService {
   async updateRole(
     tenantId: string,
     roleId: string,
-    updateRoleDto: UpdateRoleDto
+    updateRoleDto: UpdateRoleDto,
+    actorOrgUserId?: string,
+    actorEmail?: string | null
   ): Promise<RoleWithPermissionsDto> {
-    return await this.prisma.$transaction(async tx => {
+    let beforeSnapshot: {
+      name?: string | null;
+      description?: string | null;
+      permissions: string[];
+    } = {
+      permissions: [],
+    };
+
+    const role = await this.prisma.$transaction(async tx => {
       // Set tenant context
       await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
@@ -206,6 +243,12 @@ export class RoleService {
       if (!existingRole) {
         throw new NotFoundException('Role not found');
       }
+
+      beforeSnapshot = {
+        name: existingRole.name,
+        description: existingRole.desc,
+        permissions: existingRole.permissions.map(p => p.permission.key).sort(),
+      };
 
       // Check if new name conflicts
       if (updateRoleDto.name && updateRoleDto.name !== existingRole.name) {
@@ -280,10 +323,59 @@ export class RoleService {
 
       return this.mapRoleToDto(result!);
     });
+
+    const actorId = await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail);
+
+    if (actorId) {
+      const afterPermissions = role.permissions.map(p => p.key).sort();
+      await this.auditService.log({
+        tenantId,
+        action: 'role.update',
+        entity: 'role',
+        entityType: 'ROLE',
+        entityId: roleId,
+        description: `Updated role ${role.name}`,
+        orgUserId: actorId,
+        metadata: {
+          name: role.name,
+          before: beforeSnapshot,
+          after: {
+            name: role.name,
+            description: role.description,
+            permissions: afterPermissions,
+          },
+          actorEmail,
+          changes: {
+            name:
+              beforeSnapshot.name !== role.name
+                ? { before: beforeSnapshot.name ?? null, after: role.name ?? null }
+                : undefined,
+            description:
+              beforeSnapshot.description !== role.description
+                ? { before: beforeSnapshot.description ?? null, after: role.description ?? null }
+                : undefined,
+            permissions:
+              JSON.stringify(beforeSnapshot.permissions) !== JSON.stringify(afterPermissions)
+                ? { before: beforeSnapshot.permissions, after: afterPermissions }
+                : undefined,
+          },
+        },
+      });
+    }
+
+    return role;
   }
 
-  async deleteRole(tenantId: string, roleId: string): Promise<{ success: boolean }> {
-    return await this.prisma.$transaction(async tx => {
+  async deleteRole(
+    tenantId: string,
+    roleId: string,
+    actorOrgUserId?: string,
+    actorEmail?: string | null
+  ): Promise<{ success: boolean }> {
+    let roleName: string | null = null;
+    let permissions: string[] = [];
+
+    const result = await this.prisma.$transaction(async tx => {
       // Set tenant context
       await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
@@ -298,6 +390,14 @@ export class RoleService {
       if (!role) {
         throw new NotFoundException('Role not found');
       }
+
+      roleName = role.name;
+
+      const rolePermissions = await tx.rolePermission.findMany({
+        where: { tenantId, roleId },
+        include: { permission: true },
+      });
+      permissions = rolePermissions.map(rp => rp.permission.key).sort();
 
       // Check if role is assigned to any users
       const assignedUsers = await tx.orgUserRole.count({
@@ -317,6 +417,27 @@ export class RoleService {
 
       return { success: true };
     });
+
+    const actorId = await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail);
+
+    if (actorId) {
+      await this.auditService.log({
+        tenantId,
+        action: 'role.delete',
+        entity: 'role',
+        entityType: 'ROLE',
+        entityId: roleId,
+        description: `Deleted role ${roleName ?? roleId}`,
+        orgUserId: actorId,
+        metadata: {
+          name: roleName,
+          permissions,
+          actorEmail,
+        },
+      });
+    }
+
+    return result;
   }
 
   async seedDefaultRoles(tenantId: string): Promise<{ created: string[] }> {
@@ -554,9 +675,15 @@ export class RoleService {
   async assignRoles(
     tenantId: string,
     assignRoleDto: AssignRoleDto,
-    assignedByMembershipId: string
+    actorOrgUserId: string,
+    actorEmail?: string | null
   ) {
-    return await this.prisma.$transaction(async tx => {
+    let membershipEmail: string | null = null;
+    let membershipDisplayName: string | null = null;
+    let assignedRoles: string[] = [];
+    let assignedRoleNames: string[] = [];
+
+    const result = await this.prisma.$transaction(async tx => {
       // Set tenant context
       await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
@@ -571,6 +698,8 @@ export class RoleService {
       if (!membership) {
         throw new NotFoundException('User membership not found in this organization');
       }
+      membershipEmail = membership.email;
+      membershipDisplayName = membership.displayName;
 
       // Verify all roles exist and belong to tenant
       const roles = await tx.role.findMany({
@@ -595,6 +724,11 @@ export class RoleService {
 
       const existingRoleIds = existingAssignments.map(assignment => assignment.roleId);
       const newRoleIds = assignRoleDto.roleIds.filter(roleId => !existingRoleIds.includes(roleId));
+      assignedRoles = newRoleIds;
+      assignedRoleNames = roles
+        .filter(r => newRoleIds.includes(r.id))
+        .map(r => r.name)
+        .sort();
 
       if (newRoleIds.length === 0) {
         throw new ConflictException('All roles are already assigned to this user');
@@ -619,13 +753,43 @@ export class RoleService {
         skippedRoles: existingRoleIds,
       };
     });
+
+    await this.auditService.log({
+      tenantId,
+      action: 'role.assign',
+      entity: 'role',
+      entityType: 'ROLE',
+      entityId: assignRoleDto.membershipId,
+      description: 'Assigned roles to user',
+      orgUserId: await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail),
+      metadata: {
+        membershipId: assignRoleDto.membershipId,
+        email: membershipEmail,
+        displayName: membershipDisplayName,
+        addedRoleIds: assignedRoles,
+        addedRoleNames: assignedRoleNames,
+        actorEmail,
+      },
+    });
+
+    return result;
   }
 
   /**
    * Remove roles from a user
    */
-  async removeRoles(tenantId: string, removeRoleDto: RemoveRoleDto, removedByMembershipId: string) {
-    return await this.prisma.$transaction(async tx => {
+  async removeRoles(
+    tenantId: string,
+    removeRoleDto: RemoveRoleDto,
+    actorOrgUserId: string,
+    actorEmail?: string | null
+  ) {
+    let membershipEmail: string | null = null;
+    let membershipDisplayName: string | null = null;
+    let removedRoleIds: string[] = [];
+    let removedRoleNames: string[] = [];
+
+    const result = await this.prisma.$transaction(async tx => {
       // Set tenant context
       await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
@@ -640,8 +804,18 @@ export class RoleService {
       if (!membership) {
         throw new NotFoundException('User membership not found in this organization');
       }
+      membershipEmail = membership.email;
+      membershipDisplayName = membership.displayName;
 
       // Remove role assignments from MembershipRole
+      const roles = await tx.role.findMany({
+        where: {
+          tenantId,
+          id: { in: removeRoleDto.roleIds },
+        },
+      });
+      removedRoleNames = roles.map(r => r.name).sort();
+
       const result = await tx.membershipRole.deleteMany({
         where: {
           membershipId: removeRoleDto.membershipId,
@@ -649,12 +823,33 @@ export class RoleService {
           tenantId,
         },
       });
+      removedRoleIds = removeRoleDto.roleIds;
 
       return {
         message: `Successfully removed ${result.count} role assignments`,
         removedCount: result.count,
       };
     });
+
+    await this.auditService.log({
+      tenantId,
+      action: 'role.remove',
+      entity: 'role',
+      entityType: 'ROLE',
+      entityId: removeRoleDto.membershipId,
+      description: 'Removed roles from user',
+      orgUserId: await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail),
+      metadata: {
+        membershipId: removeRoleDto.membershipId,
+        email: membershipEmail,
+        displayName: membershipDisplayName,
+        removedRoleIds,
+        removedRoleNames,
+        actorEmail,
+      },
+    });
+
+    return result;
   }
 
   /**
@@ -704,5 +899,33 @@ export class RoleService {
       createdAt: role.createdAt,
       updatedAt: role.updatedAt,
     };
+  }
+
+  private async resolveActorOrgUserId(
+    tenantId: string,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
+  ) {
+    if (actorOrgUserId) {
+      const found = await this.prisma.orgUser.findFirst({
+        where: { id: actorOrgUserId, tenantId },
+        select: { id: true },
+      });
+      if (found) {
+        return actorOrgUserId;
+      }
+    }
+
+    if (actorEmail) {
+      const foundByEmail = await this.prisma.orgUser.findFirst({
+        where: { tenantId, email: actorEmail },
+        select: { id: true },
+      });
+      if (foundByEmail) {
+        return foundByEmail.id;
+      }
+    }
+
+    return null;
   }
 }

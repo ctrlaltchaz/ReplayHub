@@ -2,6 +2,7 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { createId } from '@paralleldrive/cuid2';
 import { PrismaService } from '../../../database/prisma.service';
 import { DiscordService } from '../../discord/discord.service';
+import { AuditService } from '../../../common/audit/audit.service';
 import {
   CalendarWeekQueryDto,
   CreateEventDto,
@@ -16,7 +17,8 @@ export class EventsService {
   constructor(
     private prisma: PrismaService,
     private calendarUtils: CalendarUtilsService,
-    private discordService: DiscordService
+    private discordService: DiscordService,
+    private readonly auditService: AuditService
   ) {}
 
   private async replaceEventStaffAssignments(
@@ -90,7 +92,12 @@ export class EventsService {
     );
   }
 
-  async createEvent(tenantId: string, createdByGlobalUserId: string, data: CreateEventDto) {
+  async createEvent(
+    tenantId: string,
+    createdByGlobalUserId: string,
+    data: CreateEventDto,
+    actorEmail?: string | null
+  ) {
     return await this.prisma.$transaction(async tx => {
       try {
         // Set tenant context for RLS
@@ -185,6 +192,27 @@ export class EventsService {
           console.error('Failed to send Discord notification:', discordError);
           // Don't fail the event creation if Discord fails
         }
+
+        await this.auditService.log({
+          tenantId,
+          action: 'event.create',
+          entity: 'event',
+          entityType: 'EVENT',
+          entityId: event.id,
+          description: 'Created event',
+          orgUserId: await this.resolveActorOrgUserId(tenantId, createdByGlobalUserId, actorEmail),
+          metadata: {
+            title: event.title,
+            eventType: event.eventType,
+            startAt: event.startAt,
+            endAt: event.endAt,
+            location: event.location,
+            teamId: event.teamId,
+            lineupId: event.lineupId,
+            status: event.status,
+            actorEmail,
+          },
+        });
 
         return { message: 'Event created successfully', event };
       } catch (error) {
@@ -418,7 +446,13 @@ export class EventsService {
     });
   }
 
-  async updateEvent(tenantId: string, id: string, data: UpdateEventDto) {
+  async updateEvent(
+    tenantId: string,
+    id: string,
+    data: UpdateEventDto,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
+  ) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
       await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
@@ -575,6 +609,29 @@ export class EventsService {
 
         await this.replaceEventStaffAssignments(tx, tenantId, id, data.staffAssignments);
 
+        const after = await this.findOneEvent(tenantId, id);
+
+        await this.auditService.log({
+          tenantId,
+          action: 'event.update',
+          entity: 'event',
+          entityType: 'EVENT',
+          entityId: id,
+          orgUserId: await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail),
+          description: 'Updated event',
+          metadata: {
+            title: after?.title,
+            startAt: after?.startAt,
+            endAt: after?.endAt,
+            status: after?.status,
+            lineupId: after?.lineupId,
+            callTime: after?.callTime,
+            location: after?.location,
+            actorEmail,
+            changes: this.diffFromUpdate(data),
+          },
+        });
+
         // Send Discord notification for event update
         try {
           const updatedEvent = await this.findOneEvent(tenantId, id);
@@ -613,12 +670,18 @@ export class EventsService {
     });
   }
 
-  async deleteEvent(tenantId: string, id: string) {
+  async deleteEvent(
+    tenantId: string,
+    id: string,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
+  ) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
       await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       try {
+        const before = await this.findOneEvent(tenantId, id);
         await tx.$executeRawUnsafe(
           `
         DELETE FROM events 
@@ -627,6 +690,23 @@ export class EventsService {
           tenantId,
           id
         );
+
+        await this.auditService.log({
+          tenantId,
+          action: 'event.delete',
+          entity: 'event',
+          entityType: 'EVENT',
+          entityId: id,
+          orgUserId: await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail),
+          description: 'Deleted event',
+          metadata: {
+            title: before?.title,
+            startAt: before?.startAt,
+            endAt: before?.endAt,
+            status: before?.status,
+            actorEmail,
+          },
+        });
 
         return { message: 'Event deleted successfully' };
       } catch (error) {
@@ -825,7 +905,13 @@ export class EventsService {
     });
   }
 
-  async assignLineup(tenantId: string, eventId: string, lineupId: string) {
+  async assignLineup(
+    tenantId: string,
+    eventId: string,
+    lineupId: string,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
+  ) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
       await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
@@ -848,6 +934,20 @@ export class EventsService {
       `;
 
         // Return the updated event
+        await this.auditService.log({
+          tenantId,
+          action: 'event.update',
+          entity: 'event',
+          entityType: 'EVENT',
+          entityId: eventId,
+          orgUserId: await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail),
+          description: 'Assigned lineup to event',
+          metadata: {
+            lineupId,
+            actorEmail,
+          },
+        });
+
         return this.findOneEvent(tenantId, eventId);
       } catch (error) {
         throw new ConflictException('Failed to assign lineup to event');
@@ -889,5 +989,66 @@ export class EventsService {
         return 0;
       }
     });
+  }
+
+  private diffFromUpdate(data: UpdateEventDto) {
+    const changes: Record<string, { before: any; after: any }> = {};
+    const fields: (keyof UpdateEventDto)[] = [
+      'title',
+      'eventType',
+      'gameTitle',
+      'productionLead',
+      'broadcastChannel',
+      'startAt',
+      'endAt',
+      'callTime',
+      'duration',
+      'location',
+      'teamId',
+      'lineupId',
+      'opponent',
+      'tournamentName',
+      'tournamentStage',
+      'bestOf',
+      'graphicsPackage',
+      'checklistId',
+      'rosterId',
+      'notes',
+      'status',
+    ];
+    fields.forEach(field => {
+      if (data[field] !== undefined) {
+        changes[field as string] = { before: undefined, after: data[field] };
+      }
+    });
+    return changes;
+  }
+
+  private async resolveActorOrgUserId(
+    tenantId: string,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
+  ) {
+    if (actorOrgUserId) {
+      const found = await this.prisma.orgUser.findFirst({
+        where: { id: actorOrgUserId, tenantId },
+        select: { id: true },
+      });
+      if (found) {
+        return actorOrgUserId;
+      }
+    }
+
+    if (actorEmail) {
+      const foundByEmail = await this.prisma.orgUser.findFirst({
+        where: { tenantId, email: actorEmail },
+        select: { id: true },
+      });
+      if (foundByEmail) {
+        return foundByEmail.id;
+      }
+    }
+
+    return null;
   }
 }

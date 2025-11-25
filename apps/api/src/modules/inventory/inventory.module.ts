@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { AuditModule } from '../../common/audit/audit.module';
 import { TenantModule } from '../../common/tenant/tenant.module';
 import { DatabaseModule } from '../../database/database.module';
 import { GlobalAuthModule } from '../global-auth/global-auth.module';
@@ -10,15 +11,16 @@ import { AssetService } from './services/asset.service';
 import { InventoryService } from './services/inventory.service';
 
 @Module({
-    imports: [
-        DatabaseModule,
-        OrgAuthModule,
-        forwardRef(() => GlobalAuthModule),
-        forwardRef(() => RbacModule),
-        forwardRef(() => TenantModule),
-    ],
-    controllers: [InventoryController, AssetController],
-    providers: [InventoryService, AssetService],
-    exports: [InventoryService, AssetService],
+  imports: [
+    DatabaseModule,
+    OrgAuthModule,
+    forwardRef(() => GlobalAuthModule),
+    forwardRef(() => RbacModule),
+    forwardRef(() => TenantModule),
+    AuditModule,
+  ],
+  controllers: [InventoryController, AssetController],
+  providers: [InventoryService, AssetService],
+  exports: [InventoryService, AssetService],
 })
-export class InventoryModule { }
+export class InventoryModule {}

@@ -5,12 +5,16 @@ import * as path from 'path';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { AttendanceExportDto, AttendanceExportFormat } from '../dto/attendance-logger.dto';
+import { AuditService } from '../../../common/audit/audit.service';
 
 @Injectable()
 export class AttendanceExportService {
   private readonly logger = new Logger(AttendanceExportService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService
+  ) {}
 
   async queueExport(tenantId: string, requestorOrgUserId: string, dto: AttendanceExportDto) {
     if (dto.format !== AttendanceExportFormat.CSV) {
@@ -22,6 +26,22 @@ export class AttendanceExportService {
     this.logger.log(
       `Attendance export generated for tenant ${tenantId} by ${requestorOrgUserId}: ${result.fileName}`
     );
+
+    await this.auditService.log({
+      tenantId,
+      action: 'attendance.export',
+      entity: 'attendance',
+      entityType: 'ORG_USER',
+      entityId: result.fileName,
+      orgUserId: requestorOrgUserId,
+      description: 'Generated attendance export',
+      metadata: {
+        format: dto.format,
+        recordCount: result.recordCount,
+        fileName: result.fileName,
+        filePath: result.filePath,
+      },
+    });
 
     return {
       status: 'completed',

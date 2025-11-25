@@ -116,6 +116,20 @@ export class AttendanceLoggerController {
     return this.attendanceService.reviewEntry(actualTenantId, orgUserId, id, dto);
   }
 
+  @Patch(':id/unclock-out')
+  @ApiOperation({ summary: 'Undo clock-out on an attendance entry' })
+  @Can('attendance.manage')
+  async undoClockOut(
+    @TenantId() tenantId: string,
+    @Req() req: any,
+    @Param('id') id: string
+  ): Promise<AttendanceLoggerResponse> {
+    const actualTenantId = req.tenant?.id || tenantId;
+    const orgUserId = req.orgUser?.id;
+    if (!orgUserId) throw new UnauthorizedException('Org user context missing');
+    return this.attendanceService.undoClockOut(actualTenantId, orgUserId, id);
+  }
+
   @Post('export')
   @ApiOperation({ summary: 'Queue an attendance export job' })
   @Can('attendance.export')

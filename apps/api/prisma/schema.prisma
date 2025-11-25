@@ -93,27 +93,27 @@ model Note {
 }
 
 model OrgUser {
-  id                 String              @id @default(cuid())
-  tenantId           String              @map("tenant_id")
+  id                 String                 @id @default(cuid())
+  tenantId           String                 @map("tenant_id")
   email              String
-  passwordHash       String              @map("password_hash")
-  displayName        String              @map("display_name")
-  isActive           Boolean             @default(true) @map("is_active")
-  totpSecret         String?             @map("totp_secret")
-  isTotpEnabled      Boolean             @default(false) @map("is_totp_enabled")
-  createdAt          DateTime            @default(now()) @map("created_at")
-  updatedAt          DateTime            @updatedAt @map("updated_at")
-  globalUserId       String?             @map("global_user_id")
-  createdAttendance  Attendance[]        @relation("AttendanceCreator")
-  attendanceRecords  Attendance[]        @relation("AttendanceUser")
-  reviewedAttendance Attendance[]        @relation("AttendanceReviewer")
+  passwordHash       String                 @map("password_hash")
+  displayName        String                 @map("display_name")
+  isActive           Boolean                @default(true) @map("is_active")
+  totpSecret         String?                @map("totp_secret")
+  isTotpEnabled      Boolean                @default(false) @map("is_totp_enabled")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+  globalUserId       String?                @map("global_user_id")
+  createdAttendance  Attendance[]           @relation("AttendanceCreator")
+  attendanceRecords  Attendance[]           @relation("AttendanceUser")
+  reviewedAttendance Attendance[]           @relation("AttendanceReviewer")
   auditLogs          AuditLog[]
-  createdIncidents   Incident[]          @relation("IncidentCreator")
-  ownedIncidents     Incident[]          @relation("IncidentOwner")
+  createdIncidents   Incident[]             @relation("IncidentCreator")
+  ownedIncidents     Incident[]             @relation("IncidentOwner")
   roles              OrgUserRole[]
-  globalUser         GlobalUser?         @relation("OrgUserToGlobalUser", fields: [globalUserId], references: [id])
-  organisation       Organisation        @relation("OrgUserToOrganisation", fields: [tenantId], references: [id], onDelete: Cascade)
-  createdSessions    ProductionSession[] @relation("SessionCreator")
+  globalUser         GlobalUser?            @relation("OrgUserToGlobalUser", fields: [globalUserId], references: [id])
+  organisation       Organisation           @relation("OrgUserToOrganisation", fields: [tenantId], references: [id], onDelete: Cascade)
+  createdSessions    ProductionSession[]    @relation("SessionCreator")
   staffAssignments   EventStaffAssignment[]
 
   @@unique([tenantId, email])
@@ -181,20 +181,20 @@ model OrgUserRole {
 }
 
 model UserOrganisationMembership {
-  id            String           @id @default(cuid())
-  tenantId      String           @map("tenant_id")
-  userId        String           @map("user_id")
-  email         String
-  displayName   String?          @map("display_name")
-  isActive      Boolean          @default(true) @map("is_active")
-  isTotpEnabled Boolean          @default(false) @map("is_totp_enabled")
-  createdAt     DateTime         @default(now()) @map("created_at")
-  updatedAt     DateTime         @updatedAt @map("updated_at")
-  roles         MembershipRole[]
-  organisation  Organisation     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user          GlobalUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  passwordEntriesCreated PasswordEntry[] @relation("PasswordCreatedByMembership")
-  passwordEntriesUpdated PasswordEntry[] @relation("PasswordUpdatedByMembership")
+  id                     String             @id @default(cuid())
+  tenantId               String             @map("tenant_id")
+  userId                 String             @map("user_id")
+  email                  String
+  displayName            String?            @map("display_name")
+  isActive               Boolean            @default(true) @map("is_active")
+  isTotpEnabled          Boolean            @default(false) @map("is_totp_enabled")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+  roles                  MembershipRole[]
+  organisation           Organisation       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                   GlobalUser         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passwordEntriesCreated PasswordEntry[]    @relation("PasswordCreatedByMembership")
+  passwordEntriesUpdated PasswordEntry[]    @relation("PasswordUpdatedByMembership")
   passwordAuditLogs      PasswordAuditLog[]
 
   @@unique([userId, tenantId])
@@ -262,6 +262,9 @@ model AuditLog {
   organisation Organisation     @relation("TenantAuditLogs", fields: [tenantId], references: [id], onDelete: Cascade)
   user         GlobalUser?      @relation(fields: [userId], references: [id])
 
+  @@index([tenantId, entity, createdAt])
+  @@index([tenantId, entityType, createdAt])
+  @@index([tenantId, orgUserId, createdAt])
   @@index([tenantId, createdAt])
   @@index([tenantId, action, createdAt])
   @@index([tenantId, status, createdAt])
@@ -705,38 +708,38 @@ model PlayerStat {
 }
 
 model Event {
-  id                         String              @id @default(cuid())
-  tenantId                   String              @map("tenant_id")
+  id                         String                 @id @default(cuid())
+  tenantId                   String                 @map("tenant_id")
   title                      String
-  startAt                    DateTime            @map("start_at")
-  endAt                      DateTime            @map("end_at")
+  startAt                    DateTime               @map("start_at")
+  endAt                      DateTime               @map("end_at")
   location                   String?
-  teamId                     String?             @map("team_id")
-  lineupId                   String?             @map("lineup_id")
+  teamId                     String?                @map("team_id")
+  lineupId                   String?                @map("lineup_id")
   notes                      String?
-  status                     String              @default("scheduled")
-  createdAt                  DateTime            @default(now()) @map("created_at")
-  updatedAt                  DateTime            @updatedAt @map("updated_at")
-  broadcastChannel           String?             @map("broadcast_channel")
-  callTime                   DateTime?           @map("call_time")
-  checklistId                String?             @map("checklist_id")
+  status                     String                 @default("scheduled")
+  createdAt                  DateTime               @default(now()) @map("created_at")
+  updatedAt                  DateTime               @updatedAt @map("updated_at")
+  broadcastChannel           String?                @map("broadcast_channel")
+  callTime                   DateTime?              @map("call_time")
+  checklistId                String?                @map("checklist_id")
   duration                   Int?
-  eventType                  String              @default("Other") @map("event_type")
-  gameTitle                  String?             @map("game_title")
-  graphicsPackage            String?             @map("graphics_package")
-  rosterId                   String?             @map("roster_id")
-  bestOf                     Int?                @default(1) @map("best_of")
+  eventType                  String                 @default("Other") @map("event_type")
+  gameTitle                  String?                @map("game_title")
+  graphicsPackage            String?                @map("graphics_package")
+  rosterId                   String?                @map("roster_id")
+  bestOf                     Int?                   @default(1) @map("best_of")
   opponent                   String?
-  tournamentName             String?             @map("tournament_name")
-  tournamentStage            String?             @map("tournament_stage")
-  createdByGlobalUserId      String?             @map("created_by_global_user_id")
-  productionLeadGlobalUserId String?             @map("production_lead_global_user_id")
+  tournamentName             String?                @map("tournament_name")
+  tournamentStage            String?                @map("tournament_stage")
+  createdByGlobalUserId      String?                @map("created_by_global_user_id")
+  productionLeadGlobalUserId String?                @map("production_lead_global_user_id")
   attendance                 Attendance[]
   bookings                   Booking[]
-  createdByGlobalUser        GlobalUser?         @relation("EventCreator", fields: [createdByGlobalUserId], references: [id])
-  lineup                     Lineup?             @relation(fields: [lineupId], references: [id])
-  productionLeadGlobalUser   GlobalUser?         @relation("EventProductionLead", fields: [productionLeadGlobalUserId], references: [id])
-  team                       Team?               @relation(fields: [teamId], references: [id])
+  createdByGlobalUser        GlobalUser?            @relation("EventCreator", fields: [createdByGlobalUserId], references: [id])
+  lineup                     Lineup?                @relation(fields: [lineupId], references: [id])
+  productionLeadGlobalUser   GlobalUser?            @relation("EventProductionLead", fields: [productionLeadGlobalUserId], references: [id])
+  team                       Team?                  @relation(fields: [teamId], references: [id])
   incidents                  Incident[]
   productionSessions         ProductionSession[]
   runsheets                  Runsheet[]
@@ -950,31 +953,31 @@ model DiscordNotificationLog {
 }
 
 model DiscordScheduledNotification {
-  id                 String   @id @default(cuid())
-  tenantId           String   @map("tenant_id")
+  id                 String                            @id @default(cuid())
+  tenantId           String                            @map("tenant_id")
   name               String
-  channelId          String?  @map("channel_id")
-  deliveryMethod     String   @default("channel") @map("delivery_method")
-  mentionRoleId      String?  @map("mention_role_id")
-  mentionEveryone    Boolean  @default(false) @map("mention_everyone")
-  embedTitle         String   @map("embed_title")
-  embedDescription   String?  @map("embed_description")
-  embedColor         Int?     @map("embed_color")
-  embedFields        Json?    @map("embed_fields")
-  embedUrl           String?  @map("embed_url")
+  channelId          String?                           @map("channel_id")
+  deliveryMethod     String                            @default("channel") @map("delivery_method")
+  mentionRoleId      String?                           @map("mention_role_id")
+  mentionEveryone    Boolean                           @default(false) @map("mention_everyone")
+  embedTitle         String                            @map("embed_title")
+  embedDescription   String?                           @map("embed_description")
+  embedColor         Int?                              @map("embed_color")
+  embedFields        Json?                             @map("embed_fields")
+  embedUrl           String?                           @map("embed_url")
   timezone           String
-  firstRunAt         DateTime @map("first_run_at")
-  nextRunAt          DateTime? @map("next_run_at")
-  lastRunAt          DateTime? @map("last_run_at")
-  recurrenceType     String   @default("none") @map("recurrence_type")
-  recurrenceInterval Int      @default(1) @map("recurrence_interval")
-  endAfterRuns       Int?     @map("end_after_runs")
-  totalRuns          Int      @default(0) @map("total_runs")
-  status             String   @default("active")
-  createdBy          String?  @map("created_by")
-  updatedBy          String?  @map("updated_by")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  firstRunAt         DateTime                          @map("first_run_at")
+  nextRunAt          DateTime?                         @map("next_run_at")
+  lastRunAt          DateTime?                         @map("last_run_at")
+  recurrenceType     String                            @default("none") @map("recurrence_type")
+  recurrenceInterval Int                               @default(1) @map("recurrence_interval")
+  endAfterRuns       Int?                              @map("end_after_runs")
+  totalRuns          Int                               @default(0) @map("total_runs")
+  status             String                            @default("active")
+  createdBy          String?                           @map("created_by")
+  updatedBy          String?                           @map("updated_by")
+  createdAt          DateTime                          @default(now()) @map("created_at")
+  updatedAt          DateTime                          @updatedAt @map("updated_at")
   runs               DiscordScheduledNotificationRun[]
 
   @@index([tenantId, status, nextRunAt])
@@ -983,14 +986,14 @@ model DiscordScheduledNotification {
 }
 
 model DiscordScheduledNotificationRun {
-  id              String   @id @default(cuid())
-  tenantId        String   @map("tenant_id")
-  notificationId  String   @map("notification_id")
-  runAt           DateTime @map("run_at")
-  status          String   @default("pending")
-  errorMessage    String?  @map("error_message")
-  createdAt       DateTime @default(now()) @map("created_at")
-  notification    DiscordScheduledNotification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  id             String                       @id @default(cuid())
+  tenantId       String                       @map("tenant_id")
+  notificationId String                       @map("notification_id")
+  runAt          DateTime                     @map("run_at")
+  status         String                       @default("pending")
+  errorMessage   String?                      @map("error_message")
+  createdAt      DateTime                     @default(now()) @map("created_at")
+  notification   DiscordScheduledNotification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, notificationId])
   @@map("discord_scheduled_notification_runs")
@@ -1053,38 +1056,38 @@ model FeedbackComment {
 }
 
 model PasswordEntry {
-  id                String               @id @default(cuid())
-  tenantId          String               @map("tenant_id")
-  title             String
-  username          String?
-  passwordEncrypted String               @map("password_encrypted")
-  url               String?
-  notes             String?
-  tags              String[]             @default([])
-  createdByMembershipId String               @map("created_by")
-  updatedByMembershipId String?              @map("updated_by")
-  createdAt         DateTime             @default(now()) @map("created_at")
-  updatedAt         DateTime             @updatedAt @map("updated_at")
-  lastViewedAt      DateTime?            @map("last_viewed_at")
-  createdByMembership UserOrganisationMembership @relation("PasswordCreatedByMembership", fields: [createdByMembershipId], references: [id], onDelete: Cascade)
-  updatedByMembership UserOrganisationMembership? @relation("PasswordUpdatedByMembership", fields: [updatedByMembershipId], references: [id])
-  auditLogs         PasswordAuditLog[]
+  id                    String                      @id @default(cuid())
+  tenantId              String                      @map("tenant_id")
+  title                 String
+  username              String?
+  passwordEncrypted     String                      @map("password_encrypted")
+  url                   String?
+  notes                 String?
+  tags                  String[]                    @default([])
+  createdByMembershipId String                      @map("created_by")
+  updatedByMembershipId String?                     @map("updated_by")
+  createdAt             DateTime                    @default(now()) @map("created_at")
+  updatedAt             DateTime                    @updatedAt @map("updated_at")
+  lastViewedAt          DateTime?                   @map("last_viewed_at")
+  createdByMembership   UserOrganisationMembership  @relation("PasswordCreatedByMembership", fields: [createdByMembershipId], references: [id], onDelete: Cascade)
+  updatedByMembership   UserOrganisationMembership? @relation("PasswordUpdatedByMembership", fields: [updatedByMembershipId], references: [id])
+  auditLogs             PasswordAuditLog[]
 
   @@index([tenantId])
   @@map("password_entries")
 }
 
 model PasswordAuditLog {
-  id         String               @id @default(cuid())
-  tenantId   String               @map("tenant_id")
-  passwordId String               @map("password_id")
-  membershipId  String               @map("org_user_id")
-  action     PasswordAuditAction
-  ipAddress  String?              @map("ip_address")
-  userAgent  String?              @map("user_agent")
-  createdAt  DateTime             @default(now()) @map("created_at")
-  password   PasswordEntry        @relation(fields: [passwordId], references: [id], onDelete: Cascade)
-  membership UserOrganisationMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  id           String                     @id @default(cuid())
+  tenantId     String                     @map("tenant_id")
+  passwordId   String                     @map("password_id")
+  membershipId String                     @map("org_user_id")
+  action       PasswordAuditAction
+  ipAddress    String?                    @map("ip_address")
+  userAgent    String?                    @map("user_agent")
+  createdAt    DateTime                   @default(now()) @map("created_at")
+  password     PasswordEntry              @relation(fields: [passwordId], references: [id], onDelete: Cascade)
+  membership   UserOrganisationMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, passwordId])
   @@index([tenantId, membershipId])

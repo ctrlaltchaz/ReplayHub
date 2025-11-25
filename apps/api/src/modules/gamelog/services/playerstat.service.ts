@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
+import { AuditService } from '../../../common/audit/audit.service';
 import {
   BulkCreatePlayerStatsDto,
   ComputeStatsDto,
@@ -16,12 +17,17 @@ import { validateStatsJson } from '../validators/game-stats.validator';
 
 @Injectable()
 export class PlayerStatService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly auditService: AuditService
+  ) {}
 
   async createPlayerStat(
     tenantId: string,
     matchId: string,
-    dto: CreatePlayerStatDto
+    dto: CreatePlayerStatDto,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
   ): Promise<PlayerStatResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
@@ -125,14 +131,37 @@ export class PlayerStatService {
         },
       });
 
-      return this.formatPlayerStatResponse(playerStat);
+      const formatted = this.formatPlayerStatResponse(playerStat);
+
+      await this.auditService.log({
+        tenantId,
+        action: 'player.stats.record',
+        entity: 'player_stat',
+        entityType: 'ORG_USER',
+        entityId: playerStat.id,
+        orgUserId: await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail),
+        description: 'Recorded player stats',
+        metadata: {
+          matchId,
+          playerId: dto.playerId,
+          mapGameId: dto.mapGameId,
+          statsJson: dto.statsJson,
+          rating: dto.rating,
+          isMvp: dto.isMvp,
+          actorEmail,
+        },
+      });
+
+      return formatted;
     });
   }
 
   async bulkCreatePlayerStats(
     tenantId: string,
     matchId: string,
-    dto: BulkCreatePlayerStatsDto
+    dto: BulkCreatePlayerStatsDto,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
   ): Promise<PlayerStatResponse[]> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
@@ -295,6 +324,23 @@ export class PlayerStatService {
         '✅ Bulk create returning:',
         formatted.map(s => ({ id: s.id, rating: s.rating, isMvp: s.isMvp }))
       );
+      await this.auditService.log({
+        tenantId,
+        action: 'player.stats.import',
+        entity: 'player_stat',
+        entityType: 'ORG_USER',
+        entityId: matchId,
+        orgUserId: await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail),
+        description: 'Bulk recorded player stats',
+        metadata: {
+          matchId,
+          count: formatted.length,
+          players: validatedStats.map(s => s.playerId),
+          mapGameIds: validatedStats.map(s => s.mapGameId),
+          actorEmail,
+        },
+      });
+
       return formatted;
     });
   }
@@ -360,7 +406,9 @@ export class PlayerStatService {
   async updatePlayerStat(
     tenantId: string,
     statId: string,
-    dto: UpdatePlayerStatDto
+    dto: UpdatePlayerStatDto,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
   ): Promise<PlayerStatResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
@@ -417,11 +465,46 @@ export class PlayerStatService {
         },
       });
 
-      return this.formatPlayerStatResponse(updatedStat);
+      const formatted = this.formatPlayerStatResponse(updatedStat);
+
+      await this.auditService.log({
+        tenantId,
+        action: 'player.stats.update',
+        entity: 'player_stat',
+        entityType: 'ORG_USER',
+        entityId: statId,
+        orgUserId: await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail),
+        description: 'Updated player stats',
+        metadata: {
+          matchId: stat.matchId,
+          playerId: stat.playerId,
+          mapGameId: stat.mapGameId,
+          before: {
+            role: stat.role,
+            statsJson: stat.statsJson,
+            rating: stat.rating,
+            isMvp: stat.isMvp,
+          },
+          after: {
+            role: dto.role ?? stat.role,
+            statsJson: dto.statsJson ?? stat.statsJson,
+            rating: dto.rating ?? stat.rating,
+            isMvp: dto.isMvp ?? stat.isMvp,
+          },
+          actorEmail,
+        },
+      });
+
+      return formatted;
     });
   }
 
-  async deletePlayerStat(tenantId: string, statId: string): Promise<void> {
+  async deletePlayerStat(
+    tenantId: string,
+    statId: string,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
+  ): Promise<void> {
     await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
       await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
@@ -441,6 +524,22 @@ export class PlayerStatService {
 
       await tx.playerStat.delete({
         where: { id: statId },
+      });
+
+      await this.auditService.log({
+        tenantId,
+        action: 'player.stats.delete',
+        entity: 'player_stat',
+        entityType: 'ORG_USER',
+        entityId: statId,
+        orgUserId: await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail),
+        description: 'Deleted player stats',
+        metadata: {
+          matchId: stat.matchId,
+          playerId: stat.playerId,
+          mapGameId: stat.mapGameId,
+          actorEmail,
+        },
       });
     });
   }
@@ -532,6 +631,34 @@ export class PlayerStatService {
 
       return { updated: updatedCount, mvpUpdated };
     });
+  }
+
+  private async resolveActorOrgUserId(
+    tenantId: string,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
+  ) {
+    if (actorOrgUserId) {
+      const found = await this.prisma.orgUser.findFirst({
+        where: { id: actorOrgUserId, tenantId },
+        select: { id: true },
+      });
+      if (found) {
+        return actorOrgUserId;
+      }
+    }
+
+    if (actorEmail) {
+      const foundByEmail = await this.prisma.orgUser.findFirst({
+        where: { tenantId, email: actorEmail },
+        select: { id: true },
+      });
+      if (foundByEmail) {
+        return foundByEmail.id;
+      }
+    }
+
+    return null;
   }
 
   private async ensureDefaultRound(tx: any, tenantId: string, match: any) {

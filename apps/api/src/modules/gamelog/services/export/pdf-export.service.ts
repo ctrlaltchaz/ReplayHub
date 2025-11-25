@@ -5,16 +5,18 @@ import * as playwright from 'playwright';
 import { PrismaService } from '../../../../database/prisma.service';
 import { MatchReportExport, MatchResponse } from '../../dto/gamelog.dto';
 import { PlayerStatService } from '../playerstat.service';
+import { AuditService } from '../../../../common/audit/audit.service';
 
 @Injectable()
 export class PdfExportService {
   constructor(
     private prisma: PrismaService,
-    private playerStatService: PlayerStatService
+    private playerStatService: PlayerStatService,
+    private readonly auditService: AuditService
   ) {}
 
   async generateMatchReport(tenantId: string, matchId: string): Promise<MatchReportExport> {
-    return await this.prisma.$transaction(async tx => {
+    const result = await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
       await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
@@ -110,6 +112,22 @@ export class PdfExportService {
         exportedAt: new Date().toISOString(),
       };
     });
+
+    await this.auditService.log({
+      tenantId,
+      action: 'player.stats.export',
+      entity: 'player_stat',
+      entityType: 'ORG_USER',
+      entityId: matchId,
+      description: 'Exported match player stats to PDF',
+      metadata: {
+        matchId,
+        filePath: result.filePath,
+        format: 'pdf',
+      },
+    });
+
+    return result;
   }
 
   private generateMatchReportHtml(match: any): string {

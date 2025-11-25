@@ -52,14 +52,20 @@ export default function GamelogPage() {
   const [filters, setFilters] = useState<MatchesQueryParams>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [hasSelectedTeamManually, setHasSelectedTeamManually] = useState(false);
 
   const canManage = hasPermission("gamelog.manage");
   const canView = hasPermission("gamelog.view");
 
   const { data, isLoading, error } = useMatchesList(slug, filters);
+  const filtersWithoutTeam = useMemo<MatchesQueryParams>(() => {
+    const { teamId, ...rest } = filters;
+    return { ...rest, page: 1, limit: 100 };
+  }, [filters]);
+  const { data: teamsData } = useMatchesList(slug, filtersWithoutTeam);
 
   const teams = useMemo(() => {
-    const list = data?.matches || [];
+    const list = teamsData?.matches || data?.matches || [];
     const map = new Map<string, { id: string; name: string; game?: string; count: number }>();
 
     list.forEach((match) => {
@@ -81,7 +87,7 @@ export default function GamelogPage() {
     return Array.from(map.values()).sort(
       (a, b) => b.count - a.count || a.name.localeCompare(b.name)
     );
-  }, [data?.matches]);
+  }, [teamsData?.matches, data?.matches]);
 
   // Sync selected team with filters/data
   useEffect(() => {
@@ -89,10 +95,10 @@ export default function GamelogPage() {
       setSelectedTeamId(filters.teamId);
       return;
     }
-    if (!selectedTeamId && teams.length > 0) {
-      setSelectedTeamId(teams[0].id);
+    if (!hasSelectedTeamManually) {
+      setSelectedTeamId(null);
     }
-  }, [filters.teamId, selectedTeamId, teams]);
+  }, [filters.teamId, hasSelectedTeamManually]);
 
   const handleFilterChange = (key: keyof MatchesQueryParams, value: string) => {
     if (!value || value === "all") {
@@ -186,6 +192,7 @@ export default function GamelogPage() {
             <Card
               className={`border-2 cursor-pointer ${!selectedTeamId ? "border-primary" : "border-transparent"}`}
               onClick={() => {
+                setHasSelectedTeamManually(true);
                 setSelectedTeamId(null);
                 handleFilterChange("teamId", "all");
               }}
@@ -193,13 +200,17 @@ export default function GamelogPage() {
               <CardContent className="py-1 px-3 flex items-center justify-between">
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground">All Teams</p>
-                  <p className="text-base font-semibold">{data?.matches?.length || 0} matches</p>
+                  <p className="text-base font-semibold">
+                    {teamsData?.total ?? data?.total ?? data?.matches?.length ?? 0} matches
+                  </p>
                 </div>
                 <Badge variant="secondary">Show All</Badge>
               </CardContent>
             </Card>
             {teams.map((team) => {
-              const teamMatches = data?.matches?.filter((m) => m.team?.id === team.id) || [];
+              const teamMatches =
+                (teamsData?.matches || data?.matches || []).filter((m) => m.team?.id === team.id) ||
+                [];
               const lastMatch = teamMatches[0];
               const logo = team.game ? GAMES.find((g) => g.value === team.game)?.logo : undefined;
               return (
@@ -207,6 +218,7 @@ export default function GamelogPage() {
                   key={team.id}
                   className={`cursor-pointer border-2 ${selectedTeamId === team.id ? "border-primary" : "border-transparent"}`}
                   onClick={() => {
+                    setHasSelectedTeamManually(true);
                     setSelectedTeamId(team.id);
                     handleFilterChange("teamId", team.id);
                   }}

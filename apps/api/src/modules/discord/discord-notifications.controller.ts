@@ -53,7 +53,12 @@ export class DiscordNotificationsController {
   ) {
     const dto = CreateScheduledNotificationSchema.parse(body);
     const actorId = req.orgUser?.id ?? req.principal?.id;
-    return this.scheduledNotifications.create(tenantId, dto, actorId);
+    return this.scheduledNotifications.create(
+      tenantId,
+      dto,
+      actorId,
+      req.orgUser?.email ?? (req.principal as any)?.email ?? null
+    );
   }
 
   @Put(':id')
@@ -66,7 +71,13 @@ export class DiscordNotificationsController {
   ) {
     const dto = UpdateScheduledNotificationSchema.parse(body);
     const actorId = req.orgUser?.id ?? req.principal?.id;
-    return this.scheduledNotifications.update(tenantId, id, dto, actorId);
+    return this.scheduledNotifications.update(
+      tenantId,
+      id,
+      dto,
+      actorId,
+      req.orgUser?.email ?? (req.principal as any)?.email ?? null
+    );
   }
 
   @Patch(':id/status')
@@ -74,21 +85,38 @@ export class DiscordNotificationsController {
   async updateStatus(
     @TenantId() tenantId: string,
     @Param('id') id: string,
-    @Body() body: UpdateScheduledNotificationStatusDto
+    @Body() body: UpdateScheduledNotificationStatusDto,
+    @Req() req: Request
   ) {
     const dto = UpdateScheduledNotificationStatusSchema.parse(body);
-    return this.scheduledNotifications.updateStatus(tenantId, id, dto);
+    return this.scheduledNotifications.updateStatus(
+      tenantId,
+      id,
+      dto,
+      req.orgUser?.id ?? req.principal?.id,
+      req.orgUser?.email ?? (req.principal as any)?.email ?? null
+    );
   }
 
   @Post(':id/run-now')
   @Can('org.settings.manage')
-  async runNow(@TenantId() tenantId: string, @Param('id') id: string) {
-    return this.scheduledNotifications.runNow(tenantId, id);
+  async runNow(@TenantId() tenantId: string, @Param('id') id: string, @Req() req: Request) {
+    return this.scheduledNotifications.runNow(
+      tenantId,
+      id,
+      req.orgUser?.id ?? req.principal?.id,
+      req.orgUser?.email ?? (req.principal as any)?.email ?? null
+    );
   }
 
   @Delete(':id')
   @Can('org.settings.manage')
-  async remove(@TenantId() tenantId: string, @Param('id') id: string) {
-    return this.scheduledNotifications.delete(tenantId, id);
+  async remove(@TenantId() tenantId: string, @Param('id') id: string, @Req() req: Request) {
+    return this.scheduledNotifications.delete(
+      tenantId,
+      id,
+      req.orgUser?.id ?? req.principal?.id,
+      req.orgUser?.email ?? (req.principal as any)?.email ?? null
+    );
   }
 }

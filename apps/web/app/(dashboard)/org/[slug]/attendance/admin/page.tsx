@@ -10,6 +10,8 @@ import {
   Clock,
   Download,
   Filter,
+  LogIn,
+  LogOut,
   PlusCircle,
   Trash2,
   XCircle,
@@ -59,6 +61,7 @@ import type { AttendanceDepartment, AttendanceEntry, AttendanceStatus } from "@/
 import type { AttendanceFilters } from "@/hooks/attendance/useAttendanceEntries";
 import type { ProductionSession } from "@/hooks/attendance/useProductionSessions";
 import { apiDelete, apiPatch, apiPost } from "@/lib/api/client";
+import { useApiQuery } from "@/lib/api/query";
 
 const DEPARTMENTS: { label: string; value: AttendanceDepartment }[] = [
   { label: "Broadcasting", value: "broadcasting" },
@@ -76,6 +79,12 @@ const STATUSES: { label: string; value: AttendanceStatus }[] = [
   { label: "Absent", value: "absent" },
   { label: "Auto Clocked Out", value: "auto_clocked_out" },
 ];
+
+type OrgUserListItem = {
+  id: string;
+  displayName?: string | null;
+  email?: string | null;
+};
 
 type SessionFormState = {
   name: string;
@@ -182,6 +191,16 @@ export default function AttendanceAdminPage() {
   const [reviewStatus, setReviewStatus] = useState<AttendanceStatus>("approved");
   const [reviewNotes, setReviewNotes] = useState("");
 
+  const [clockDialogOpen, setClockDialogOpen] = useState(false);
+  const [clocking, setClocking] = useState(false);
+  const [clockOutId, setClockOutId] = useState<string | null>(null);
+  const [manualClockOrgUserId, setManualClockOrgUserId] = useState("");
+  const [manualClockSessionId, setManualClockSessionId] = useState("");
+  const [manualClockDepartment, setManualClockDepartment] =
+    useState<AttendanceDepartment>("production");
+  const [manualClockNotes, setManualClockNotes] = useState("");
+  const [undoClockOutId, setUndoClockOutId] = useState<string | null>(null);
+
   const sessionQueryRange = showUpcomingOnly ? undefined : sessionRange;
 
   const { data: entries, isLoading, refetch } = useAttendanceEntries(slug, filters);
@@ -190,6 +209,14 @@ export default function AttendanceAdminPage() {
     isLoading: sessionsLoading,
     refetch: refetchSessions,
   } = useProductionSessions(slug, sessionQueryRange);
+  const { data: orgUsersResponse, isLoading: orgUsersLoading } = useApiQuery<{
+    users: OrgUserListItem[];
+  }>(`/org/${slug}/users?limit=200`, {
+    apiOptions: { slug },
+    enabled: canManage,
+  });
+  const orgUsers = orgUsersResponse?.users ?? [];
+
   const sortedSessions = useMemo(() => {
     const list = [...sessionList];
     if (showUpcomingOnly) {
@@ -253,6 +280,105 @@ export default function AttendanceAdminPage() {
         description: error instanceof Error ? error.message : "Try again later",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleClockOutEntry = async (entry: AttendanceEntry) => {
+    setClockOutId(entry.id);
+    try {
+      await apiPost(`/org/${slug}/attendance/logger/clock-out`, {
+        attendanceId: entry.id,
+        overrideToken: "admin-panel",
+      });
+      toast({
+        title: "Clocked out",
+        description: `Closed attendance for ${entry.orgUser?.displayName ?? "member"}.`,
+      });
+      refetch();
+    } catch (error) {
+      toast({
+        title: "Unable to clock out",
+        description: error instanceof Error ? error.message : "Try again later",
+        variant: "destructive",
+      });
+    } finally {
+      setClockOutId(null);
+    }
+  };
+
+  const handleUndoClockOutEntry = async (entry: AttendanceEntry) => {
+    setUndoClockOutId(entry.id);
+    try {
+      await apiPatch(`/org/${slug}/attendance/logger/${entry.id}/unclock-out`);
+      toast({
+        title: "Clock-out removed",
+        description: `Reopened attendance for ${entry.orgUser?.displayName ?? "member"}.`,
+      });
+      refetch();
+    } catch (error) {
+      toast({
+        title: "Unable to undo clock-out",
+        description: error instanceof Error ? error.message : "Try again later",
+        variant: "destructive",
+      });
+    } finally {
+      setUndoClockOutId(null);
+    }
+  };
+
+  const openManualClockDialog = () => {
+    const defaultSessionId =
+      filters.sessionId ??
+      sortedSessions.find((session) => session.status === "scheduled")?.id ??
+      sortedSessions[0]?.id ??
+      "";
+    setManualClockSessionId(defaultSessionId);
+    setManualClockOrgUserId("");
+    setManualClockDepartment("production");
+    setManualClockNotes("");
+    setClockDialogOpen(true);
+  };
+
+  const handleManualClockIn = async () => {
+    if (!manualClockOrgUserId) {
+      toast({
+        title: "Select a person",
+        description: "Choose who you want to clock in.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!manualClockSessionId) {
+      toast({
+        title: "Choose a session",
+        description: "Pick a production session to clock into.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setClocking(true);
+    try {
+      await apiPost(`/org/${slug}/attendance/logger/clock-in`, {
+        orgUserId: manualClockOrgUserId,
+        sessionId: manualClockSessionId,
+        department: manualClockDepartment,
+        roleNotes: manualClockNotes || undefined,
+        overrideToken: "admin-panel",
+      });
+      toast({
+        title: "Clocked in",
+        description: "Attendance entry created for this member.",
+      });
+      setClockDialogOpen(false);
+      refetch();
+    } catch (error) {
+      toast({
+        title: "Unable to clock in",
+        description: error instanceof Error ? error.message : "Try again later",
+        variant: "destructive",
+      });
+    } finally {
+      setClocking(false);
     }
   };
 
@@ -519,6 +645,12 @@ export default function AttendanceAdminPage() {
             <CardDescription>All logs for the selected date.</CardDescription>
           </div>
           <div className="flex gap-2">
+            {canManage && (
+              <Button variant="secondary" onClick={openManualClockDialog}>
+                <LogIn className="mr-2 h-4 w-4" />
+                Manual Clock In
+              </Button>
+            )}
             <Button variant="outline" onClick={() => refetch()}>
               Refresh
             </Button>
@@ -624,9 +756,33 @@ export default function AttendanceAdminPage() {
                     </TableCell>
                     {canManage && (
                       <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" onClick={() => handleOpenReview(entry)}>
-                          Review
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          {entry.clockInAt &&
+                            (entry.clockOutAt ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleUndoClockOutEntry(entry)}
+                                disabled={undoClockOutId === entry.id}
+                              >
+                                <LogIn className="mr-1 h-3 w-3" />
+                                {undoClockOutId === entry.id ? "Undoing…" : "Undo clock-out"}
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleClockOutEntry(entry)}
+                                disabled={clockOutId === entry.id}
+                              >
+                                <LogOut className="mr-1 h-3 w-3" />
+                                {clockOutId === entry.id ? "Clocking…" : "Clock out"}
+                              </Button>
+                            ))}
+                          <Button size="sm" variant="ghost" onClick={() => handleOpenReview(entry)}>
+                            Review
+                          </Button>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>
@@ -808,6 +964,95 @@ export default function AttendanceAdminPage() {
               Cancel
             </Button>
             <Button onClick={handleSubmitReview}>Update</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={clockDialogOpen} onOpenChange={setClockDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Manual Clock In</DialogTitle>
+            <DialogDescription>
+              Clock in a member from the admin view and record their department.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Member</Label>
+              <Select
+                value={manualClockOrgUserId || "none"}
+                onValueChange={(value) => setManualClockOrgUserId(value === "none" ? "" : value)}
+                disabled={orgUsersLoading || clocking}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={orgUsersLoading ? "Loading users…" : "Select member"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select member</SelectItem>
+                  {orgUsers.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.displayName || user.email || user.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Session</Label>
+              <Select
+                value={manualClockSessionId || "none"}
+                onValueChange={(value) => setManualClockSessionId(value === "none" ? "" : value)}
+                disabled={clocking}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pick session" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Select session</SelectItem>
+                  {sortedSessions.map((session) => (
+                    <SelectItem key={session.id} value={session.id}>
+                      {session.name} · {format(new Date(session.sessionDate), "PP")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Department</Label>
+              <Select
+                value={manualClockDepartment}
+                onValueChange={(value) => setManualClockDepartment(value as AttendanceDepartment)}
+                disabled={clocking}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DEPARTMENTS.map((dept) => (
+                    <SelectItem key={dept.value} value={dept.value}>
+                      {dept.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Role Notes (optional)</Label>
+              <Textarea
+                value={manualClockNotes}
+                onChange={(event) => setManualClockNotes(event.target.value)}
+                placeholder="Camera 2, Graphics, Floor Manager, etc."
+                disabled={clocking}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClockDialogOpen(false)} disabled={clocking}>
+              Cancel
+            </Button>
+            <Button onClick={handleManualClockIn} disabled={clocking}>
+              {clocking ? "Clocking…" : "Clock In"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -57,7 +57,12 @@ export class ProductionSessionsController {
     @Body() dto: CreateSessionDto
   ) {
     const actualTenantId = req.tenant?.id || tenantId;
-    return this.sessionsService.createSession(actualTenantId, req.orgUser?.id, dto);
+    return this.sessionsService.createSession(
+      actualTenantId,
+      req.orgUser?.id,
+      dto,
+      req.orgUser?.email ?? req.globalUser?.email ?? null
+    );
   }
 
   @Patch(':sessionId')
@@ -70,7 +75,13 @@ export class ProductionSessionsController {
     @Body() dto: UpdateSessionDto
   ) {
     const actualTenantId = req.tenant?.id || tenantId;
-    return this.sessionsService.updateSession(actualTenantId, sessionId, dto);
+    return this.sessionsService.updateSession(
+      actualTenantId,
+      sessionId,
+      dto,
+      req.orgUser?.id,
+      req.orgUser?.email ?? req.globalUser?.email ?? null
+    );
   }
 
   @Delete(':sessionId')
@@ -82,7 +93,12 @@ export class ProductionSessionsController {
     @Param('sessionId') sessionId: string
   ) {
     const actualTenantId = req.tenant?.id || tenantId;
-    await this.sessionsService.cancelSession(actualTenantId, sessionId);
+    await this.sessionsService.cancelSession(
+      actualTenantId,
+      sessionId,
+      req.orgUser?.id,
+      req.orgUser?.email ?? req.globalUser?.email ?? null
+    );
     return { success: true };
   }
 
@@ -95,7 +111,12 @@ export class ProductionSessionsController {
     @Param('sessionId') sessionId: string
   ) {
     const actualTenantId = req.tenant?.id || tenantId;
-    await this.sessionsService.removeSession(actualTenantId, sessionId);
+    await this.sessionsService.removeSession(
+      actualTenantId,
+      sessionId,
+      req.orgUser?.id,
+      req.orgUser?.email ?? req.globalUser?.email ?? null
+    );
     return { success: true };
   }
 

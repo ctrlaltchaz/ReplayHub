@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { DiscordBotService } from './discord-bot.service';
+import { AuditService } from '../../common/audit/audit.service';
 import {
   CreateScheduledNotificationDto,
   UpdateScheduledNotificationDto,
@@ -17,7 +18,8 @@ export class DiscordScheduledNotificationsService {
 
   constructor(
     private prisma: PrismaService,
-    private botService: DiscordBotService
+    private botService: DiscordBotService,
+    private readonly auditService: AuditService
   ) {}
 
   async list(tenantId: string) {
@@ -33,14 +35,19 @@ export class DiscordScheduledNotificationsService {
     });
   }
 
-  async create(tenantId: string, dto: CreateScheduledNotificationDto, actorId?: string) {
+  async create(
+    tenantId: string,
+    dto: CreateScheduledNotificationDto,
+    actorId?: string | null,
+    actorEmail?: string | null
+  ) {
     const firstRun = new Date(dto.firstRunAt);
     const color = this.normalizeColor(dto.color);
     if (dto.deliveryMethod === 'channel' && !dto.channelId) {
       throw new BadRequestException('Channel is required for channel delivery');
     }
 
-    return this.prisma.discordScheduledNotification.create({
+    const created = await this.prisma.discordScheduledNotification.create({
       data: {
         tenantId,
         name: dto.name,
@@ -64,13 +71,36 @@ export class DiscordScheduledNotificationsService {
         updatedBy: actorId,
       },
     });
+
+    await this.auditService.log({
+      tenantId,
+      action: 'discord.scheduled_notification.create',
+      entity: 'discord_notification',
+      entityType: 'ORG_USER',
+      entityId: created.id,
+      orgUserId: await this.resolveActorOrgUserId(tenantId, actorId, actorEmail),
+      description: 'Created Discord scheduled notification',
+      metadata: {
+        name: dto.name,
+        channelId: dto.channelId,
+        deliveryMethod: dto.deliveryMethod,
+        firstRunAt: firstRun,
+        recurrenceType: dto.recurrenceType,
+        recurrenceInterval: dto.recurrenceInterval,
+        endAfterRuns: dto.endAfterRuns,
+        actorEmail,
+      },
+    });
+
+    return created;
   }
 
   async update(
     tenantId: string,
     id: string,
     dto: UpdateScheduledNotificationDto,
-    actorId?: string
+    actorId?: string | null,
+    actorEmail?: string | null
   ) {
     const notification = await this.getOrThrow(tenantId, id);
     const nextRunAt = dto.firstRunAt ? new Date(dto.firstRunAt) : notification.nextRunAt;
@@ -82,7 +112,7 @@ export class DiscordScheduledNotificationsService {
       throw new BadRequestException('Channel is required for channel delivery');
     }
 
-    return this.prisma.discordScheduledNotification.update({
+    const updated = await this.prisma.discordScheduledNotification.update({
       where: { id },
       data: {
         name: dto.name ?? notification.name,
@@ -114,9 +144,32 @@ export class DiscordScheduledNotificationsService {
         updatedBy: actorId ?? notification.updatedBy,
       },
     });
+
+    await this.auditService.log({
+      tenantId,
+      action: 'discord.scheduled_notification.update',
+      entity: 'discord_notification',
+      entityType: 'ORG_USER',
+      entityId: id,
+      orgUserId: await this.resolveActorOrgUserId(tenantId, actorId, actorEmail),
+      description: 'Updated Discord scheduled notification',
+      metadata: {
+        before: notification,
+        after: updated,
+        actorEmail,
+      },
+    });
+
+    return updated;
   }
 
-  async updateStatus(tenantId: string, id: string, dto: UpdateScheduledNotificationStatusDto) {
+  async updateStatus(
+    tenantId: string,
+    id: string,
+    dto: UpdateScheduledNotificationStatusDto,
+    actorId?: string | null,
+    actorEmail?: string | null
+  ) {
     const notification = await this.getOrThrow(tenantId, id);
 
     if (dto.status === 'active' && notification.status === 'completed') {
@@ -131,21 +184,68 @@ export class DiscordScheduledNotificationsService {
       nextRunAt = this.computeNextRun(notification, new Date());
     }
 
-    return this.prisma.discordScheduledNotification.update({
+    const updated = await this.prisma.discordScheduledNotification.update({
       where: { id },
       data: { status: dto.status, nextRunAt },
     });
+
+    await this.auditService.log({
+      tenantId,
+      action: 'discord.scheduled_notification.update',
+      entity: 'discord_notification',
+      entityType: 'ORG_USER',
+      entityId: id,
+      orgUserId: await this.resolveActorOrgUserId(tenantId, actorId, actorEmail),
+      description: 'Updated Discord scheduled notification status',
+      metadata: {
+        status: dto.status,
+        nextRunAt,
+        actorEmail,
+      },
+    });
+
+    return updated;
   }
 
-  async delete(tenantId: string, id: string) {
+  async delete(tenantId: string, id: string, actorId?: string | null, actorEmail?: string | null) {
     await this.getOrThrow(tenantId, id);
     await this.prisma.discordScheduledNotification.delete({ where: { id } });
+
+    await this.auditService.log({
+      tenantId,
+      action: 'discord.scheduled_notification.delete',
+      entity: 'discord_notification',
+      entityType: 'ORG_USER',
+      entityId: id,
+      orgUserId: await this.resolveActorOrgUserId(tenantId, actorId, actorEmail),
+      description: 'Deleted Discord scheduled notification',
+      metadata: { actorEmail },
+    });
+
     return { success: true };
   }
 
-  async runNow(tenantId: string, id: string) {
+  async runNow(tenantId: string, id: string, actorId?: string | null, actorEmail?: string | null) {
     const notification = await this.getOrThrow(tenantId, id);
     const result = await this.executeNotification(notification);
+
+    await this.auditService.log({
+      tenantId,
+      action: 'discord.message.send',
+      entity: 'discord_notification',
+      entityType: 'ORG_USER',
+      entityId: id,
+      orgUserId: await this.resolveActorOrgUserId(tenantId, actorId, actorEmail),
+      description: 'Manually triggered Discord scheduled notification',
+      metadata: {
+        channelId: notification.channelId,
+        deliveryMethod: notification.deliveryMethod,
+        status: result.success ? 'sent' : 'failed',
+        errorMessage: result.errorMessage,
+        actorEmail,
+      },
+    });
+
     return { success: result.success };
   }
 
@@ -380,5 +480,33 @@ export class DiscordScheduledNotificationsService {
       throw new NotFoundException('Scheduled notification not found');
     }
     return notification;
+  }
+
+  private async resolveActorOrgUserId(
+    tenantId: string,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
+  ) {
+    if (actorOrgUserId) {
+      const found = await this.prisma.orgUser.findFirst({
+        where: { id: actorOrgUserId, tenantId },
+        select: { id: true },
+      });
+      if (found) {
+        return actorOrgUserId;
+      }
+    }
+
+    if (actorEmail) {
+      const foundByEmail = await this.prisma.orgUser.findFirst({
+        where: { tenantId, email: actorEmail },
+        select: { id: true },
+      });
+      if (foundByEmail) {
+        return foundByEmail.id;
+      }
+    }
+
+    return null;
   }
 }

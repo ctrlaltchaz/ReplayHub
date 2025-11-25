@@ -18,6 +18,7 @@ import {
   type UnifiedOrgMembership,
   type UnifiedUserProfile,
 } from "@/lib/auth/session";
+import { ApiError } from "@/lib/api/errors";
 import * as React from "react";
 
 interface AuthContextType {
@@ -29,6 +30,8 @@ interface AuthContextType {
   permissions: PermissionKey[];
   isGlobalAdmin: boolean;
   hasPermission: (required?: string | string[]) => boolean;
+  isUnauthenticated: boolean;
+  authError: ApiError | null;
 
   // Actions
   loginGlobal: (credentials: { email: string; password: string }) => Promise<void>;
@@ -60,6 +63,7 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
     data: sessionUser,
     isLoading: isLoadingSession,
     refetch: refetchSession,
+    error: sessionError,
   } = useUnifiedSession({
     // Avoid hammering the session endpoint (helps prevent 429s/rate limits)
     staleTime: 5 * 60 * 1000, // cache session data for 5 minutes
@@ -286,6 +290,8 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
       isLoadingGlobal: isLoadingSession,
       isLoadingOrg,
       isPermissionsReady,
+      isUnauthenticated: !isLoadingSession && !!sessionError?.isAuthError,
+      authError: sessionError ?? null,
     }),
     [
       sessionUser,
@@ -305,6 +311,7 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
       isLoadingSession,
       isLoadingOrg,
       isPermissionsReady,
+      sessionError,
     ]
   );
 

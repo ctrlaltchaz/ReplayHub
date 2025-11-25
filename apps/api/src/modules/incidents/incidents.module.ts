@@ -4,6 +4,7 @@ import { DatabaseModule } from '../../database/database.module';
 import { GlobalAuthModule } from '../global-auth/global-auth.module';
 import { OrgAuthModule } from '../org-auth/org-auth.module';
 import { RbacModule } from '../rbac/rbac.module';
+import { AuditModule } from '../../common/audit/audit.module';
 
 // Services
 import { AttendanceService } from './services/attendance.service';
@@ -17,28 +18,16 @@ import { ReportsController } from './controllers/reports.controller';
 import { TestDebugController } from './controllers/test-debug.controller';
 
 @Module({
-    imports: [
-        forwardRef(() => TenantModule),
-        forwardRef(() => GlobalAuthModule),
-        forwardRef(() => OrgAuthModule),
-        forwardRef(() => RbacModule),
-        DatabaseModule,
-    ],
-    providers: [
-        IncidentsService,
-        AttendanceService,
-        ReportsService,
-    ],
-    controllers: [
-        IncidentsController,
-        AttendanceController,
-        ReportsController,
-        TestDebugController,
-    ],
-    exports: [
-        IncidentsService,
-        AttendanceService,
-        ReportsService,
-    ],
+  imports: [
+    forwardRef(() => TenantModule),
+    forwardRef(() => GlobalAuthModule),
+    forwardRef(() => OrgAuthModule),
+    forwardRef(() => RbacModule),
+    DatabaseModule,
+    AuditModule,
+  ],
+  providers: [IncidentsService, AttendanceService, ReportsService],
+  controllers: [IncidentsController, AttendanceController, ReportsController, TestDebugController],
+  exports: [IncidentsService, AttendanceService, ReportsService],
 })
-export class IncidentsModule { }
+export class IncidentsModule {}

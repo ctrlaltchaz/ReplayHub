@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { AuditModule } from '../../common/audit/audit.module';
 import { TenantAccessGuard } from '../../common/tenant/guards/tenant-access.guard';
 import { UnifiedTenantAuthGuard } from '../../common/tenant/guards/unified-tenant-auth.guard';
 import { TenantModule } from '../../common/tenant/tenant.module';
@@ -12,15 +13,22 @@ import { PermissionService } from './services/permission.service';
 import { RoleService } from './services/role.service';
 
 @Module({
-    imports: [
-        forwardRef(() => TenantModule),
-        forwardRef(() => GlobalAuthModule),
-        DatabaseModule,
-        OrgAuthModule,
-        UniversalAuthModule,
-    ],
-    controllers: [RbacController],
-    providers: [PermissionService, RoleService, PermissionGuard, TenantAccessGuard, UnifiedTenantAuthGuard],
-    exports: [PermissionService, RoleService, PermissionGuard, TenantAccessGuard],
+  imports: [
+    forwardRef(() => TenantModule),
+    forwardRef(() => GlobalAuthModule),
+    DatabaseModule,
+    OrgAuthModule,
+    UniversalAuthModule,
+    AuditModule,
+  ],
+  controllers: [RbacController],
+  providers: [
+    PermissionService,
+    RoleService,
+    PermissionGuard,
+    TenantAccessGuard,
+    UnifiedTenantAuthGuard,
+  ],
+  exports: [PermissionService, RoleService, PermissionGuard, TenantAccessGuard],
 })
-export class RbacModule { }
+export class RbacModule {}

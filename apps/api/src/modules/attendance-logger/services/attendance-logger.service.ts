@@ -111,7 +111,7 @@ export class AttendanceLoggerService {
       tenantId,
       action: 'attendance.clock_in',
       entity: 'attendance',
-      entityType: 'attendance',
+      entityType: 'ORG_USER',
       entityId: result.id,
       description: dto.absenceReason ? 'Logged absence' : 'Clocked in',
       orgUserId: result.orgUserId,
@@ -122,6 +122,21 @@ export class AttendanceLoggerService {
         override: !!dto.overrideToken,
       },
     });
+
+    if (dto.overrideToken) {
+      await this.auditService.log({
+        tenantId,
+        action: 'attendance.policy.override',
+        entity: 'attendance',
+        entityType: 'ORG_USER',
+        entityId: result.id,
+        description: 'Attendance policy override used during clock in',
+        orgUserId: result.orgUserId,
+        metadata: {
+          override: true,
+        },
+      });
+    }
 
     return result;
   }
@@ -167,12 +182,63 @@ export class AttendanceLoggerService {
       tenantId,
       action: 'attendance.clock_out',
       entity: 'attendance',
-      entityType: 'attendance',
+      entityType: 'ORG_USER',
       entityId: result.id,
       description: 'Clocked out',
       orgUserId: result.orgUserId,
       metadata: {
         override: !!dto.overrideToken,
+      },
+    });
+
+    return result;
+  }
+
+  async undoClockOut(
+    tenantId: string,
+    actorOrgUserId: string,
+    attendanceId: string
+  ): Promise<AttendanceLoggerResponse> {
+    let previousStatus: AttendanceReviewStatusDto | null = null;
+    const result = await this.prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+
+      const attendance = await tx.attendance.findFirst({
+        where: { id: attendanceId, tenantId },
+        include: this.defaultInclude,
+      });
+      if (!attendance) throw new NotFoundException('Attendance entry not found');
+      if (!attendance.clockOutAt) {
+        throw new ConflictException('Attendance is not clocked out');
+      }
+      previousStatus = attendance.status as AttendanceReviewStatusDto;
+
+      const updated = await tx.attendance.update({
+        where: { id: attendance.id },
+        data: {
+          clockOutAt: null,
+          autoClockOut: false,
+          status: AttendanceReviewStatusDto.PENDING,
+          updatedAt: new Date(),
+        },
+        include: this.defaultInclude,
+      });
+
+      return this.mapAttendance(updated);
+    });
+
+    await this.auditService.log({
+      tenantId,
+      action: 'attendance.clock_out_undo',
+      entity: 'attendance',
+      entityType: 'ORG_USER',
+      entityId: result.id,
+      description: 'Clock out removed',
+      orgUserId: actorOrgUserId,
+      metadata: {
+        orgUserId: result.orgUserId,
+        previousStatus,
+        newStatus: result.status,
       },
     });
 
@@ -235,7 +301,7 @@ export class AttendanceLoggerService {
       tenantId,
       action: 'attendance.absence',
       entity: 'attendance',
-      entityType: 'attendance',
+      entityType: 'ORG_USER',
       entityId: result.id,
       description: 'Logged absence reason',
       orgUserId: result.orgUserId,
@@ -312,7 +378,7 @@ export class AttendanceLoggerService {
         tenantId,
         action: 'attendance.auto_clock_out',
         entity: 'attendance',
-        entityType: 'attendance',
+        entityType: 'ORG_USER',
         entityId: entry.id,
         description: 'Auto clocked out at 6pm',
         orgUserId: entry.orgUserId,
@@ -411,7 +477,7 @@ export class AttendanceLoggerService {
       tenantId,
       action: 'attendance.review',
       entity: 'attendance',
-      entityType: 'attendance',
+      entityType: 'ORG_USER',
       entityId: result.id,
       description: `Tutor review set status ${result.status}`,
       orgUserId: reviewerOrgUserRecord?.id ?? reviewerOrgUserId,
@@ -420,6 +486,21 @@ export class AttendanceLoggerService {
         overrideReason: dto.overrideReason,
       },
     });
+
+    if (dto.overrideReason) {
+      await this.auditService.log({
+        tenantId,
+        action: 'attendance.policy.override',
+        entity: 'attendance',
+        entityType: 'ORG_USER',
+        entityId: result.id,
+        description: 'Attendance policy overridden during review',
+        orgUserId: reviewerOrgUserRecord?.id ?? reviewerOrgUserId,
+        metadata: {
+          overrideReason: dto.overrideReason,
+        },
+      });
+    }
 
     return result;
   }
@@ -577,12 +658,15 @@ export class AttendanceLoggerService {
     identifier: string
   ) {
     const existing = await tx.orgUser.findFirst({
-      where: { id: identifier, tenantId, isActive: true },
+      where: { id: identifier, tenantId },
     });
     if (existing) return existing;
 
     const membership = await tx.userOrganisationMembership.findFirst({
-      where: { id: identifier, tenantId, isActive: true },
+      where: {
+        tenantId,
+        OR: [{ id: identifier }, { userId: identifier }, { email: identifier }],
+      },
     });
     if (!membership) {
       throw new NotFoundException(

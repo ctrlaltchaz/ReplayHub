@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { DiscordService } from '../../discord/discord.service';
+import { AuditService } from '../../../common/audit/audit.service';
 import { CreateMatchDto, MatchResponse, QueryMatchesDto, UpdateMatchDto } from '../dto/gamelog.dto';
 import { PlayerStatService } from './playerstat.service';
 
@@ -14,12 +15,19 @@ export class GameLogService {
   constructor(
     private prisma: PrismaService,
     private discordService: DiscordService,
+    private auditService: AuditService,
     private playerStatService: PlayerStatService
   ) {}
 
   // ===== MATCH MANAGEMENT =====
 
-  async createMatch(tenantId: string, userId: string, dto: CreateMatchDto): Promise<MatchResponse> {
+  async createMatch(
+    tenantId: string,
+    userId: string,
+    dto: CreateMatchDto,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
+  ): Promise<MatchResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
       await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
@@ -105,7 +113,33 @@ export class GameLogService {
         },
       });
 
-      return this.formatMatchResponse(match);
+      const formatted = this.formatMatchResponse(match);
+
+      await this.auditService.log({
+        tenantId,
+        action: 'gamelog.entry.create',
+        entity: 'gamelog',
+        entityType: 'ORG_USER',
+        entityId: match.id,
+        orgUserId: await this.resolveActorOrgUserId(
+          tenantId,
+          actorOrgUserId ?? userId ?? null,
+          actorEmail
+        ),
+        description: 'Created gamelog entry',
+        metadata: {
+          teamId: dto.teamId,
+          opponent: dto.opponent,
+          tournament: dto.tournament,
+          stage: dto.stage,
+          bestOf: dto.bestOf,
+          lineupId,
+          eventId: dto.eventId,
+          actorEmail,
+        },
+      });
+
+      return formatted;
     });
   }
 
@@ -221,7 +255,9 @@ export class GameLogService {
   async updateMatch(
     tenantId: string,
     matchId: string,
-    dto: UpdateMatchDto
+    dto: UpdateMatchDto,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
   ): Promise<MatchResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
@@ -301,11 +337,33 @@ export class GameLogService {
         },
       });
 
-      return this.formatMatchResponse(updatedMatch);
+      const formatted = this.formatMatchResponse(updatedMatch);
+
+      await this.auditService.log({
+        tenantId,
+        action: 'gamelog.entry.update',
+        entity: 'gamelog',
+        entityType: 'ORG_USER',
+        entityId: matchId,
+        orgUserId: await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail),
+        description: 'Updated gamelog entry',
+        metadata: {
+          before: existingMatch,
+          after: updatedMatch,
+          actorEmail,
+        },
+      });
+
+      return formatted;
     });
   }
 
-  async deleteMatch(tenantId: string, matchId: string): Promise<void> {
+  async deleteMatch(
+    tenantId: string,
+    matchId: string,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
+  ): Promise<void> {
     await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
       await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
@@ -324,12 +382,34 @@ export class GameLogService {
       await tx.match.delete({
         where: { id: matchId },
       });
+
+      await this.auditService.log({
+        tenantId,
+        action: 'gamelog.entry.delete',
+        entity: 'gamelog',
+        entityType: 'ORG_USER',
+        entityId: matchId,
+        orgUserId: await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail),
+        description: 'Deleted gamelog entry',
+        metadata: {
+          teamId: match.teamId,
+          opponent: match.opponent,
+          tournament: match.tournament,
+          actorEmail,
+        },
+      });
     });
   }
 
   // ===== MATCH WORKFLOW =====
 
-  async submitMatch(tenantId: string, matchId: string, notes?: string): Promise<MatchResponse> {
+  async submitMatch(
+    tenantId: string,
+    matchId: string,
+    notes?: string,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
+  ): Promise<MatchResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
       await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
@@ -374,7 +454,23 @@ export class GameLogService {
         },
       });
 
-      return this.formatMatchResponse(updatedMatch);
+      const formatted = this.formatMatchResponse(updatedMatch);
+
+      await this.auditService.log({
+        tenantId,
+        action: 'gamelog.entry.submit',
+        entity: 'gamelog',
+        entityType: 'ORG_USER',
+        entityId: matchId,
+        orgUserId: await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail),
+        description: 'Submitted gamelog entry for approval',
+        metadata: {
+          notes,
+          actorEmail,
+        },
+      });
+
+      return formatted;
     });
   }
 
@@ -382,7 +478,9 @@ export class GameLogService {
     tenantId: string,
     matchId: string,
     notes?: string,
-    forceApprove = false
+    forceApprove = false,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
   ): Promise<MatchResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
@@ -476,11 +574,34 @@ export class GameLogService {
         console.error('Failed to send Discord notification:', discordError);
       }
 
-      return this.formatMatchResponse(updatedMatch);
+      const formatted = this.formatMatchResponse(updatedMatch);
+
+      await this.auditService.log({
+        tenantId,
+        action: 'gamelog.publish',
+        entity: 'gamelog',
+        entityType: 'ORG_USER',
+        entityId: matchId,
+        orgUserId: await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail),
+        description: 'Approved/published gamelog entry',
+        metadata: {
+          notes,
+          forceApprove,
+          actorEmail,
+        },
+      });
+
+      return formatted;
     });
   }
 
-  async unapproveMatch(tenantId: string, matchId: string, reason: string): Promise<MatchResponse> {
+  async unapproveMatch(
+    tenantId: string,
+    matchId: string,
+    reason: string,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
+  ): Promise<MatchResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
       await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
@@ -517,7 +638,23 @@ export class GameLogService {
         },
       });
 
-      return this.formatMatchResponse(updatedMatch);
+      const formatted = this.formatMatchResponse(updatedMatch);
+
+      await this.auditService.log({
+        tenantId,
+        action: 'gamelog.unpublish',
+        entity: 'gamelog',
+        entityType: 'ORG_USER',
+        entityId: matchId,
+        orgUserId: await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail),
+        description: 'Unapproved gamelog entry',
+        metadata: {
+          reason,
+          actorEmail,
+        },
+      });
+
+      return formatted;
     });
   }
 
@@ -620,5 +757,33 @@ export class GameLogService {
       // Achievement creation is non-critical, log but don't fail
       console.warn('Failed to create match achievement:', error);
     }
+  }
+
+  private async resolveActorOrgUserId(
+    tenantId: string,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
+  ) {
+    if (actorOrgUserId) {
+      const found = await this.prisma.orgUser.findFirst({
+        where: { id: actorOrgUserId, tenantId },
+        select: { id: true },
+      });
+      if (found) {
+        return actorOrgUserId;
+      }
+    }
+
+    if (actorEmail) {
+      const foundByEmail = await this.prisma.orgUser.findFirst({
+        where: { tenantId, email: actorEmail },
+        select: { id: true },
+      });
+      if (foundByEmail) {
+        return foundByEmail.id;
+      }
+    }
+
+    return null;
   }
 }

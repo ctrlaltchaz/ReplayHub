@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AuditModule } from '../../common/audit/audit.module';
 import { TenantModule } from '../../common/tenant/tenant.module';
 import { DatabaseModule } from '../../database/database.module';
 import { GlobalAuthModule } from '../global-auth/global-auth.module';
@@ -16,6 +17,7 @@ import { PasswordsService } from './services/passwords.service';
     forwardRef(() => OrgAuthModule),
     forwardRef(() => GlobalAuthModule),
     forwardRef(() => RbacModule),
+    AuditModule,
   ],
   controllers: [PasswordsController],
   providers: [PasswordsService],

@@ -4,12 +4,16 @@ import { AuditService } from '../audit.service';
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
-  constructor(private auditService: AuditService) { }
+  constructor(private auditService: AuditService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
     const method = request.method;
     const url = request.url;
+    const orgUserId = request.orgUser?.id ?? null;
+    const orgUserEmail = request.orgUser?.email ?? null;
+    const orgUserName =
+      request.orgUser?.displayName ?? request.user?.name ?? request.user?.email ?? null;
 
     // Only audit state-changing operations
     if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
@@ -34,10 +38,16 @@ export class AuditInterceptor implements NestInterceptor {
               entity: this.getResourceType(url),
               resourceType: this.getResourceType(url),
               resourceId: this.getResourceId(url),
+              entityType: this.getResourceType(url)?.toUpperCase(),
               endpoint: request.originalUrl ?? url,
               method,
               ipAddress: request.ip,
               userAgent: request.headers['user-agent'],
+              orgUserId,
+              metadata: {
+                actorEmail: orgUserEmail,
+                actorName: orgUserName,
+              },
             })
             .catch(error => {
               console.error('Failed to log audit entry:', error);

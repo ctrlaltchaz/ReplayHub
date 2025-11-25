@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 import { Request } from 'express';
 import { PrismaService } from '../../../database/prisma.service';
+import { AuditService } from '../../../common/audit/audit.service';
 import { CreatePasswordDto, PasswordQueryDto, UpdatePasswordDto } from '../dto/password.dto';
 
 type SanitizedPassword = {
@@ -26,7 +27,8 @@ export class PasswordsService {
 
   constructor(
     private prisma: PrismaService,
-    private configService: ConfigService
+    private configService: ConfigService,
+    private readonly auditService: AuditService
   ) {
     this.baseEncryptionKey = this.configService.get<string>('PASSWORD_ENCRYPTION_KEY') || '';
     if (!this.baseEncryptionKey) {
@@ -78,7 +80,7 @@ export class PasswordsService {
     return rest;
   }
 
-  private async logAudit(
+  private async logPasswordAudit(
     tx: Prisma.TransactionClient,
     tenantId: string,
     passwordId: string,
@@ -96,6 +98,36 @@ export class PasswordsService {
         membershipId,
       },
     });
+    await this.auditService.log({
+      tenantId,
+      action: this.mapAction(action),
+      entity: 'password',
+      entityType: 'ORG_USER',
+      entityId: passwordId,
+      orgUserId: membershipId,
+      description: `Password ${action.toLowerCase()}`,
+      metadata: {
+        membershipId,
+        passwordId,
+      },
+      ipAddress: req?.ip,
+      userAgent: req?.headers['user-agent'] as string,
+    });
+  }
+
+  private mapAction(action: 'VIEW' | 'CREATE' | 'UPDATE' | 'DELETE'): string {
+    switch (action) {
+      case 'VIEW':
+        return 'password.view';
+      case 'CREATE':
+        return 'password.create';
+      case 'UPDATE':
+        return 'password.update';
+      case 'DELETE':
+        return 'password.delete';
+      default:
+        return 'password.unknown';
+    }
   }
 
   async createPassword(tenantId: string, orgUserId: string, dto: CreatePasswordDto, req?: Request) {
@@ -132,7 +164,7 @@ export class PasswordsService {
         },
       });
 
-      await this.logAudit(tx, tenantId, entry.id, orgUserId, 'CREATE', req);
+      await this.logPasswordAudit(tx, tenantId, entry.id, orgUserId, 'CREATE', req);
 
       return this.sanitize(entry);
     });
@@ -186,7 +218,7 @@ export class PasswordsService {
       }
 
       // Audit before returning secret
-      await this.logAudit(tx, tenantId, id, orgUserId, 'VIEW', req);
+      await this.logPasswordAudit(tx, tenantId, id, orgUserId, 'VIEW', req);
 
       const password = this.decryptPassword(tenantId, entry.passwordEncrypted);
 
@@ -246,7 +278,7 @@ export class PasswordsService {
         data,
       });
 
-      await this.logAudit(tx, tenantId, id, orgUserId, 'UPDATE', req);
+      await this.logPasswordAudit(tx, tenantId, id, orgUserId, 'UPDATE', req);
 
       return this.sanitize(updated);
     });
@@ -264,7 +296,7 @@ export class PasswordsService {
         throw new NotFoundException('Password entry not found');
       }
 
-      await this.logAudit(tx, tenantId, id, orgUserId, 'DELETE', req);
+      await this.logPasswordAudit(tx, tenantId, id, orgUserId, 'DELETE', req);
 
       await tx.passwordAuditLog.deleteMany({
         where: { tenantId, passwordId: id },

@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { AuditModule } from '../../common/audit/audit.module';
 import { TenantModule } from '../../common/tenant/tenant.module';
 import { DatabaseModule } from '../../database/database.module';
 import { GlobalAuthModule } from '../global-auth/global-auth.module';
@@ -8,15 +9,16 @@ import { OrgUserController } from './org-user.controller';
 import { OrgUserService } from './org-user.service';
 
 @Module({
-    imports: [
-        forwardRef(() => TenantModule),
-        forwardRef(() => GlobalAuthModule),
-        DatabaseModule,
-        RbacModule,
-        OrgAuthModule,
-    ],
-    controllers: [OrgUserController],
-    providers: [OrgUserService],
-    exports: [OrgUserService],
+  imports: [
+    forwardRef(() => TenantModule),
+    forwardRef(() => GlobalAuthModule),
+    DatabaseModule,
+    RbacModule,
+    OrgAuthModule,
+    AuditModule,
+  ],
+  controllers: [OrgUserController],
+  providers: [OrgUserService],
+  exports: [OrgUserService],
 })
-export class OrgUserModule { }
+export class OrgUserModule {}
