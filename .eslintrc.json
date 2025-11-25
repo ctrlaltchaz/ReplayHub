@@ -11,6 +11,7 @@
     ".next/",
     "build/",
     "apps/api/src/generated/",
+    "apps/api/generated/",
     "apps/api/scripts/",
     "**/*.d.ts"
   ],
@@ -38,7 +39,12 @@
         "browser": true,
         "es2021": true
       },
-      "extends": ["eslint:recommended", "next/core-web-vitals"]
+      "extends": ["eslint:recommended", "next/core-web-vitals"],
+      "settings": {
+        "next": {
+          "rootDir": ["apps/web"]
+        }
+      }
     },
     {
       "files": ["**/*.{js,jsx}"],
