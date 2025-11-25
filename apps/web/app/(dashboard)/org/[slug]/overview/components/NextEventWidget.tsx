@@ -120,7 +120,7 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
 
   if (loading) {
     return (
-      <Card className="hover:shadow-lg transition-shadow">
+      <Card className="hover:shadow-lg transition-shadow h-full flex flex-col">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 font-montserrat">
             <Calendar className="h-5 w-5 text-primary" />
@@ -128,7 +128,7 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
           </CardTitle>
           <CardDescription>Loading your schedule...</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1">
           <div className="animate-pulse space-y-3">
             <div className="h-4 bg-muted rounded w-3/4" />
             <div className="h-4 bg-muted rounded w-1/2" />
@@ -145,7 +145,7 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
 
   if (!playerInfo) {
     return (
-      <Card className="hover:shadow-lg transition-shadow">
+      <Card className="hover:shadow-lg transition-shadow h-full flex flex-col">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 font-montserrat">
             <Calendar className="h-5 w-5 text-primary" />
@@ -153,7 +153,7 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
           </CardTitle>
           <CardDescription>No player profile associated with your account</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1">
           <p className="text-sm text-muted-foreground">
             Ask an admin to create a player profile and link it to your account to see your upcoming
             events.
@@ -165,7 +165,7 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
 
   if (!playerInfo.teams?.length) {
     return (
-      <Card className="hover:shadow-lg transition-shadow">
+      <Card className="hover:shadow-lg transition-shadow h-full flex flex-col">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 font-montserrat">
             <Calendar className="h-5 w-5 text-primary" />
@@ -173,7 +173,7 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
           </CardTitle>
           <CardDescription>Not currently assigned to any teams</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1">
           <p className="text-sm text-muted-foreground">
             Join a team to see your upcoming events and tournaments!
           </p>
@@ -184,7 +184,7 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
 
   if (!nextEvent) {
     return (
-      <Card className="hover:shadow-lg transition-shadow">
+      <Card className="hover:shadow-lg transition-shadow h-full flex flex-col">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 font-montserrat">
             <Calendar className="h-5 w-5 text-primary" />
@@ -192,7 +192,7 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
           </CardTitle>
           <CardDescription>No upcoming events scheduled</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1">
           <p className="text-sm text-muted-foreground">
             You're currently on {playerInfo.teams.length} team
             {playerInfo.teams.length !== 1 ? "s" : ""}, but no events are scheduled yet.
@@ -220,7 +220,7 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
       .filter(Boolean) || [];
 
   return (
-    <Card className="hover:shadow-lg transition-shadow border-primary/20">
+    <Card className="hover:shadow-lg transition-shadow border-primary/20 h-full flex flex-col">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 font-montserrat">
           <EventIcon className="h-5 w-5 text-primary" />
@@ -228,7 +228,7 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
         </CardTitle>
         <CardDescription>{formatDistanceToNow(eventStart, { addSuffix: true })}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 flex-1 flex flex-col">
         {/* Event Title */}
         <div>
           <h3 className="text-xl font-bold font-montserrat">{nextEvent.title}</h3>

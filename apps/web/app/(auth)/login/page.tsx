@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { Suspense, useState } from "react";
+import packageJson from "../../../package.json";
 
 interface UnifiedOrgMembership {
   orgUserId: string;
@@ -70,6 +71,9 @@ interface TotpVerifyRequest {
   userType: "global" | "org";
   tenantSlug?: string;
 }
+
+const APP_VERSION = packageJson.version || "dev";
+const DISPLAY_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || APP_VERSION;
 
 function mapLegacyOrgAccounts(
   accounts: UniversalLoginResponse["orgAccounts"] | undefined
@@ -574,6 +578,9 @@ function UniversalLoginContent() {
                     "Verify & Continue"
                   )}
                 </AppButton>
+                <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+                  Version {DISPLAY_VERSION}
+                </p>
 
                 <AppButton
                   type="button"
@@ -822,6 +829,9 @@ function UniversalLoginContent() {
                 </>
               )}
             </AppButton>
+            <p className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
+              Version {DISPLAY_VERSION}
+            </p>
           </form>
 
           {/* Security badge */}

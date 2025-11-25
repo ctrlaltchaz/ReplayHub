@@ -114,6 +114,7 @@ model OrgUser {
   globalUser         GlobalUser?         @relation("OrgUserToGlobalUser", fields: [globalUserId], references: [id])
   organisation       Organisation        @relation("OrgUserToOrganisation", fields: [tenantId], references: [id], onDelete: Cascade)
   createdSessions    ProductionSession[] @relation("SessionCreator")
+  staffAssignments   EventStaffAssignment[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -739,11 +740,30 @@ model Event {
   incidents                  Incident[]
   productionSessions         ProductionSession[]
   runsheets                  Runsheet[]
+  staffAssignments           EventStaffAssignment[]
 
   @@index([tenantId, startAt, endAt])
   @@index([tenantId, eventType])
   @@index([tenantId, gameTitle])
   @@map("events")
+}
+
+model EventStaffAssignment {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  eventId   String   @map("event_id")
+  orgUserId String   @map("org_user_id")
+  roleType  String   @map("role_type")
+  roleLabel String?  @map("role_label")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  orgUser OrgUser @relation(fields: [orgUserId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, eventId, orgUserId])
+  @@index([tenantId, eventId])
+  @@map("event_staff_assignments")
 }
 
 model Resource {

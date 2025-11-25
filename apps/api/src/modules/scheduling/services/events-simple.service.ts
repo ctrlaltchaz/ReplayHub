@@ -1,238 +1,247 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
-import { AssignLineupDto, CreateEventDto, QueryEventsDto, UpdateEventDto } from '../dto/scheduling.dto';
+import {
+  AssignLineupDto,
+  CreateEventDto,
+  QueryEventsDto,
+  UpdateEventDto,
+} from '../dto/scheduling.dto';
 
 @Injectable()
 export class EventsService {
-    constructor(
-        private readonly prisma: PrismaService,
-    ) { }
+  constructor(private readonly prisma: PrismaService) {}
 
-    async createEvent(tenantId: string, createEventDto: CreateEventDto, userId: string) {
-        return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+  async createEvent(tenantId: string, createEventDto: CreateEventDto, userId: string) {
+    return await this.prisma.$transaction(async tx => {
+      // Set tenant context for RLS
+      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-            // Validate datetime order
-            if (new Date(createEventDto.endAt) <= new Date(createEventDto.startAt)) {
-                throw new ConflictException('End time must be after start time');
-            }
+      // Validate datetime order
+      if (new Date(createEventDto.endAt) <= new Date(createEventDto.startAt)) {
+        throw new ConflictException('End time must be after start time');
+      }
 
-            return await tx.event.create({
-                data: {
-                    ...createEventDto,
-                    tenantId,
-                    createdByGlobalUserId: userId,
-                },
-                include: {
-                    bookings: {
-                        include: {
-                            resource: true
-                        }
-                    }
-                }
-            });
-        });
-    }
+      // staffAssignments are handled in the fuller service; keep the payload Prisma-safe here
+      const { staffAssignments, ...eventData } = createEventDto as any;
 
-    async findEvents(tenantId: string, queryDto: QueryEventsDto) {
-        return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      return await tx.event.create({
+        data: {
+          ...eventData,
+          tenantId,
+          createdByGlobalUserId: userId,
+        },
+        include: {
+          bookings: {
+            include: {
+              resource: true,
+            },
+          },
+        },
+      });
+    });
+  }
 
-            const where: any = { tenantId };
+  async findEvents(tenantId: string, queryDto: QueryEventsDto) {
+    return await this.prisma.$transaction(async tx => {
+      // Set tenant context for RLS
+      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-            if (queryDto.from || queryDto.to) {
-                where.AND = [];
-                if (queryDto.from) {
-                    where.AND.push({ startAt: { gte: new Date(queryDto.from) } });
-                }
-                if (queryDto.to) {
-                    where.AND.push({ endAt: { lte: new Date(queryDto.to) } });
-                }
-            }
+      const where: any = { tenantId };
 
-            if (queryDto.teamId) {
-                where.teamId = queryDto.teamId;
-            }
+      if (queryDto.from || queryDto.to) {
+        where.AND = [];
+        if (queryDto.from) {
+          where.AND.push({ startAt: { gte: new Date(queryDto.from) } });
+        }
+        if (queryDto.to) {
+          where.AND.push({ endAt: { lte: new Date(queryDto.to) } });
+        }
+      }
 
-            if (queryDto.status) {
-                where.status = queryDto.status;
-            }
+      if (queryDto.teamId) {
+        where.teamId = queryDto.teamId;
+      }
 
-            if (queryDto.q) {
-                where.OR = [
-                    { title: { contains: queryDto.q, mode: 'insensitive' } },
-                    { location: { contains: queryDto.q, mode: 'insensitive' } },
-                    { notes: { contains: queryDto.q, mode: 'insensitive' } },
-                ];
-            }
+      if (queryDto.status) {
+        where.status = queryDto.status;
+      }
 
-            const skip = (queryDto.page - 1) * queryDto.limit;
+      if (queryDto.q) {
+        where.OR = [
+          { title: { contains: queryDto.q, mode: 'insensitive' } },
+          { location: { contains: queryDto.q, mode: 'insensitive' } },
+          { notes: { contains: queryDto.q, mode: 'insensitive' } },
+        ];
+      }
 
-            const [events, total] = await Promise.all([
-                tx.event.findMany({
-                    where,
-                    skip,
-                    take: queryDto.limit,
-                    orderBy: { startAt: 'asc' },
-                    include: {
-                        bookings: {
-                            include: {
-                                resource: true
-                            }
-                        }
-                    }
-                }),
-                tx.event.count({ where })
-            ]);
+      const skip = (queryDto.page - 1) * queryDto.limit;
 
-            return {
-                events,
-                total,
-                page: queryDto.page,
-                limit: queryDto.limit,
-                totalPages: Math.ceil(total / queryDto.limit)
-            };
-        });
-    }
+      const [events, total] = await Promise.all([
+        tx.event.findMany({
+          where,
+          skip,
+          take: queryDto.limit,
+          orderBy: { startAt: 'asc' },
+          include: {
+            bookings: {
+              include: {
+                resource: true,
+              },
+            },
+          },
+        }),
+        tx.event.count({ where }),
+      ]);
 
-    async findEventById(tenantId: string, eventId: string) {
-        return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      return {
+        events,
+        total,
+        page: queryDto.page,
+        limit: queryDto.limit,
+        totalPages: Math.ceil(total / queryDto.limit),
+      };
+    });
+  }
 
-            const event = await tx.event.findFirst({
-                where: { id: eventId, tenantId },
-                include: {
-                    bookings: {
-                        include: {
-                            resource: true
-                        }
-                    }
-                }
-            });
+  async findEventById(tenantId: string, eventId: string) {
+    return await this.prisma.$transaction(async tx => {
+      // Set tenant context for RLS
+      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-            if (!event) {
-                throw new NotFoundException('Event not found');
-            }
+      const event = await tx.event.findFirst({
+        where: { id: eventId, tenantId },
+        include: {
+          bookings: {
+            include: {
+              resource: true,
+            },
+          },
+        },
+      });
 
-            return event;
-        });
-    }
+      if (!event) {
+        throw new NotFoundException('Event not found');
+      }
 
-    async updateEvent(tenantId: string, eventId: string, updateEventDto: UpdateEventDto) {
-        return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      return event;
+    });
+  }
 
-            const existingEvent = await tx.event.findFirst({
-                where: { id: eventId, tenantId }
-            });
+  async updateEvent(tenantId: string, eventId: string, updateEventDto: UpdateEventDto) {
+    return await this.prisma.$transaction(async tx => {
+      // Set tenant context for RLS
+      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-            if (!existingEvent) {
-                throw new NotFoundException('Event not found');
-            }
+      const existingEvent = await tx.event.findFirst({
+        where: { id: eventId, tenantId },
+      });
 
-            return await tx.event.update({
-                where: { id: eventId },
-                data: updateEventDto,
-                include: {
-                    bookings: {
-                        include: {
-                            resource: true
-                        }
-                    }
-                }
-            });
-        });
-    }
+      if (!existingEvent) {
+        throw new NotFoundException('Event not found');
+      }
 
-    async deleteEvent(tenantId: string, eventId: string) {
-        return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      return await tx.event.update({
+        where: { id: eventId },
+        data: (() => {
+          const { staffAssignments, ...updateData } = updateEventDto as any;
+          return updateData;
+        })(),
+        include: {
+          bookings: {
+            include: {
+              resource: true,
+            },
+          },
+        },
+      });
+    });
+  }
 
-            const event = await tx.event.findFirst({
-                where: { id: eventId, tenantId }
-            });
+  async deleteEvent(tenantId: string, eventId: string) {
+    return await this.prisma.$transaction(async tx => {
+      // Set tenant context for RLS
+      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-            if (!event) {
-                throw new NotFoundException('Event not found');
-            }
+      const event = await tx.event.findFirst({
+        where: { id: eventId, tenantId },
+      });
 
-            await tx.event.delete({
-                where: { id: eventId }
-            });
+      if (!event) {
+        throw new NotFoundException('Event not found');
+      }
 
-            return { deleted: true };
-        });
-    }
+      await tx.event.delete({
+        where: { id: eventId },
+      });
 
-    async assignLineup(tenantId: string, eventId: string, assignLineupDto: AssignLineupDto) {
-        return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      return { deleted: true };
+    });
+  }
 
-            const event = await tx.event.findFirst({
-                where: { id: eventId, tenantId }
-            });
+  async assignLineup(tenantId: string, eventId: string, assignLineupDto: AssignLineupDto) {
+    return await this.prisma.$transaction(async tx => {
+      // Set tenant context for RLS
+      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-            if (!event) {
-                throw new NotFoundException('Event not found');
-            }
+      const event = await tx.event.findFirst({
+        where: { id: eventId, tenantId },
+      });
 
-            return await tx.event.update({
-                where: { id: eventId },
-                data: { lineupId: assignLineupDto.lineupId },
-                include: {
-                    bookings: {
-                        include: {
-                            resource: true
-                        }
-                    }
-                }
-            });
-        });
-    }
+      if (!event) {
+        throw new NotFoundException('Event not found');
+      }
 
-    async getCalendarWeek(tenantId: string, startDate: string) {
-        return await this.prisma.$transaction(async (tx) => {
-            // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      return await tx.event.update({
+        where: { id: eventId },
+        data: { lineupId: assignLineupDto.lineupId },
+        include: {
+          bookings: {
+            include: {
+              resource: true,
+            },
+          },
+        },
+      });
+    });
+  }
 
-            // Calculate week range (7 days from start date)
-            const start = new Date(startDate);
-            const end = new Date(start);
-            end.setDate(end.getDate() + 7);
+  async getCalendarWeek(tenantId: string, startDate: string) {
+    return await this.prisma.$transaction(async tx => {
+      // Set tenant context for RLS
+      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-            const events = await tx.event.findMany({
-                where: {
-                    tenantId,
-                    startAt: { gte: start },
-                    endAt: { lt: end }
-                },
-                include: {
-                    bookings: {
-                        include: {
-                            resource: {
-                                select: { id: true, kind: true, name: true }
-                            }
-                        }
-                    }
-                },
-                orderBy: { startAt: 'asc' }
-            });
+      // Calculate week range (7 days from start date)
+      const start = new Date(startDate);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 7);
 
-            return events.map(event => ({
-                id: event.id,
-                title: event.title,
-                startAt: event.startAt.toISOString(),
-                endAt: event.endAt.toISOString(),
-                teamId: event.teamId,
-                location: event.location,
-                resources: event.bookings.map(booking => booking.resource)
-            }));
-        });
-    }
+      const events = await tx.event.findMany({
+        where: {
+          tenantId,
+          startAt: { gte: start },
+          endAt: { lt: end },
+        },
+        include: {
+          bookings: {
+            include: {
+              resource: {
+                select: { id: true, kind: true, name: true },
+              },
+            },
+          },
+        },
+        orderBy: { startAt: 'asc' },
+      });
+
+      return events.map(event => ({
+        id: event.id,
+        title: event.title,
+        startAt: event.startAt.toISOString(),
+        endAt: event.endAt.toISOString(),
+        teamId: event.teamId,
+        location: event.location,
+        resources: event.bookings.map(booking => booking.resource),
+      }));
+    });
+  }
 }

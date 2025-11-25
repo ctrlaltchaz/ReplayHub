@@ -21,10 +21,12 @@ import {
   X,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NextEventWidget } from "./components/NextEventWidget";
 import { useMyChecklistTasks } from "../checklists/hooks/useMyChecklistTasks";
 import Link from "next/link";
+import { format } from "date-fns";
+import type { Event } from "@/hooks/events";
 
 interface OrgOverview {
   totalEvents?: number;
@@ -61,7 +63,23 @@ const quickTips = [
 export default function OverviewPage() {
   const params = useParams();
   const slug = params?.slug as string;
-  const { permissions } = useAuth();
+  const { permissions, orgUser, activeMembership, sessionUser } = useAuth();
+  const candidateOrgIds = useMemo(() => {
+    const ids = [
+      orgUser?.id,
+      activeMembership?.orgUserId,
+      activeMembership?.tenantId === sessionUser?.activeMembership?.tenantId
+        ? sessionUser?.activeMembership?.orgUserId
+        : undefined,
+    ].filter(Boolean) as string[];
+    return new Set(ids);
+  }, [
+    orgUser?.id,
+    activeMembership?.orgUserId,
+    activeMembership?.tenantId,
+    sessionUser?.activeMembership?.orgUserId,
+    sessionUser?.activeMembership?.tenantId,
+  ]);
 
   // Permission gates to avoid hitting endpoints that would 401 for limited roles
   const canViewEvents = hasPermission(permissions, [
@@ -90,6 +108,14 @@ export default function OverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showWelcomeCard, setShowWelcomeCard] = useState(true);
+  const [roleCard, setRoleCard] = useState<{
+    eventTitle: string;
+    eventDate: string;
+    roleDisplay?: string;
+  } | null>(null);
+  const [roleLoading, setRoleLoading] = useState(false);
+
+  const filteredTasks = useMemo(() => taskPreview?.data || [], [taskPreview]);
 
   // Check if welcome card was dismissed (only for non-admin users)
   useEffect(() => {
@@ -159,6 +185,222 @@ export default function OverviewPage() {
     }
   }, [slug, canViewEvents, canViewRosters, canViewIncidents, canViewInventory]);
 
+  // Fetch next assigned role (based on staff assignments) to surface above tasks
+  useEffect(() => {
+    const fetchTodayRole = async () => {
+      const targetIds = Array.from(candidateOrgIds);
+      if (!slug || targetIds.length === 0 || !canViewEvents) {
+        console.log("[Overview] Skipping role card fetch", {
+          slug,
+          targetIds,
+          canViewEvents,
+        });
+        return;
+      }
+      setRoleLoading(true);
+      try {
+        const now = new Date();
+        console.log("[Overview] Role card fetch start", {
+          slug,
+          targetIds,
+          canViewEvents,
+          now: now.toISOString(),
+        });
+
+        const startOfDay = new Date(now);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(now);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const events: Event[] = await apiGet(`/org/${slug}/events`);
+        console.log("[Overview] Events fetched for role card", {
+          count: Array.isArray(events) ? events.length : "invalid",
+          sample: Array.isArray(events) && events.length ? events[0] : null,
+          targetIds,
+          userEmail: sessionUser?.email,
+        });
+
+        if (!Array.isArray(events) || events.length === 0) {
+          console.log("[Overview] No events returned for role card");
+          setRoleCard(null);
+          return;
+        }
+
+        const assignedEvents = events
+          .map((evt) => {
+            const staff =
+              typeof (evt as any).staffAssignments === "string"
+                ? (() => {
+                    try {
+                      return JSON.parse((evt as any).staffAssignments);
+                    } catch {
+                      return [];
+                    }
+                  })()
+                : evt.staffAssignments || [];
+            return { ...evt, staffAssignments: staff };
+          })
+          .filter((evt) =>
+            evt.staffAssignments?.some(
+              (s) =>
+                (s.orgUserId && candidateOrgIds.has(s.orgUserId)) ||
+                (s.email &&
+                  sessionUser?.email &&
+                  s.email.toLowerCase() === sessionUser.email.toLowerCase())
+            )
+          );
+
+        console.log("[Overview] Events with staff assignments", {
+          totalWithStaff: assignedEvents.length,
+          ids: assignedEvents.map((e) => ({
+            id: e.id,
+            staffIds: e.staffAssignments?.map((s) => s.orgUserId),
+            matched: e.staffAssignments?.some(
+              (s) => s.orgUserId && candidateOrgIds.has(s.orgUserId)
+            ),
+            matchedByEmail: e.staffAssignments?.some(
+              (s) =>
+                s.email &&
+                sessionUser?.email &&
+                s.email.toLowerCase() === sessionUser.email.toLowerCase()
+            ),
+          })),
+        });
+
+        const assignedToday = assignedEvents
+          .filter((evt) => {
+            const start = new Date(evt.startAt);
+            return start >= startOfDay && start <= endOfDay;
+          })
+          .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+
+        const assignedFuture = assignedEvents
+          .filter((evt) => new Date(evt.startAt) >= now)
+          .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+
+        console.log("[Overview] Assigned future events for role card", {
+          assignedCount: assignedFuture.length,
+          first: assignedFuture[0] || null,
+        });
+        console.log("[Overview] Assigned today events for role card", {
+          assignedToday: assignedToday.length,
+          first: assignedToday[0] || null,
+        });
+
+        let assignmentEvent: Event | null = assignedToday[0] || assignedFuture[0];
+
+        if (!assignmentEvent) {
+          console.log("[Overview] No assigned event found from list; attempting detail fetch");
+
+          const todayCandidates = [...events]
+            .filter((evt) => {
+              const start = new Date(evt.startAt);
+              return start >= startOfDay && start <= endOfDay;
+            })
+            .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
+            .slice(0, 5);
+
+          const upcomingCandidates = [...events]
+            .filter((evt) => new Date(evt.startAt) >= now)
+            .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
+            .slice(0, 5);
+
+          const detailQueue = [...todayCandidates, ...upcomingCandidates];
+
+          for (const candidate of detailQueue) {
+            try {
+              const detailed = await apiGet<Event>(`/org/${slug}/events/${candidate.id}`);
+              console.log("[Overview] Detailed event fetch for role card", {
+                id: candidate.id,
+                staffCount: detailed.staffAssignments?.length || 0,
+                startAt: detailed.startAt,
+                staffIds: detailed.staffAssignments?.map((s) => s.orgUserId),
+                targetIds: Array.from(candidateOrgIds),
+              });
+              const hasUser = detailed.staffAssignments?.some(
+                (s) => s.orgUserId && candidateOrgIds.has(s.orgUserId)
+              );
+              if (hasUser) {
+                assignmentEvent = {
+                  ...detailed,
+                  staffAssignments: detailed.staffAssignments || [],
+                };
+                break;
+              }
+            } catch (detailErr) {
+              console.error("[Overview] Failed detailed event fetch", detailErr);
+            }
+          }
+
+          if (!assignmentEvent) {
+            console.log("[Overview] No assigned event found after detail fetch");
+            setRoleCard(null);
+            return;
+          }
+        }
+
+        const matchingRole = assignmentEvent?.staffAssignments?.find(
+          (s) =>
+            (s.orgUserId && candidateOrgIds.has(s.orgUserId)) ||
+            (s.email &&
+              sessionUser?.email &&
+              s.email.toLowerCase() === sessionUser.email.toLowerCase())
+        );
+        if (assignmentEvent) {
+          console.log("[Overview] Matching role for role card", {
+            eventId: assignmentEvent.id,
+            roleType: matchingRole?.roleType,
+            roleLabel: matchingRole?.roleLabel,
+            staffCount: assignmentEvent.staffAssignments?.length || 0,
+            matchedOrgId: matchingRole?.orgUserId,
+            matchedEmail: matchingRole?.email,
+          });
+        }
+
+        if (assignmentEvent) {
+          const computedRoleDisplay =
+            matchingRole?.roleLabel ||
+            (matchingRole?.roleType
+              ? matchingRole.roleType
+                  .split("_")
+                  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                  .join(" ")
+              : undefined);
+
+          setRoleCard({
+            eventTitle: assignmentEvent.title,
+            eventDate: format(new Date(assignmentEvent.startAt), "EEE, MMM d"),
+            roleDisplay: computedRoleDisplay,
+          });
+        } else {
+          setRoleCard(null);
+        }
+        if (assignmentEvent) {
+          const logRoleDisplay =
+            matchingRole?.roleLabel ||
+            (matchingRole?.roleType
+              ? matchingRole.roleType
+                  .split("_")
+                  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                  .join(" ")
+              : undefined);
+          console.log("[Overview] Role card set", {
+            eventTitle: assignmentEvent.title,
+            eventDate: format(new Date(assignmentEvent.startAt), "EEE, MMM d"),
+            roleDisplay: logRoleDisplay,
+          });
+        }
+      } catch (err) {
+        console.error("[Overview] Failed to fetch role card", err);
+        setRoleCard(null);
+      } finally {
+        setRoleLoading(false);
+      }
+    };
+
+    fetchTodayRole();
+  }, [slug, candidateOrgIds, canViewEvents]);
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -220,7 +462,61 @@ export default function OverviewPage() {
           <p className="text-muted-foreground mt-1">Welcome to your esports operations dashboard</p>
         </div>
 
-        {/* Tasks card (permission-gated) */}
+        {/* Primary quick cards */}
+        <div className="grid gap-4 md:grid-cols-3">
+          {canViewEvents && (
+            <div className="md:col-span-1">
+              <Card className="border border-dashed border-primary/30 bg-background/60 shadow-sm h-full">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-sm font-montserrat">
+                    <Users className="h-4 w-4 text-primary" />
+                    Your Role Today{roleCard?.eventDate ? ` • ${roleCard.eventDate}` : ""}
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Quick glance at what you're slated to do
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {roleLoading ? (
+                    <div className="animate-pulse space-y-2">
+                      <div className="h-3.5 bg-muted rounded w-2/3" />
+                      <div className="h-3 bg-muted rounded w-1/3" />
+                    </div>
+                  ) : roleCard ? (
+                    <div className="flex flex-col gap-2 text-sm">
+                      <p className="font-semibold leading-tight text-primary">
+                        {roleCard.eventTitle}
+                      </p>
+                      <div className="flex items-center gap-3 flex-wrap text-lg font-bold font-montserrat">
+                        <span>You are:</span>
+                        <Badge
+                          variant="default"
+                          className="bg-primary text-primary-foreground text-xs px-2 py-1 capitalize"
+                        >
+                          {roleCard.roleDisplay || "Unassigned"}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Calendar className="h-4 w-4 text-primary" />
+                        <span>{roleCard.eventDate}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No upcoming events assigned to you. Check back later or view your next event
+                      below.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          <div className="md:col-span-2 h-full">
+            <NextEventWidget slug={slug} />
+          </div>
+        </div>
+
         {canViewTasks && (
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -268,7 +564,7 @@ export default function OverviewPage() {
                       </div>
                     </div>
                   ))}
-                  {taskPreview.pagination.hasMore && (
+                  {taskPreview?.pagination?.hasMore && (
                     <p className="text-xs text-muted-foreground">
                       More tasks in the Your Tasks view
                     </p>
@@ -283,24 +579,19 @@ export default function OverviewPage() {
           </Card>
         )}
 
-        {/* Next Event Widget for Players */}
-        <NextEventWidget slug={slug} />
-
         {/* Introduction Card - Dismissable for non-admins */}
         {showWelcomeCard && (
           <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-transparent to-transparent relative">
-            {/* Close button - only show for non-admins */}
-            {!hasPermission(permissions, PERMISSIONS.ORG_USERS_MANAGE) && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-4 right-4 h-8 w-8 rounded-full"
-                onClick={handleDismissWelcome}
-                title="Dismiss welcome message"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
+            {/* Close button - allow everyone to dismiss */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4 h-8 w-8 rounded-full"
+              onClick={handleDismissWelcome}
+              title="Dismiss welcome message"
+            >
+              <X className="h-4 w-4" />
+            </Button>
 
             <CardHeader>
               <CardTitle className="flex items-center gap-3 font-montserrat">
