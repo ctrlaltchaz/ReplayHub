@@ -817,9 +817,18 @@ export class ChecklistService {
         },
       });
 
-      const completedSet = new Set(completedItems as string[]);
-      const allItemIds = JSON.parse(checklist.itemsJson as string) as string[];
-      const allCompleted = allItemIds.every(id => completedSet.has(id));
+      const completedArray = Array.isArray(completedItems) ? completedItems : [];
+      const completedSet = new Set(completedArray as string[]);
+
+      let allItemIds: string[] = [];
+      try {
+        const parsed = checklist.itemsJson ? JSON.parse(checklist.itemsJson as string) : [];
+        allItemIds = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        allItemIds = [];
+      }
+
+      const allCompleted = allItemIds.every(itemId => completedSet.has(itemId));
 
       await tx.checklist.update({
         where: { id: checklist.id, tenantId },
