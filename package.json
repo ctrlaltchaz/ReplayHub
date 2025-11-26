@@ -1,6 +1,6 @@
 {
   "name": "esports-operations-platform",
-  "version": "0.2.6 (beta) Last update: 26-11-2025",
+  "version": "0.2.7 (beta) Last update: 26-11-2025",
   "description": "Multi-tenant esports operations platform monorepo",
   "private": true,
   "workspaces": [

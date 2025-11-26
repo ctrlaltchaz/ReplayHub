@@ -977,6 +977,27 @@ export function Sidebar({
                   );
                 })}
 
+                {/* Feedback - org context */}
+                {globalUser && slug && (
+                  <div className="border-t pt-3 mt-3">
+                    <Link
+                      href="/feedback"
+                      onClick={onMobileMenuClose}
+                      className={cn(
+                        "flex items-center gap-4 rounded-xl px-4 py-3 text-base font-medium transition-all duration-200",
+                        "hover:bg-accent hover:text-accent-foreground hover:shadow-sm",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        "font-montserrat",
+                        pathname?.startsWith("/feedback") &&
+                          "bg-primary text-primary-foreground shadow-modern font-semibold"
+                      )}
+                    >
+                      <iconMap.MessageSquare className="h-5 w-5 shrink-0" />
+                      <span className="truncate font-medium font-montserrat">Feedback</span>
+                    </Link>
+                  </div>
+                )}
+
                 {/* Quick Links Section - Mobile */}
                 {slug && quickLinks && quickLinks.length > 0 && (
                   <div>

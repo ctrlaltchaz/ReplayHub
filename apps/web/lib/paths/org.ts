@@ -21,7 +21,6 @@ export const orgPath = {
   rosterPlayers: (slug: OrgSlug) => `/org/${slug}/rosters?tab=players`,
   rosterLineups: (slug: OrgSlug) => `/org/${slug}/rosters?tab=lineups`,
   rosterAchievements: (slug: OrgSlug) => `/org/${slug}/rosters?tab=achievements`,
-  rosterAvailability: (slug: OrgSlug) => `/org/${slug}/rosters?tab=availability`,
   playerStats: (slug: OrgSlug) => `/org/${slug}/player-stats`,
   gamelog: (slug: OrgSlug) => `/org/${slug}/gamelog`,
   runsheets: (slug: OrgSlug) => `/org/${slug}/runsheets`,
@@ -52,6 +51,12 @@ export const ORG_NAV: NavItem[] = [
   { key: "tasks", label: "Your Tasks", href: orgPath.tasks, required: PERMISSIONS.CHECKLISTS_VIEW },
   { key: "profile", label: "My Profile", href: orgPath.profile },
   { key: "events", label: "Events", href: orgPath.events, required: PERMISSIONS.EVENTS_VIEW },
+  {
+    key: "attendance",
+    label: "Attendance",
+    href: orgPath.attendance,
+    required: PERMISSIONS.ATTENDANCE_VIEW,
+  },
   { key: "calendar", label: "Calendar", href: orgPath.calendar, required: PERMISSIONS.EVENTS_VIEW },
   {
     key: "rosters",
@@ -81,12 +86,6 @@ export const ORG_NAV: NavItem[] = [
         key: "achievements",
         label: "Achievements",
         href: orgPath.rosterAchievements,
-        required: PERMISSIONS.ROSTERS_VIEW,
-      },
-      {
-        key: "availability",
-        label: "Availability",
-        href: orgPath.rosterAvailability,
         required: PERMISSIONS.ROSTERS_VIEW,
       },
     ],
@@ -128,12 +127,6 @@ export const ORG_NAV: NavItem[] = [
     label: "Incidents",
     href: orgPath.incidents,
     required: PERMISSIONS.INCIDENTS_VIEW,
-  },
-  {
-    key: "attendance",
-    label: "Attendance",
-    href: orgPath.attendance,
-    required: PERMISSIONS.ATTENDANCE_VIEW,
   },
   {
     key: "settings",

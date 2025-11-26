@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Calendar,
   ClipboardList,
+  Clock,
   Lightbulb,
   Package,
   RefreshCw,
@@ -27,6 +28,7 @@ import { useMyChecklistTasks } from "../checklists/hooks/useMyChecklistTasks";
 import Link from "next/link";
 import { format } from "date-fns";
 import type { Event } from "@/hooks/events";
+import { useProductionSessions } from "@/hooks/attendance/useProductionSessions";
 
 interface OrgOverview {
   totalEvents?: number;
@@ -96,6 +98,7 @@ export default function OverviewPage() {
     PERMISSIONS.CHECKLISTS_VIEW,
     PERMISSIONS.CHECKLISTS_RUN,
   ]);
+  const canViewAttendance = hasPermission(permissions, PERMISSIONS.ATTENDANCE_VIEW);
 
   const { data: taskPreview, isLoading: tasksLoading } = useMyChecklistTasks(
     canViewTasks ? slug : undefined,
@@ -114,6 +117,13 @@ export default function OverviewPage() {
     roleDisplay?: string;
   } | null>(null);
   const [roleLoading, setRoleLoading] = useState(false);
+  const todayDate = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
+  const { data: todaySessions = [], isLoading: sessionsLoading } = useProductionSessions(slug, {
+    from: todayDate,
+    to: todayDate,
+  });
+  const hasTodaySession =
+    todaySessions.filter((session) => session.status !== "cancelled").length > 0;
 
   const filteredTasks = useMemo(() => taskPreview?.data || [], [taskPreview]);
 
@@ -461,6 +471,25 @@ export default function OverviewPage() {
           <h1 className="text-3xl font-bold font-montserrat tracking-tight">Overview</h1>
           <p className="text-muted-foreground mt-1">Welcome to your esports operations dashboard</p>
         </div>
+
+        {canViewAttendance && (sessionsLoading || hasTodaySession) && (
+          <Card className="border-primary/40 bg-primary/5">
+            <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-montserrat font-semibold">
+                  <Clock className="h-4 w-4 text-primary" />
+                  Production Session Today
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  There’s a production session today. Remember to clock in.
+                </p>
+              </div>
+              <Button asChild>
+                <Link href={`/org/${slug}/attendance`}>Go to attendance</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Primary quick cards */}
         <div className="grid gap-4 md:grid-cols-3">

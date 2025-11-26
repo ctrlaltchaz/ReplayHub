@@ -11,6 +11,7 @@ import type { Player } from "@/types/roster";
 import { format, formatDistanceToNow, isFuture } from "date-fns";
 import { Calendar, Clock, MapPin, Radio, Trophy, Users, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface NextEventWidgetProps {
   slug: string;
@@ -218,6 +219,22 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
       ?.split(",")
       .map((c) => c.trim())
       .filter(Boolean) || [];
+  const staffAssignments = nextEvent.staffAssignments || [];
+  const crewAssignments = staffAssignments.filter((staff) => staff.roleType !== "player");
+
+  const formatStaffRole = (roleType?: string, roleLabel?: string) => {
+    const base = roleType ? roleType.replace(/_/g, " ") : "";
+    if (roleLabel) return `${roleLabel}${base ? ` (${base})` : ""}`;
+    return base ? base.charAt(0).toUpperCase() + base.slice(1) : "Crew";
+  };
+
+  const getInitials = (name?: string) => {
+    if (!name) return "U";
+    const parts = name.trim().split(" ");
+    const first = parts[0]?.[0];
+    const second = parts.length > 1 ? parts[1]?.[0] : "";
+    return `${first || ""}${second || ""}`.toUpperCase() || "U";
+  };
 
   return (
     <Card className="hover:shadow-lg transition-shadow border-primary/20 h-full flex flex-col">
@@ -332,6 +349,52 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
           <div className="text-sm p-3 bg-muted rounded-md">
             <p className="text-xs text-muted-foreground mb-1">Notes:</p>
             <p className="text-sm">{nextEvent.notes}</p>
+          </div>
+        )}
+
+        {/* Talent & Crew Assignments */}
+        {crewAssignments.length > 0 && (
+          <div className="space-y-2 pt-3 border-t">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">
+              Talent &amp; Crew
+            </p>
+            <div className="space-y-2">
+              {crewAssignments.slice(0, 4).map((staff) => (
+                <div
+                  key={`${staff.orgUserId}-${staff.roleType}-${staff.roleLabel || ""}`}
+                  className="flex items-center gap-3"
+                >
+                  <Avatar className="h-8 w-8">
+                    {staff.avatar ? (
+                      <AvatarImage
+                        src={staff.avatar}
+                        alt={staff.displayName || staff.email || "User"}
+                      />
+                    ) : (
+                      <AvatarFallback>
+                        {getInitials(staff.displayName || staff.email)}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium truncate">
+                      {staff.displayName || staff.email || "Unassigned"}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {formatStaffRole(staff.roleType, staff.roleLabel)}
+                    </div>
+                  </div>
+                  <Badge variant="secondary" className="text-[10px] capitalize">
+                    {staff.roleType}
+                  </Badge>
+                </div>
+              ))}
+              {crewAssignments.length > 4 && (
+                <p className="text-xs text-muted-foreground">
+                  +{crewAssignments.length - 4} more assigned
+                </p>
+              )}
+            </div>
           </div>
         )}
 
