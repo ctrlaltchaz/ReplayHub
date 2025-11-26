@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -114,6 +115,20 @@ export class AttendanceLoggerController {
     const orgUserId = req.orgUser?.id;
     if (!orgUserId) throw new UnauthorizedException('Org user context missing');
     return this.attendanceService.reviewEntry(actualTenantId, orgUserId, id, dto);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Undo clock-in on an attendance entry' })
+  @Can('attendance.manage')
+  async undoClockIn(
+    @TenantId() tenantId: string,
+    @Req() req: any,
+    @Param('id') id: string
+  ): Promise<AttendanceLoggerResponse> {
+    const actualTenantId = req.tenant?.id || tenantId;
+    const orgUserId = req.orgUser?.id;
+    if (!orgUserId) throw new UnauthorizedException('Org user context missing');
+    return this.attendanceService.undoClockIn(actualTenantId, orgUserId, id);
   }
 
   @Patch(':id/unclock-out')

@@ -25,12 +25,15 @@ import { z } from 'zod';
 
 const eventTypeEnum = ['Broadcast', 'Tournament', 'Showmatch', 'Rehearsal', 'Other'] as const;
 const staffRoleEnum = [
+  'broadcaster',
   'shoutcaster',
   'presenter',
+  'player',
   'host',
   'analyst',
   'producer',
   'observer',
+  'social_media_runner',
   'other',
 ] as const;
 const staffAssignmentSchema = z.object({

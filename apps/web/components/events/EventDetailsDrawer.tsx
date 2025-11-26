@@ -317,9 +317,9 @@ export function EventDetailsDrawer({
                   {event.staffAssignments?.map((staff) => (
                     <div
                       key={`${staff.orgUserId}-${staff.roleType}-${staff.roleLabel || ""}`}
-                      className="flex items-center justify-between rounded-lg border p-3"
+                      className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
                         <Avatar className="h-10 w-10">
                           {getStaffAvatarUrl(staff.avatar) ? (
                             <AvatarImage
@@ -332,16 +332,16 @@ export function EventDetailsDrawer({
                             </AvatarFallback>
                           )}
                         </Avatar>
-                        <div className="space-y-0.5">
-                          <div className="font-montserrat font-semibold text-sm">
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="font-montserrat font-semibold text-sm break-words">
                             {staff.displayName || "Unassigned"}
                           </div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-muted-foreground break-words">
                             {formatStaffRole(staff.roleType, staff.roleLabel)}
                           </div>
                         </div>
                       </div>
-                      <Badge variant="secondary" className="capitalize">
+                      <Badge variant="secondary" className="capitalize self-start sm:self-center">
                         {staff.roleType}
                       </Badge>
                     </div>
@@ -364,9 +364,9 @@ export function EventDetailsDrawer({
                 {/* Match Card */}
                 {event.teamName && event.opponent && (
                   <div className="bg-gradient-to-br from-muted/50 to-muted/30 rounded-lg p-4 border">
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between">
                       {/* Home Team */}
-                      <div className="flex-1 flex flex-col items-center gap-2">
+                      <div className="flex-1 w-full flex flex-col items-center gap-2">
                         <div className="w-16 h-16 rounded-full bg-background border-2 flex items-center justify-center overflow-hidden">
                           {event.teamLogoUrl ? (
                             <img
@@ -396,7 +396,7 @@ export function EventDetailsDrawer({
                       </div>
 
                       {/* Opponent Team */}
-                      <div className="flex-1 flex flex-col items-center gap-2">
+                      <div className="flex-1 w-full flex flex-col items-center gap-2">
                         <div className="w-16 h-16 rounded-full bg-background border-2 flex items-center justify-center overflow-hidden">
                           <Users className="h-8 w-8 text-muted-foreground" />
                         </div>

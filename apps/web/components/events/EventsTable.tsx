@@ -63,12 +63,18 @@ export function EventsTable({
   const formatStaffSummary = (staff?: Event["staffAssignments"]) => {
     if (!staff?.length) return "";
     const shoutcasters = staff.filter((s) => s.roleType === "shoutcaster").length;
+    const broadcasters = staff.filter((s) => s.roleType === "broadcaster").length;
+    const players = staff.filter((s) => s.roleType === "player").length;
+    const social = staff.filter((s) => s.roleType === "social_media_runner").length;
     const presenters = staff.filter(
       (s) => s.roleType === "presenter" || s.roleType === "host"
     ).length;
     const total = staff.length;
     const parts: string[] = [];
+    if (broadcasters) parts.push(`${broadcasters} broadcaster${broadcasters > 1 ? "s" : ""}`);
     if (shoutcasters) parts.push(`${shoutcasters} shoutcaster${shoutcasters > 1 ? "s" : ""}`);
+    if (players) parts.push(`${players} player${players > 1 ? "s" : ""}`);
+    if (social) parts.push(`${social} social media`);
     if (presenters) parts.push(`${presenters} presenter${presenters > 1 ? "s" : ""}`);
     if (!parts.length) parts.push(`${total} crew`);
     return parts.join(" · ");

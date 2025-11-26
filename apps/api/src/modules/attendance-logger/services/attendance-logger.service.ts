@@ -245,6 +245,50 @@ export class AttendanceLoggerService {
     return result;
   }
 
+  async undoClockIn(
+    tenantId: string,
+    actorOrgUserId: string,
+    attendanceId: string
+  ): Promise<AttendanceLoggerResponse> {
+    const removed = await this.prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+
+      const attendance = await tx.attendance.findFirst({
+        where: { id: attendanceId, tenantId },
+        include: this.defaultInclude,
+      });
+      if (!attendance) throw new NotFoundException('Attendance entry not found');
+      if (!attendance.clockInAt) {
+        throw new ConflictException('Attendance is not clocked in');
+      }
+
+      await tx.attendance.delete({
+        where: { id: attendance.id },
+      });
+
+      return this.mapAttendance(attendance);
+    });
+
+    await this.auditService.log({
+      tenantId,
+      action: 'attendance.clock_in_undo',
+      entity: 'attendance',
+      entityType: 'ORG_USER',
+      entityId: removed.id,
+      description: 'Clock in removed',
+      orgUserId: actorOrgUserId,
+      metadata: {
+        orgUserId: removed.orgUserId,
+        eventId: removed.eventId,
+        clockInAt: removed.clockInAt,
+        clockOutAt: removed.clockOutAt,
+        status: removed.status,
+      },
+    });
+
+    return removed;
+  }
+
   async logAbsence(
     tenantId: string,
     actorOrgUserId: string,

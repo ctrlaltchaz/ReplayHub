@@ -4,10 +4,13 @@ export type EventStatus = "scheduled" | "cancelled" | "completed";
 export type EventStaffRoleType =
   | "shoutcaster"
   | "presenter"
+  | "player"
   | "host"
   | "analyst"
   | "producer"
   | "observer"
+  | "broadcaster"
+  | "social_media_runner"
   | "other";
 
 export interface StaffAssignment {

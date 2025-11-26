@@ -41,11 +41,12 @@ export class ProductionSessionsService {
     start.setHours(12, 0, 0, 0);
     const end = new Date(nextWednesday);
     end.setHours(18, 0, 0, 0);
+    const sessionLabelDate = this.formatDate(nextWednesday);
 
     return this.repo().create({
       data: {
         tenantId,
-        name: 'Wednesday REPLAY Production',
+        name: `Wednesday REPLAY Production (${sessionLabelDate})`,
         sessionDate: nextWednesday,
         windowStart: start,
         windowEnd: end,
@@ -272,6 +273,13 @@ export class ProductionSessionsService {
     date.setDate(date.getDate() + diff);
     date.setHours(0, 0, 0, 0);
     return date;
+  }
+
+  private formatDate(date: Date) {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
   }
 
   private repo() {

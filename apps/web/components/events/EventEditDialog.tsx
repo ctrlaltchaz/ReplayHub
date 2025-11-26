@@ -2,7 +2,7 @@
 
 import { Calendar, Loader2, Trash2, UserPlus } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import type { CreateEventData, Event, EventType } from "../../hooks/events";
+import type { CreateEventData, Event, EventType, EventStaffRoleType } from "../../hooks/events";
 import { useTeams } from "../../hooks/rosters/useTeams";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
@@ -32,12 +32,15 @@ const COMMON_GAMES = [
   "Fortnite",
 ];
 const STAFF_ROLE_OPTIONS = [
+  { value: "broadcaster", label: "Broadcaster" },
   { value: "shoutcaster", label: "Shoutcaster" },
   { value: "presenter", label: "Presenter" },
+  { value: "player", label: "Player" },
   { value: "host", label: "Host" },
   { value: "analyst", label: "Analyst" },
   { value: "producer", label: "Producer" },
   { value: "observer", label: "Observer" },
+  { value: "social_media_runner", label: "Social Media Runner" },
   { value: "other", label: "Other" },
 ];
 
@@ -299,6 +302,30 @@ export function EventEditDialog({
       return { ...prev, staffAssignments: updated };
     });
   };
+
+  const [bulkRoleType, setBulkRoleType] = useState<EventStaffRoleType>("broadcaster");
+
+  const assignRemainingToRole = () => {
+    setFormData((prev) => {
+      const existing = prev.staffAssignments || [];
+      const existingIds = new Set(existing.map((s) => s.orgUserId).filter(Boolean));
+      const newAssignments = productionLeads
+        .filter((user) => !existingIds.has(user.id))
+        .map((user) => ({
+          orgUserId: user.id,
+          roleType: bulkRoleType,
+          roleLabel: "",
+        }));
+
+      if (!newAssignments.length) return prev;
+      return { ...prev, staffAssignments: [...existing, ...newAssignments] };
+    });
+  };
+
+  const assignedIds = new Set(
+    (formData.staffAssignments || []).map((s) => s.orgUserId).filter(Boolean)
+  );
+  const remainingUsers = productionLeads.filter((user) => !assignedIds.has(user.id));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -784,8 +811,8 @@ export function EventEditDialog({
                 <div className="space-y-1">
                   <Label>On-air crew</Label>
                   <p className="text-sm text-muted-foreground">
-                    Assign shoutcasters and presenters for this broadcast, and note their exact
-                    role.
+                    Assign broadcasters, shoutcasters, and presenters for this broadcast, and note
+                    their exact role.
                   </p>
                 </div>
                 <Button
@@ -800,10 +827,45 @@ export function EventEditDialog({
                 </Button>
               </div>
 
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-md border bg-muted/30 p-3">
+                <div className="flex-1 min-w-[220px] space-y-1">
+                  <Label className="text-sm">Quick assign remaining users</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Assign {remainingUsers.length} unassigned org users to a single role.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <Select
+                    value={bulkRoleType}
+                    onValueChange={(value) => setBulkRoleType(value as EventStaffRoleType)}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger className="sm:w-[200px]">
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STAFF_ROLE_OPTIONS.map((role) => (
+                        <SelectItem key={role.value} value={role.value}>
+                          {role.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={assignRemainingToRole}
+                    disabled={isSubmitting || remainingUsers.length === 0}
+                  >
+                    Assign remaining ({remainingUsers.length})
+                  </Button>
+                </div>
+              </div>
+
               {(formData.staffAssignments?.length || 0) === 0 ? (
                 <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-                  No talent assigned yet. Add shoutcasters or presenters to include them on this
-                  event.
+                  No talent assigned yet. Add broadcasters, shoutcasters, or presenters to include
+                  them on this event.
                 </div>
               ) : (
                 <div className="space-y-3">

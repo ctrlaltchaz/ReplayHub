@@ -199,6 +199,7 @@ export default function AttendanceAdminPage() {
   const [manualClockDepartment, setManualClockDepartment] =
     useState<AttendanceDepartment>("production");
   const [manualClockNotes, setManualClockNotes] = useState("");
+  const [undoClockInId, setUndoClockInId] = useState<string | null>(null);
   const [undoClockOutId, setUndoClockOutId] = useState<string | null>(null);
 
   const sessionQueryRange = showUpcomingOnly ? undefined : sessionRange;
@@ -303,6 +304,26 @@ export default function AttendanceAdminPage() {
       });
     } finally {
       setClockOutId(null);
+    }
+  };
+
+  const handleUndoClockInEntry = async (entry: AttendanceEntry) => {
+    setUndoClockInId(entry.id);
+    try {
+      await apiDelete(`/org/${slug}/attendance/logger/${entry.id}`);
+      toast({
+        title: "Clock-in removed",
+        description: `Deleted attendance for ${entry.orgUser?.displayName ?? "member"}.`,
+      });
+      refetch();
+    } catch (error) {
+      toast({
+        title: "Unable to undo clock-in",
+        description: error instanceof Error ? error.message : "Try again later",
+        variant: "destructive",
+      });
+    } finally {
+      setUndoClockInId(null);
     }
   };
 
@@ -779,6 +800,17 @@ export default function AttendanceAdminPage() {
                                 {clockOutId === entry.id ? "Clocking…" : "Clock out"}
                               </Button>
                             ))}
+                          {entry.clockInAt && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleUndoClockInEntry(entry)}
+                              disabled={undoClockInId === entry.id}
+                            >
+                              <XCircle className="mr-1 h-3 w-3" />
+                              {undoClockInId === entry.id ? "Removing…" : "Undo clock-in"}
+                            </Button>
+                          )}
                           <Button size="sm" variant="ghost" onClick={() => handleOpenReview(entry)}>
                             Review
                           </Button>
