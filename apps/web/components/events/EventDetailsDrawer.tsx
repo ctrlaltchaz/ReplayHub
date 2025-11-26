@@ -181,7 +181,10 @@ export function EventDetailsDrawer({
       event.eventType === "Broadcast") &&
     (event.opponent || event.tournamentName || event.tournamentStage || event.bestOf);
   const hasLinkedData = event.rosterId || event.checklistId;
-  const hasStaffAssignments = (event.staffAssignments || []).length > 0;
+  const staffAssignments = event.staffAssignments || [];
+  const playerAssignments = staffAssignments.filter((staff) => staff.roleType === "player");
+  const crewAssignments = staffAssignments.filter((staff) => staff.roleType !== "player");
+  const hasStaffAssignments = playerAssignments.length > 0 || crewAssignments.length > 0;
 
   const handleViewRunsheet = () => {
     if (event.runsheetId) {
@@ -308,45 +311,98 @@ export function EventDetailsDrawer({
 
           {hasStaffAssignments && (
             <>
-              <div className="space-y-3">
-                <h3 className="text-sm font-montserrat font-semibold flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Talent &amp; Crew
-                </h3>
-                <div className="space-y-2">
-                  {event.staffAssignments?.map((staff) => (
-                    <div
-                      key={`${staff.orgUserId}-${staff.roleType}-${staff.roleLabel || ""}`}
-                      className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <Avatar className="h-10 w-10">
-                          {getStaffAvatarUrl(staff.avatar) ? (
-                            <AvatarImage
-                              src={getStaffAvatarUrl(staff.avatar)}
-                              alt={staff.displayName || staff.email || "User"}
-                            />
-                          ) : (
-                            <AvatarFallback>
-                              {getInitials(staff.displayName || staff.email)}
-                            </AvatarFallback>
-                          )}
-                        </Avatar>
-                        <div className="space-y-0.5 min-w-0">
-                          <div className="font-montserrat font-semibold text-sm break-words">
-                            {staff.displayName || "Unassigned"}
+              <div className="space-y-4">
+                {crewAssignments.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-montserrat font-semibold flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Talent &amp; Crew
+                    </h3>
+                    <div className="space-y-2">
+                      {crewAssignments.map((staff) => (
+                        <div
+                          key={`${staff.orgUserId}-${staff.roleType}-${staff.roleLabel || ""}`}
+                          className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <Avatar className="h-10 w-10">
+                              {getStaffAvatarUrl(staff.avatar) ? (
+                                <AvatarImage
+                                  src={getStaffAvatarUrl(staff.avatar)}
+                                  alt={staff.displayName || staff.email || "User"}
+                                />
+                              ) : (
+                                <AvatarFallback>
+                                  {getInitials(staff.displayName || staff.email)}
+                                </AvatarFallback>
+                              )}
+                            </Avatar>
+                            <div className="space-y-0.5 min-w-0">
+                              <div className="font-montserrat font-semibold text-sm break-words">
+                                {staff.displayName || "Unassigned"}
+                              </div>
+                              <div className="text-xs text-muted-foreground break-words">
+                                {formatStaffRole(staff.roleType, staff.roleLabel)}
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground break-words">
-                            {formatStaffRole(staff.roleType, staff.roleLabel)}
-                          </div>
+                          <Badge
+                            variant="secondary"
+                            className="capitalize self-start sm:self-center"
+                          >
+                            {staff.roleType}
+                          </Badge>
                         </div>
-                      </div>
-                      <Badge variant="secondary" className="capitalize self-start sm:self-center">
-                        {staff.roleType}
-                      </Badge>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
+
+                {playerAssignments.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-montserrat font-semibold flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Players
+                    </h3>
+                    <div className="space-y-2">
+                      {playerAssignments.map((staff) => (
+                        <div
+                          key={`${staff.orgUserId}-${staff.roleType}-${staff.roleLabel || ""}`}
+                          className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <Avatar className="h-10 w-10">
+                              {getStaffAvatarUrl(staff.avatar) ? (
+                                <AvatarImage
+                                  src={getStaffAvatarUrl(staff.avatar)}
+                                  alt={staff.displayName || staff.email || "User"}
+                                />
+                              ) : (
+                                <AvatarFallback>
+                                  {getInitials(staff.displayName || staff.email)}
+                                </AvatarFallback>
+                              )}
+                            </Avatar>
+                            <div className="space-y-0.5 min-w-0">
+                              <div className="font-montserrat font-semibold text-sm break-words">
+                                {staff.displayName || "Unassigned"}
+                              </div>
+                              <div className="text-xs text-muted-foreground break-words">
+                                {formatStaffRole(staff.roleType, staff.roleLabel)}
+                              </div>
+                            </div>
+                          </div>
+                          <Badge
+                            variant="secondary"
+                            className="capitalize self-start sm:self-center"
+                          >
+                            {staff.roleType}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <Separator />
             </>
