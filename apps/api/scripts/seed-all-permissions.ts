@@ -1,6 +1,6 @@
-import path from 'path';
-import { config } from 'dotenv';
 import { PrismaClient } from '@prisma/client';
+import { config } from 'dotenv';
+import path from 'path';
 import { DEFAULT_PERMISSION_DEFINITIONS } from '../src/modules/rbac/permission-definitions';
 
 config({ path: path.join(__dirname, '../.env') });
