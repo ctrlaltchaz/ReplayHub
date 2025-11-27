@@ -47,8 +47,15 @@ CREATE INDEX "assets_tenant_id_folder_id_idx" ON "assets"("tenant_id", "folder_i
 -- AddForeignKey
 ALTER TABLE "asset_folders" ADD CONSTRAINT "asset_folders_parent_id_fkey" FOREIGN KEY ("parent_id") REFERENCES "asset_folders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
+-- Temporarily disable RLS to add foreign key constraint
+ALTER TABLE "assets" DISABLE ROW LEVEL SECURITY;
+
 -- AddForeignKey
 ALTER TABLE "assets" ADD CONSTRAINT "assets_folder_id_fkey" FOREIGN KEY ("folder_id") REFERENCES "asset_folders"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Re-enable RLS
+ALTER TABLE "assets" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "assets" FORCE ROW LEVEL SECURITY;
 
 -- AddForeignKey
 ALTER TABLE "production_sessions" ADD CONSTRAINT "production_sessions_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "organisations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
