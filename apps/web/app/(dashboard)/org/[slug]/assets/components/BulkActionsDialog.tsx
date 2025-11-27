@@ -45,11 +45,41 @@ export function BulkActionsDialog({
 }: BulkActionsDialogProps) {
     const params = useParams();
     const slug = params.slug as string;
-    const { data: foldersResponse } = useAssetFolders(slug);
+    // Fetch all folders by not specifying parentId and using a high limit
+    const { data: foldersResponse } = useAssetFolders(slug, { limit: 1000 });
     
     const [tags, setTags] = useState<string[]>([]);
     const [status, setStatus] = useState<AssetStatus>('active');
     const [folderId, setFolderId] = useState<string | null>(null);
+
+    // Build a hierarchical folder list for the dropdown
+    const buildFolderHierarchy = () => {
+        if (!foldersResponse?.data) return [];
+        
+        const folders = foldersResponse.data;
+        const folderMap = new Map(folders.map(f => [f.id, f]));
+        const result: Array<{ id: string; name: string; level: number }> = [];
+        
+        const addFolder = (folder: typeof folders[0], level: number) => {
+            result.push({
+                id: folder.id,
+                name: folder.name,
+                level,
+            });
+            
+            // Find and add children
+            const children = folders.filter(f => f.parentId === folder.id);
+            children.forEach(child => addFolder(child, level + 1));
+        };
+        
+        // Start with root folders (no parent)
+        const rootFolders = folders.filter(f => !f.parentId);
+        rootFolders.forEach(folder => addFolder(folder, 0));
+        
+        return result;
+    };
+    
+    const folderHierarchy = buildFolderHierarchy();
 
     const handleApply = () => {
         if (action === 'tags') {
@@ -133,9 +163,9 @@ export function BulkActionsDialog({
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="root">📁 Root</SelectItem>
-                                    {foldersResponse?.data.map((folder) => (
+                                    {folderHierarchy.map((folder) => (
                                         <SelectItem key={folder.id} value={folder.id}>
-                                            📁 {folder.name}
+                                            {'\u00A0'.repeat(folder.level * 4)}📁 {folder.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
