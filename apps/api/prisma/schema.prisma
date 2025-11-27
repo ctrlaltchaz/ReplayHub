@@ -94,30 +94,30 @@ model Note {
 }
 
 model OrgUser {
-  id                 String                 @id @default(cuid())
-  tenantId           String                 @map("tenant_id")
-  email              String
-  passwordHash       String                 @map("password_hash")
-  displayName        String                 @map("display_name")
-  isActive           Boolean                @default(true) @map("is_active")
-  totpSecret         String?                @map("totp_secret")
-  isTotpEnabled      Boolean                @default(false) @map("is_totp_enabled")
-  createdAt          DateTime               @default(now()) @map("created_at")
-  updatedAt          DateTime               @updatedAt @map("updated_at")
-  globalUserId       String?                @map("global_user_id")
-  createdAttendance  Attendance[]           @relation("AttendanceCreator")
-  attendanceRecords  Attendance[]           @relation("AttendanceUser")
-  reviewedAttendance Attendance[]           @relation("AttendanceReviewer")
-  auditLogs          AuditLog[]
-  createdIncidents   Incident[]             @relation("IncidentCreator")
-  ownedIncidents     Incident[]             @relation("IncidentOwner")
-  roles              OrgUserRole[]
-  globalUser         GlobalUser?            @relation("OrgUserToGlobalUser", fields: [globalUserId], references: [id])
-  organisation       Organisation           @relation("OrgUserToOrganisation", fields: [tenantId], references: [id], onDelete: Cascade)
-  createdSessions    ProductionSession[]    @relation("SessionCreator")
-  staffAssignments   EventStaffAssignment[]
-  createdLiveGraphics LiveGraphic[]         @relation("LiveGraphicCreatedBy")
-  updatedLiveGraphics LiveGraphic[]         @relation("LiveGraphicUpdatedBy")
+  id                  String                 @id @default(cuid())
+  tenantId            String                 @map("tenant_id")
+  email               String
+  passwordHash        String                 @map("password_hash")
+  displayName         String                 @map("display_name")
+  isActive            Boolean                @default(true) @map("is_active")
+  totpSecret          String?                @map("totp_secret")
+  isTotpEnabled       Boolean                @default(false) @map("is_totp_enabled")
+  createdAt           DateTime               @default(now()) @map("created_at")
+  updatedAt           DateTime               @updatedAt @map("updated_at")
+  globalUserId        String?                @map("global_user_id")
+  createdAttendance   Attendance[]           @relation("AttendanceCreator")
+  attendanceRecords   Attendance[]           @relation("AttendanceUser")
+  reviewedAttendance  Attendance[]           @relation("AttendanceReviewer")
+  auditLogs           AuditLog[]
+  createdIncidents    Incident[]             @relation("IncidentCreator")
+  ownedIncidents      Incident[]             @relation("IncidentOwner")
+  roles               OrgUserRole[]
+  globalUser          GlobalUser?            @relation("OrgUserToGlobalUser", fields: [globalUserId], references: [id])
+  organisation        Organisation           @relation("OrgUserToOrganisation", fields: [tenantId], references: [id], onDelete: Cascade)
+  createdSessions     ProductionSession[]    @relation("SessionCreator")
+  staffAssignments    EventStaffAssignment[]
+  createdLiveGraphics LiveGraphic[]          @relation("LiveGraphicCreatedBy")
+  updatedLiveGraphics LiveGraphic[]          @relation("LiveGraphicUpdatedBy")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -1098,23 +1098,23 @@ model PasswordAuditLog {
 }
 
 model LiveGraphic {
-  id          String       @id @default(cuid())
-  tenantId    String       @map("tenant_id")
-  name        String
-  description String?
-  publicCode  String       @unique @map("public_code")
-  controlCode String       @unique @map("control_code")
-  filePath    String?      @map("file_path")
-  publicUrl   String?      @map("public_url")
-  state       Json         @default("{}")
-  status      String       @default("draft")
-  createdBy   String?      @map("created_by")
-  updatedBy   String?      @map("updated_by")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
-  organisation Organisation @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdByUser OrgUser?   @relation("LiveGraphicCreatedBy", fields: [createdBy], references: [id])
-  updatedByUser OrgUser?   @relation("LiveGraphicUpdatedBy", fields: [updatedBy], references: [id])
+  id            String       @id @default(cuid())
+  tenantId      String       @map("tenant_id")
+  name          String
+  description   String?
+  publicCode    String       @unique @map("public_code")
+  controlCode   String       @unique @map("control_code")
+  filePath      String?      @map("file_path")
+  publicUrl     String?      @map("public_url")
+  state         Json         @default("{}")
+  status        String       @default("draft")
+  createdBy     String?      @map("created_by")
+  updatedBy     String?      @map("updated_by")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  organisation  Organisation @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdByUser OrgUser?     @relation("LiveGraphicCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser OrgUser?     @relation("LiveGraphicUpdatedBy", fields: [updatedBy], references: [id])
 
   @@index([tenantId])
   @@map("live_graphics")
