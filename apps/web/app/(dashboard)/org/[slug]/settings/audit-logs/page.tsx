@@ -148,12 +148,11 @@ export default function AuditLogsPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight">Audit Logs</h1>
-          <p className="text-muted-foreground">
-            Track every sensitive action across your organization with filtering by actor, action,
-            status, and time.
+          <h1 className="text-3xl font-semibold tracking-tight font-montserrat">Audit Logs</h1>
+          <p className="text-muted-foreground mt-2">
+            Track sensitive actions across your organization with filters for actors, status, and
+            time.
           </p>
-          <div className="text-sm text-muted-foreground">{totalLabel}</div>
         </div>
         <div className="flex items-center gap-2">
           <Button

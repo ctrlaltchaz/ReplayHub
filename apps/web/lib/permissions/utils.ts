@@ -172,6 +172,8 @@ export const PERMISSIONS = {
   ATTENDANCE_VIEW: "attendance.view" as const,
   ATTENDANCE_MANAGE: "attendance.manage" as const,
   ATTENDANCE_EXPORT: "attendance.export" as const,
+  LIVE_GRAPHICS_VIEW: "live-graphics.view" as const,
+  LIVE_GRAPHICS_MANAGE: "live-graphics.manage" as const,
 
   // Runsheets and checklists
   RUNSHEETS_VIEW: "runsheet.view" as const,

@@ -146,6 +146,14 @@ export const DEFAULT_PERMISSION_DEFINITIONS: PermissionDefinition[] = [
     description: 'Export Wednesday attendance data',
   },
 
+  { key: 'live-graphics', group: 'live-graphics', description: 'Access live graphics module' },
+  { key: 'live-graphics.view', group: 'live-graphics', description: 'View live graphics overlays' },
+  {
+    key: 'live-graphics.manage',
+    group: 'live-graphics',
+    description: 'Upload, edit, and control live graphic overlays',
+  },
+
   { key: 'feedback', group: 'feedback', description: 'Access feedback module' },
   { key: 'feedback.submit', group: 'feedback', description: 'Submit feedback and bug reports' },
 ];

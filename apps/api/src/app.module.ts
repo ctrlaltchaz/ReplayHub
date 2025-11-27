@@ -43,6 +43,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DiscordModule } from './modules/discord/discord.module';
 import { EventsModule } from './modules/events/events.module';
 import { GameLogModule } from './modules/gamelog/gamelog.module';
+import { LiveGraphicsModule } from './modules/live-graphics/live-graphics.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
@@ -110,6 +111,7 @@ import { UsersModule } from './modules/users/users.module';
     DiscordModule,
     ProductionSessionsModule,
     PasswordsModule,
+    LiveGraphicsModule,
   ],
   controllers: [HealthController],
   providers: [

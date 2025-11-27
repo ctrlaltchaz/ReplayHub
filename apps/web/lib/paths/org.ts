@@ -23,6 +23,7 @@ export const orgPath = {
   rosterAchievements: (slug: OrgSlug) => `/org/${slug}/rosters?tab=achievements`,
   playerStats: (slug: OrgSlug) => `/org/${slug}/player-stats`,
   gamelog: (slug: OrgSlug) => `/org/${slug}/gamelog`,
+  liveGraphics: (slug: OrgSlug) => `/org/${slug}/live-graphics`,
   runsheets: (slug: OrgSlug) => `/org/${slug}/runsheets`,
   checklists: (slug: OrgSlug) => `/org/${slug}/checklists`,
   passwords: (slug: OrgSlug) => `/org/${slug}/passwords`,
@@ -91,6 +92,12 @@ export const ORG_NAV: NavItem[] = [
     ],
   },
   { key: "gamelog", label: "Game Log", href: orgPath.gamelog, required: PERMISSIONS.GAMELOG_VIEW },
+  {
+    key: "live-graphics",
+    label: "Live Graphics",
+    href: orgPath.liveGraphics,
+    required: PERMISSIONS.LIVE_GRAPHICS_VIEW,
+  },
   {
     key: "player-stats",
     label: "Player Stats",

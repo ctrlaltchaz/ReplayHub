@@ -46,6 +46,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   incidents: require("lucide-react").AlertTriangle,
   reports: require("lucide-react").BarChart3,
   settings: require("lucide-react").Settings,
+  "live-graphics": require("lucide-react").MonitorPlay,
   admin: require("lucide-react").Settings,
   attendance: require("lucide-react").Clock,
   // Admin navigation icons

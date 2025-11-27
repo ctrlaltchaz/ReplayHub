@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ReplayHub Scoreboard Auto-Scale</title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            font-family: "Montserrat", sans-serif;
+        }
+
+        /* positioning */
+        .score-left {
+            position: absolute;
+            top: 20px;
+            left: 30px;
+        }
+
+        .score-right {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+        }
+
+        /* angled box shape */
+        .team-box {
+            height: 65px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 0 22px;
+            border: 2px solid black;
+            background: linear-gradient(to right, #f5b7c8, #ffecef);
+            border-radius: 6px;
+            clip-path: polygon(0 0, calc(100% - 26px) 0, 100% 100%, 0 100%);
+        }
+
+        .team-box.right {
+            background: linear-gradient(to left, #f5b7c8, #ffecef);
+            clip-path: polygon(26px 0, 100% 0, 100% 100%, 0 100%);
+            flex-direction: row-reverse;
+        }
+
+        /* fixed width for name area */
+        .name-wrapper {
+            width: 300px;
+            /* max width team name can ever occupy */
+            display: flex;
+            align-items: center;
+        }
+
+        /* left name hugs left side */
+        .name-wrapper.left {
+            justify-content: flex-start;
+        }
+
+        /* right name hugs right side */
+        .name-wrapper.right {
+            justify-content: flex-end;
+        }
+
+        .team-name {
+            font-weight: 700;
+            color: black;
+            white-space: nowrap;
+            display: inline-block;
+            transform-origin: left center;
+        }
+
+        .team-name.right {
+            transform-origin: right center;
+        }
+
+        /* score pill */
+        .score-pill {
+            background: white;
+            border: 2px solid black;
+            border-radius: 999px;
+            padding: 6px 22px;
+            font-size: 22px;
+            font-weight: 700;
+            color: black;
+            min-width: 40px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        /* hidden element for measuring name sizes */
+        #measure {
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+            visibility: hidden;
+            white-space: nowrap;
+            font-weight: 700;
+            font-family: "Montserrat", sans-serif;
+            font-size: 22px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- hidden measuring element -->
+    <div id="measure"></div>
+
+    <!-- LEFT TEAM -->
+    <div class="score-left">
+        <div class="team-box">
+            <div class="name-wrapper left">
+                <div class="team-name" id="name-left" data-replayhub-field="leftName">Left Team</div>
+            </div>
+            <div class="score-pill" data-replayhub-field="leftScore">0</div>
+        </div>
+    </div>
+
+    <!-- RIGHT TEAM -->
+    <div class="score-right">
+        <div class="team-box right">
+            <div class="name-wrapper right">
+                <div class="team-name right" id="name-right" data-replayhub-field="rightName">Right Team</div>
+            </div>
+            <div class="score-pill" data-replayhub-field="rightScore">0</div>
+        </div>
+    </div>
+
+    <!-- ReplayHub live script -->
+    <script src="/api/public/live-graphics/client.js" data-replayhub-code="of54rgd7rc8x8hcbzk04rju2"
+        data-replayhub-slug="test"></script>
+
+    <script>
+        function autoScaleNames() {
+            const left = document.getElementById("name-left");
+            const right = document.getElementById("name-right");
+            const measure = document.getElementById("measure");
+
+            const maxWidth = 300; // must match .name-wrapper width
+
+            left.style.transform = "scale(1)";
+            right.style.transform = "scale(1)";
+
+            const names = [left.textContent, right.textContent];
+
+            let largest = 0;
+            measure.style.fontSize = "22px";
+
+            for (const n of names) {
+                measure.textContent = n;
+                largest = Math.max(largest, measure.offsetWidth);
+            }
+
+            const scale = Math.min(1, maxWidth / largest);
+
+            left.style.transform = `scale(${scale})`;
+            right.style.transform = `scale(${scale})`;
+        }
+
+        setInterval(autoScaleNames, 300);
+    </script>
+
+</body>
+
+</html>

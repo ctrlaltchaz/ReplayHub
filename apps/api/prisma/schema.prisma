@@ -63,6 +63,7 @@ model Organisation {
   owner              GlobalUser                   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   productionSessions ProductionSession[]          @relation("OrganisationSessions")
   memberships        UserOrganisationMembership[]
+  liveGraphics       LiveGraphic[]
 
   @@map("organisations")
 }
@@ -115,6 +116,8 @@ model OrgUser {
   organisation       Organisation           @relation("OrgUserToOrganisation", fields: [tenantId], references: [id], onDelete: Cascade)
   createdSessions    ProductionSession[]    @relation("SessionCreator")
   staffAssignments   EventStaffAssignment[]
+  createdLiveGraphics LiveGraphic[]         @relation("LiveGraphicCreatedBy")
+  updatedLiveGraphics LiveGraphic[]         @relation("LiveGraphicUpdatedBy")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -1092,6 +1095,29 @@ model PasswordAuditLog {
   @@index([tenantId, passwordId])
   @@index([tenantId, membershipId])
   @@map("password_audit_logs")
+}
+
+model LiveGraphic {
+  id          String       @id @default(cuid())
+  tenantId    String       @map("tenant_id")
+  name        String
+  description String?
+  publicCode  String       @unique @map("public_code")
+  controlCode String       @unique @map("control_code")
+  filePath    String?      @map("file_path")
+  publicUrl   String?      @map("public_url")
+  state       Json         @default("{}")
+  status      String       @default("draft")
+  createdBy   String?      @map("created_by")
+  updatedBy   String?      @map("updated_by")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  organisation Organisation @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdByUser OrgUser?   @relation("LiveGraphicCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser OrgUser?   @relation("LiveGraphicUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@index([tenantId])
+  @@map("live_graphics")
 }
 
 enum AuditAction {

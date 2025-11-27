@@ -80,7 +80,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   }, [navItems, pathname]);
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
+    <div className="container mx-auto py-8 space-y-8 overflow-x-hidden">
       {/* Header */}
       <div className="flex items-start gap-4">
         <div className="p-3 rounded-xl bg-primary/10">
@@ -97,7 +97,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[280px,1fr]">
-        <aside className="bg-card border rounded-xl shadow-sm">
+        <aside className="bg-card border rounded-xl shadow-sm min-w-0">
           <div className="p-4 border-b">
             <p className="text-sm font-semibold text-foreground">Settings</p>
             <p className="text-xs text-muted-foreground">Choose a section to manage</p>
@@ -130,7 +130,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           </nav>
         </aside>
 
-        <div className="min-h-[60vh]">{children}</div>
+        <div className="min-h-[60vh] min-w-0 overflow-x-hidden">{children}</div>
       </div>
     </div>
   );
