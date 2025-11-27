@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { AssetCard } from './components/AssetCard';
 import { BulkActionsDialog } from './components/BulkActionsDialog';
 import { CreateFolderDialog } from './components/CreateFolderDialog';
+import { DeleteFolderDialog } from './components/DeleteFolderDialog';
 import { FolderBreadcrumb } from './components/FolderBreadcrumb';
 import { FolderTree } from './components/FolderTree';
 import { UploadDialog } from './components/UploadDialog';
@@ -26,6 +27,7 @@ import { useAssets } from './hooks/useAssets';
 import { useAssetFolder } from './hooks/useAssetFolder';
 import { useAssetTags } from './hooks/useAssetTags';
 import { useDeleteAsset } from './hooks/useDeleteAsset';
+import { useDeleteFolder } from './hooks/useDeleteFolder';
 
 export default function AssetsPage() {
     usePageTitle('Assets');
@@ -41,10 +43,12 @@ export default function AssetsPage() {
     const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
     const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
     const [createFolderDialogOpen, setCreateFolderDialogOpen] = useState(false);
+    const [deleteFolderDialogOpen, setDeleteFolderDialogOpen] = useState(false);
     const [showFolderSidebar, setShowFolderSidebar] = useState(true);
     const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
     const [bulkAction, setBulkAction] = useState<'tags' | 'status' | 'folder' | null>(null);
     const [isProcessingBulk, setIsProcessingBulk] = useState(false);
+    const [isDeletingFolder, setIsDeletingFolder] = useState(false);
 
     const { data: response, isLoading } = useAssets(slug, {
         q: searchQuery || undefined,
@@ -57,6 +61,7 @@ export default function AssetsPage() {
     const { data: tagsResponse } = useAssetTags(slug);
     const allTags = tagsResponse?.tags || [];
     const deleteAsset = useDeleteAsset(slug);
+    const deleteFolder = useDeleteFolder(slug);
 
     const assets = response?.data || [];
 
@@ -221,6 +226,92 @@ export default function AssetsPage() {
         });
     };
 
+    const handleDeleteFolder = async (action: 'delete-all' | 'move-assets', targetFolderId?: string | null) => {
+        if (!currentFolderId || currentFolderId === 'root') return;
+
+        setIsDeletingFolder(true);
+
+        try {
+            // If moving assets, bulk update them first
+            if (action === 'move-assets') {
+                const assetsToMove = assets.filter(asset => asset.folderId === currentFolderId);
+                
+                let successCount = 0;
+                let errorCount = 0;
+
+                for (const asset of assetsToMove) {
+                    try {
+                        const url = getApiUrl(`/org/${slug}/assets/${asset.id}`);
+                        const response = await fetch(url, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                folderId: targetFolderId === undefined ? null : targetFolderId,
+                            }),
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Failed to move asset');
+                        }
+                        successCount++;
+                    } catch (error) {
+                        console.error('Error moving asset:', asset.id, error);
+                        errorCount++;
+                    }
+                }
+
+                if (errorCount > 0) {
+                    toast({
+                        title: 'Error Moving Assets',
+                        description: `${errorCount} asset(s) could not be moved. Please try again.`,
+                        variant: 'destructive',
+                    });
+                    setIsDeletingFolder(false);
+                    setDeleteFolderDialogOpen(false);
+                    return;
+                }
+            } else if (action === 'delete-all') {
+                // Delete all assets in the folder
+                const assetsToDelete = assets.filter(asset => asset.folderId === currentFolderId);
+                
+                for (const asset of assetsToDelete) {
+                    try {
+                        await deleteAsset.mutateAsync(asset.id);
+                    } catch (error) {
+                        console.error('Error deleting asset:', asset.id, error);
+                    }
+                }
+            }
+
+            // Now delete the folder
+            await deleteFolder.mutateAsync(currentFolderId);
+            
+            toast({
+                title: 'Folder Deleted',
+                description: action === 'move-assets' 
+                    ? 'The folder has been deleted and assets have been moved.'
+                    : 'The folder and all its assets have been deleted.',
+            });
+
+            // Reset to root view
+            setCurrentFolderId(null);
+            setDeleteFolderDialogOpen(false);
+            
+            // Refresh data
+            queryClient.invalidateQueries({ queryKey: ['asset-folders', slug] });
+            queryClient.invalidateQueries({ queryKey: ['assets', slug] });
+        } catch (error: any) {
+            toast({
+                title: 'Delete Failed',
+                description: error.message || 'Failed to delete folder.',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsDeletingFolder(false);
+        }
+    };
+
     const handleBulkDelete = async () => {
         if (selectedAssets.size === 0) return;
 
@@ -260,14 +351,32 @@ export default function AssetsPage() {
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-base flex items-center justify-between">
                                     <span>Folders</span>
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="h-8 w-8 p-0"
-                                        onClick={() => setCreateFolderDialogOpen(true)}
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
+                                    <div className="flex items-center gap-1">
+                                        {currentFolderId && currentFolderId !== 'root' && (
+                                            <PermissionGuard required={PERMISSIONS.ASSETS_MANAGE}>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                                    onClick={() => setDeleteFolderDialogOpen(true)}
+                                                    title="Delete current folder"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </PermissionGuard>
+                                        )}
+                                        <PermissionGuard required={PERMISSIONS.ASSETS_UPLOAD}>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-8 w-8 p-0"
+                                                onClick={() => setCreateFolderDialogOpen(true)}
+                                                title="Create new folder"
+                                            >
+                                                <Plus className="h-4 w-4" />
+                                            </Button>
+                                        </PermissionGuard>
+                                    </div>
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="px-0 pb-0">
@@ -604,6 +713,17 @@ export default function AssetsPage() {
                 onSuccess={() => {
                     queryClient.invalidateQueries({ queryKey: ['asset-folders', slug] });
                 }}
+            />
+
+            {/* Delete Folder Dialog */}
+            <DeleteFolderDialog
+                open={deleteFolderDialogOpen}
+                onOpenChange={setDeleteFolderDialogOpen}
+                folderName={currentFolder?.name}
+                folderId={currentFolderId}
+                assetCount={filteredAssets.filter(a => a.folderId === currentFolderId).length}
+                onConfirm={handleDeleteFolder}
+                isProcessing={isDeletingFolder}
             />
 
             {/* Bulk Actions Dialog */}
