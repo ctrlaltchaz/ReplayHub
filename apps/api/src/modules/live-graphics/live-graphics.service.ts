@@ -1,12 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { createId } from '@paralleldrive/cuid2';
+import { Prisma } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateLiveGraphicDto } from './dto/create-live-graphic.dto';
-import { UpdateLiveGraphicDto } from './dto/update-live-graphic.dto';
 import { UpdateLiveGraphicStateDto } from './dto/update-live-graphic-state.dto';
+import { UpdateLiveGraphicDto } from './dto/update-live-graphic.dto';
 
 const fsp = fs.promises;
 
@@ -43,23 +44,32 @@ export class LiveGraphicsService {
     private auditService: AuditService
   ) {}
 
-  private repo() {
-    return (this.prisma as any).liveGraphic;
+  private repo(client: PrismaService | Prisma.TransactionClient = this.prisma) {
+    return (client as any).liveGraphic;
   }
 
-  private async resolveOrgUserId(tenantId: string, orgUserId?: string | null) {
+  private async resolveOrgUserId(
+    client: Prisma.TransactionClient,
+    tenantId: string,
+    orgUserId?: string | null
+  ) {
     if (!orgUserId) return null;
-    const record = await this.prisma.orgUser.findFirst({
+    const record = await client.orgUser.findFirst({
       where: { id: orgUserId, tenantId },
       select: { id: true },
     });
     return record?.id ?? null;
   }
 
-  private async setTenantContext(tenantId: string) {
-    // Set both legacy and current tenant keys to satisfy RLS policies
-    await this.prisma.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
-    await this.prisma.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+  private async withTenantContext<T>(
+    tenantId: string,
+    callback: (client: Prisma.TransactionClient) => Promise<T>
+  ) {
+    return this.prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      return callback(tx);
+    });
   }
 
   private buildPublicUrl(slug: string, publicCode: string) {
@@ -93,26 +103,28 @@ export class LiveGraphicsService {
   }
 
   async list(tenantId: string, slug: string) {
-    await this.setTenantContext(tenantId);
-    const graphics = await this.repo().findMany({
-      where: { tenantId },
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.withTenantContext(tenantId, async client => {
+      const graphics = await this.repo(client).findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+      });
 
-    return graphics.map(g => this.mapResponse(g, slug));
+      return graphics.map(g => this.mapResponse(g, slug));
+    });
   }
 
   async getById(tenantId: string, slug: string, id: string) {
-    await this.setTenantContext(tenantId);
-    const graphic = await this.repo().findFirst({
-      where: { id, tenantId },
+    return this.withTenantContext(tenantId, async client => {
+      const graphic = await this.repo(client).findFirst({
+        where: { id, tenantId },
+      });
+
+      if (!graphic) {
+        throw new NotFoundException('Graphic not found');
+      }
+
+      return this.mapResponse(graphic, slug);
     });
-
-    if (!graphic) {
-      throw new NotFoundException('Graphic not found');
-    }
-
-    return this.mapResponse(graphic, slug);
   }
 
   async createDraft(
@@ -124,40 +136,44 @@ export class LiveGraphicsService {
   ) {
     const publicCode = createId();
     const controlCode = createId();
-    const actorOrgUserId = await this.resolveOrgUserId(tenantId, orgUserId);
 
-    await this.setTenantContext(tenantId);
-    const created = await this.repo().create({
-      data: {
-        tenantId,
-        name: dto.name,
-        description: dto.description,
-        publicCode,
-        controlCode,
-        filePath: null,
-        publicUrl: this.buildPublicUrl(slug, publicCode),
-        state: { title: dto.name },
-        status: 'draft',
-        createdBy: actorOrgUserId,
-      },
+    return this.withTenantContext(tenantId, async client => {
+      const actorOrgUserId = await this.resolveOrgUserId(client, tenantId, orgUserId);
+      const created = await this.repo(client).create({
+        data: {
+          tenantId,
+          name: dto.name,
+          description: dto.description,
+          publicCode,
+          controlCode,
+          filePath: null,
+          publicUrl: this.buildPublicUrl(slug, publicCode),
+          state: { title: dto.name },
+          status: 'draft',
+          createdBy: actorOrgUserId,
+        },
+      });
+
+      await this.auditService.log(
+        {
+          tenantId,
+          action: 'live-graphics.create',
+          entity: 'live_graphic',
+          entityId: created.id,
+          description: 'Created live graphic overlay draft',
+          orgUserId: orgUserId ?? undefined,
+          actorEmail,
+          metadata: {
+            name: dto.name,
+            description: dto.description,
+            publicCode,
+          },
+        },
+        client
+      );
+
+      return this.mapResponse(created, slug);
     });
-
-    await this.auditService.log({
-      tenantId,
-      action: 'live-graphics.create',
-      entity: 'live_graphic',
-      entityId: created.id,
-      description: 'Created live graphic overlay draft',
-      orgUserId: orgUserId ?? undefined,
-      actorEmail,
-      metadata: {
-        name: dto.name,
-        description: dto.description,
-        publicCode,
-      },
-    });
-
-    return this.mapResponse(created, slug);
   }
 
   async uploadHtml(
@@ -182,55 +198,59 @@ export class LiveGraphicsService {
       throw new BadRequestException('File is too large (2MB max)');
     }
 
-    await this.setTenantContext(tenantId);
-    const existing = await this.repo().findFirst({ where: { id, tenantId } });
-    if (!existing) {
-      throw new NotFoundException('Graphic not found');
-    }
+    return this.withTenantContext(tenantId, async client => {
+      const existing = await this.repo(client).findFirst({ where: { id, tenantId } });
+      if (!existing) {
+        throw new NotFoundException('Graphic not found');
+      }
 
-    const fileText = file.buffer.toString('utf8');
-    // Verify the control code is embedded in the HTML so the client snippet is present
-    if (!fileText.includes(existing.controlCode)) {
-      throw new BadRequestException(
-        'Uploaded HTML must include the provided ReplayHub client script/control code'
+      const fileText = file.buffer.toString('utf8');
+      // Verify the control code is embedded in the HTML so the client snippet is present
+      if (!fileText.includes(existing.controlCode)) {
+        throw new BadRequestException(
+          'Uploaded HTML must include the provided ReplayHub client script/control code'
+        );
+      }
+
+      const relativeDir = path.join('live-graphics', existing.publicCode);
+      const filename = 'overlay.html';
+      const relativePath = path.join(relativeDir, filename);
+      const fullDir = path.join(this.uploadBase, relativeDir);
+      const fullPath = path.join(this.uploadBase, relativePath);
+
+      await fsp.mkdir(fullDir, { recursive: true });
+      await fsp.writeFile(fullPath, file.buffer);
+      const actorOrgUserId = await this.resolveOrgUserId(client, tenantId, orgUserId);
+
+      const updated = await this.repo(client).update({
+        where: { id: existing.id },
+        data: {
+          filePath: relativePath,
+          status: 'active',
+          updatedBy: actorOrgUserId,
+        },
+      });
+
+      await this.auditService.log(
+        {
+          tenantId,
+          action: 'live-graphics.upload',
+          entity: 'live_graphic',
+          entityId: updated.id,
+          description: 'Uploaded verified live graphic HTML',
+          orgUserId: orgUserId ?? undefined,
+          actorEmail,
+          metadata: {
+            name: updated.name,
+            publicCode: updated.publicCode,
+            status: updated.status,
+          },
+        },
+        client
       );
-    }
 
-    const relativeDir = path.join('live-graphics', existing.publicCode);
-    const filename = 'overlay.html';
-    const relativePath = path.join(relativeDir, filename);
-    const fullDir = path.join(this.uploadBase, relativeDir);
-    const fullPath = path.join(this.uploadBase, relativePath);
-
-    await fsp.mkdir(fullDir, { recursive: true });
-    await fsp.writeFile(fullPath, file.buffer);
-    const actorOrgUserId = await this.resolveOrgUserId(tenantId, orgUserId);
-
-    const updated = await this.repo().update({
-      where: { id: existing.id },
-      data: {
-        filePath: relativePath,
-        status: 'active',
-        updatedBy: actorOrgUserId,
-      },
+      return this.mapResponse(updated, slug);
     });
-
-    await this.auditService.log({
-      tenantId,
-      action: 'live-graphics.upload',
-      entity: 'live_graphic',
-      entityId: updated.id,
-      description: 'Uploaded verified live graphic HTML',
-      orgUserId: orgUserId ?? undefined,
-      actorEmail,
-      metadata: {
-        name: updated.name,
-        publicCode: updated.publicCode,
-        status: updated.status,
-      },
-    });
-
-    return this.mapResponse(updated, slug);
   }
 
   async updateMetadata(
@@ -241,43 +261,47 @@ export class LiveGraphicsService {
     orgUserId?: string | null,
     actorEmail?: string | null
   ) {
-    await this.setTenantContext(tenantId);
-    const actorOrgUserId = await this.resolveOrgUserId(tenantId, orgUserId);
-    const existing = await this.repo().findFirst({ where: { id, tenantId } });
-    if (!existing) {
-      throw new NotFoundException('Graphic not found');
-    }
+    return this.withTenantContext(tenantId, async client => {
+      const actorOrgUserId = await this.resolveOrgUserId(client, tenantId, orgUserId);
+      const existing = await this.repo(client).findFirst({ where: { id, tenantId } });
+      if (!existing) {
+        throw new NotFoundException('Graphic not found');
+      }
 
-    const updated = await this.repo().update({
-      where: { id },
-      data: {
-        name: dto.name ?? existing.name,
-        description: dto.description ?? existing.description,
-        updatedBy: actorOrgUserId,
-      },
-    });
-
-    await this.auditService.log({
-      tenantId,
-      action: 'live-graphics.update',
-      entity: 'live_graphic',
-      entityId: id,
-      description: 'Updated live graphic metadata',
-      orgUserId: orgUserId ?? undefined,
-      actorEmail,
-      metadata: {
-        before: {
-          name: existing.name,
-          description: existing.description,
+      const updated = await this.repo(client).update({
+        where: { id },
+        data: {
+          name: dto.name ?? existing.name,
+          description: dto.description ?? existing.description,
+          updatedBy: actorOrgUserId,
         },
-        after: {
-          name: updated.name,
-          description: updated.description,
-        },
-      },
-    });
+      });
 
-    return this.mapResponse(updated, slug);
+      await this.auditService.log(
+        {
+          tenantId,
+          action: 'live-graphics.update',
+          entity: 'live_graphic',
+          entityId: id,
+          description: 'Updated live graphic metadata',
+          orgUserId: orgUserId ?? undefined,
+          actorEmail,
+          metadata: {
+            before: {
+              name: existing.name,
+              description: existing.description,
+            },
+            after: {
+              name: updated.name,
+              description: updated.description,
+            },
+          },
+        },
+        client
+      );
+
+      return this.mapResponse(updated, slug);
+    });
   }
 
   async updateState(
@@ -288,42 +312,46 @@ export class LiveGraphicsService {
     orgUserId?: string | null,
     actorEmail?: string | null
   ) {
-    await this.setTenantContext(tenantId);
-    const actorOrgUserId = await this.resolveOrgUserId(tenantId, orgUserId);
-    const existing = await this.repo().findFirst({ where: { id, tenantId } });
-    if (!existing) {
-      throw new NotFoundException('Graphic not found');
-    }
+    return this.withTenantContext(tenantId, async client => {
+      const actorOrgUserId = await this.resolveOrgUserId(client, tenantId, orgUserId);
+      const existing = await this.repo(client).findFirst({ where: { id, tenantId } });
+      if (!existing) {
+        throw new NotFoundException('Graphic not found');
+      }
 
-    const currentState = (existing.state as Record<string, any>) || {};
-    const nextState = {
-      ...currentState,
-      ...state,
-      extra: state.extra ? { ...(currentState.extra || {}), ...state.extra } : currentState.extra,
-    };
+      const currentState = (existing.state as Record<string, any>) || {};
+      const nextState = {
+        ...currentState,
+        ...state,
+        extra: state.extra ? { ...(currentState.extra || {}), ...state.extra } : currentState.extra,
+      };
 
-    const updated = await this.repo().update({
-      where: { id },
-      data: {
-        state: nextState,
-        updatedBy: actorOrgUserId,
-      },
+      const updated = await this.repo(client).update({
+        where: { id },
+        data: {
+          state: nextState,
+          updatedBy: actorOrgUserId,
+        },
+      });
+
+      await this.auditService.log(
+        {
+          tenantId,
+          action: 'live-graphics.state.update',
+          entity: 'live_graphic',
+          entityId: id,
+          description: 'Updated live graphic state',
+          orgUserId: orgUserId ?? undefined,
+          actorEmail,
+          metadata: {
+            state: nextState,
+          },
+        },
+        client
+      );
+
+      return this.mapResponse(updated, slug);
     });
-
-    await this.auditService.log({
-      tenantId,
-      action: 'live-graphics.state.update',
-      entity: 'live_graphic',
-      entityId: id,
-      description: 'Updated live graphic state',
-      orgUserId: orgUserId ?? undefined,
-      actorEmail,
-      metadata: {
-        state: nextState,
-      },
-    });
-
-    return this.mapResponse(updated, slug);
   }
 
   async deleteGraphic(
@@ -332,41 +360,44 @@ export class LiveGraphicsService {
     orgUserId?: string | null,
     actorEmail?: string | null
   ) {
-    await this.setTenantContext(tenantId);
-    const existing = await this.repo().findFirst({ where: { id, tenantId } });
-    if (!existing) {
-      throw new NotFoundException('Graphic not found');
-    }
+    return this.withTenantContext(tenantId, async client => {
+      const existing = await this.repo(client).findFirst({ where: { id, tenantId } });
+      if (!existing) {
+        throw new NotFoundException('Graphic not found');
+      }
 
-    // Remove file if present
-    if (existing.filePath) {
-      const filePath = this.resolveFilePath(existing);
-      if (fs.existsSync(filePath)) {
-        try {
-          await fsp.unlink(filePath);
-        } catch (err) {
-          console.warn('[LiveGraphics] Failed to delete file for graphic', id, err);
+      if (existing.filePath) {
+        const filePath = this.resolveFilePath(existing);
+        if (fs.existsSync(filePath)) {
+          try {
+            await fsp.unlink(filePath);
+          } catch (err) {
+            console.warn('[LiveGraphics] Failed to delete file for graphic', id, err);
+          }
         }
       }
-    }
 
-    await this.repo().delete({ where: { id } });
+      await this.repo(client).delete({ where: { id } });
 
-    await this.auditService.log({
-      tenantId,
-      action: 'live-graphics.delete',
-      entity: 'live_graphic',
-      entityId: id,
-      description: 'Deleted live graphic',
-      orgUserId: (await this.resolveOrgUserId(tenantId, orgUserId)) ?? undefined,
-      actorEmail,
-      metadata: {
-        name: existing.name,
-        publicCode: existing.publicCode,
-      },
+      await this.auditService.log(
+        {
+          tenantId,
+          action: 'live-graphics.delete',
+          entity: 'live_graphic',
+          entityId: id,
+          description: 'Deleted live graphic',
+          orgUserId: (await this.resolveOrgUserId(client, tenantId, orgUserId)) ?? undefined,
+          actorEmail,
+          metadata: {
+            name: existing.name,
+            publicCode: existing.publicCode,
+          },
+        },
+        client
+      );
+
+      return { success: true };
     });
-
-    return { success: true };
   }
 
   async getPublicGraphic(slug: string, publicCode: string) {
@@ -379,28 +410,29 @@ export class LiveGraphicsService {
       throw new NotFoundException('Organisation not found');
     }
 
-    await this.setTenantContext(org.id);
-    const graphic = await this.repo().findFirst({
-      where: { publicCode, tenantId: org.id },
+    return this.withTenantContext(org.id, async client => {
+      const graphic = await this.repo(client).findFirst({
+        where: { publicCode, tenantId: org.id },
+      });
+
+      if (!graphic) {
+        throw new NotFoundException('Graphic not found');
+      }
+
+      if (!graphic.filePath) {
+        throw new NotFoundException('Graphic HTML not uploaded yet');
+      }
+
+      const filePath = this.resolveFilePath(graphic);
+
+      try {
+        const html = await fsp.readFile(filePath, 'utf8');
+        return html;
+      } catch (error) {
+        console.error('[LiveGraphics] Failed to read overlay file', error);
+        throw new NotFoundException('Overlay file not found');
+      }
     });
-
-    if (!graphic) {
-      throw new NotFoundException('Graphic not found');
-    }
-
-    if (!graphic.filePath) {
-      throw new NotFoundException('Graphic HTML not uploaded yet');
-    }
-
-    const filePath = this.resolveFilePath(graphic);
-
-    try {
-      const html = await fsp.readFile(filePath, 'utf8');
-      return html;
-    } catch (error) {
-      console.error('[LiveGraphics] Failed to read overlay file', error);
-      throw new NotFoundException('Overlay file not found');
-    }
   }
 
   async getPublicState(slug: string, controlCode: string) {
@@ -413,19 +445,20 @@ export class LiveGraphicsService {
       throw new NotFoundException('Organisation not found');
     }
 
-    await this.setTenantContext(org.id);
-    const graphic = await this.repo().findFirst({
-      where: { controlCode, tenantId: org.id },
+    return this.withTenantContext(org.id, async client => {
+      const graphic = await this.repo(client).findFirst({
+        where: { controlCode, tenantId: org.id },
+      });
+
+      if (!graphic) {
+        throw new NotFoundException('Graphic not found');
+      }
+
+      return {
+        name: graphic.name,
+        state: graphic.state || {},
+        updatedAt: graphic.updatedAt,
+      };
     });
-
-    if (!graphic) {
-      throw new NotFoundException('Graphic not found');
-    }
-
-    return {
-      name: graphic.name,
-      state: graphic.state || {},
-      updatedAt: graphic.updatedAt,
-    };
   }
 }

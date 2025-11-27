@@ -131,8 +131,12 @@ export class AuditService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async log(entry: AuditLogEntry): Promise<void> {
-    const tenantId = entry.tenantId ?? entry.organizationId ?? (await this.getTenantContext());
+  async log(
+    entry: AuditLogEntry,
+    prismaClient: PrismaService | Prisma.TransactionClient = this.prisma
+  ): Promise<void> {
+    const tenantId =
+      entry.tenantId ?? entry.organizationId ?? (await this.getTenantContext(prismaClient));
 
     if (!tenantId) {
       this.logger.warn(
@@ -157,7 +161,7 @@ export class AuditService {
     const entityType = this.normaliseEntityType(entry.entityType);
 
     try {
-      await this.prisma.auditLog.create({
+      await prismaClient.auditLog.create({
         data: {
           tenantId,
           action,
@@ -184,7 +188,7 @@ export class AuditService {
       // Retry without user references if foreign key constraint fails
       if (message.includes('org_user_id_fkey') || message.includes('user_id_fkey')) {
         try {
-          await this.prisma.auditLog.create({
+          await prismaClient.auditLog.create({
             data: {
               tenantId,
               action,
@@ -494,9 +498,11 @@ export class AuditService {
     };
   }
 
-  private async getTenantContext(): Promise<string | null> {
+  private async getTenantContext(
+    prismaClient: PrismaService | Prisma.TransactionClient = this.prisma
+  ): Promise<string | null> {
     try {
-      const result = await this.prisma.$queryRaw<{ tenant_id: string }[]>`
+      const result = await prismaClient.$queryRaw<{ tenant_id: string }[]>`
         select current_setting('app.tenant_id', true) as tenant_id
       `;
 
