@@ -27,39 +27,63 @@
             right: 30px;
         }
 
-        /* angled box shape */
+        /* ===========================================
+           ANGLED BOX WITH PERFECT BORDER + GLOW PULSE
+           =========================================== */
         .team-box {
+            position: relative;
             height: 65px;
             display: flex;
             align-items: center;
             gap: 14px;
             padding: 0 22px;
-            border: 2px solid black;
-            background: linear-gradient(to right, #f5b7c8, #ffecef);
             border-radius: 6px;
-            clip-path: polygon(0 0, calc(100% - 26px) 0, 100% 100%, 0 100%);
+            overflow: visible;
         }
 
-        .team-box.right {
+        /* background mask */
+        .team-box::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to right, #f5b7c8, #ffecef);
+            clip-path: polygon(0 0, calc(100% - 26px) 0, 100% 100%, 0 100%);
+            z-index: -2;
+        }
+
+        /* border mask + SOFT GLOW PULSE */
+        .team-box::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border: 2px solid black;
+            border-radius: 6px;
+            clip-path: polygon(0 0, calc(100% - 26px) 0, 100% 100%, 0 100%);
+            z-index: -1;
+            animation: border-pulse 2.4s ease-in-out infinite;
+        }
+
+        /* RIGHT SIDE */
+        .team-box.right::before {
             background: linear-gradient(to left, #f5b7c8, #ffecef);
             clip-path: polygon(26px 0, 100% 0, 100% 100%, 0 100%);
-            flex-direction: row-reverse;
+        }
+
+        .team-box.right::after {
+            clip-path: polygon(26px 0, 100% 0, 100% 100%, 0 100%);
         }
 
         /* fixed width for name area */
         .name-wrapper {
             width: 300px;
-            /* max width team name can ever occupy */
             display: flex;
             align-items: center;
         }
 
-        /* left name hugs left side */
         .name-wrapper.left {
             justify-content: flex-start;
         }
 
-        /* right name hugs right side */
         .name-wrapper.right {
             justify-content: flex-end;
         }
@@ -88,6 +112,13 @@
             min-width: 40px;
             text-align: center;
             flex-shrink: 0;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* bump class for score change */
+        .score-pill.bump {
+            animation: score-bump 0.28s ease-out;
         }
 
         /* hidden element for measuring name sizes */
@@ -100,6 +131,38 @@
             font-weight: 700;
             font-family: "Montserrat", sans-serif;
             font-size: 22px;
+        }
+
+        /* ============ ANIMATIONS ============ */
+
+        /* soft glow on border */
+        @keyframes border-pulse {
+            0% {
+                box-shadow: 0 0 0 rgba(255, 140, 180, 0);
+            }
+
+            50% {
+                box-shadow: 0 0 14px rgba(255, 140, 180, 0.8);
+            }
+
+            100% {
+                box-shadow: 0 0 0 rgba(255, 140, 180, 0);
+            }
+        }
+
+        /* score bump when value changes */
+        @keyframes score-bump {
+            0% {
+                transform: scale(1);
+            }
+
+            40% {
+                transform: scale(1.25);
+            }
+
+            100% {
+                transform: scale(1);
+            }
         }
     </style>
 </head>
@@ -115,7 +178,7 @@
             <div class="name-wrapper left">
                 <div class="team-name" id="name-left" data-replayhub-field="leftName">Left Team</div>
             </div>
-            <div class="score-pill" data-replayhub-field="leftScore">0</div>
+            <div class="score-pill" id="score-left" data-replayhub-field="leftScore">0</div>
         </div>
     </div>
 
@@ -125,7 +188,7 @@
             <div class="name-wrapper right">
                 <div class="team-name right" id="name-right" data-replayhub-field="rightName">Right Team</div>
             </div>
-            <div class="score-pill" data-replayhub-field="rightScore">0</div>
+            <div class="score-pill" id="score-right" data-replayhub-field="rightScore">0</div>
         </div>
     </div>
 
@@ -134,17 +197,22 @@
         data-replayhub-slug="test"></script>
 
     <script>
-        function autoScaleNames() {
-            const left = document.getElementById("name-left");
-            const right = document.getElementById("name-right");
-            const measure = document.getElementById("measure");
+        const measure = document.getElementById("measure");
+        const leftNameEl = document.getElementById("name-left");
+        const rightNameEl = document.getElementById("name-right");
+        const leftScoreEl = document.getElementById("score-left");
+        const rightScoreEl = document.getElementById("score-right");
 
+        let lastLeftScore = leftScoreEl.textContent;
+        let lastRightScore = rightScoreEl.textContent;
+
+        function autoScaleNames() {
             const maxWidth = 300; // must match .name-wrapper width
 
-            left.style.transform = "scale(1)";
-            right.style.transform = "scale(1)";
+            leftNameEl.style.transform = "scale(1)";
+            rightNameEl.style.transform = "scale(1)";
 
-            const names = [left.textContent, right.textContent];
+            const names = [leftNameEl.textContent, rightNameEl.textContent];
 
             let largest = 0;
             measure.style.fontSize = "22px";
@@ -156,11 +224,34 @@
 
             const scale = Math.min(1, maxWidth / largest);
 
-            left.style.transform = `scale(${scale})`;
-            right.style.transform = `scale(${scale})`;
+            leftNameEl.style.transform = `scale(${scale})`;
+            rightNameEl.style.transform = `scale(${scale})`;
         }
 
-        setInterval(autoScaleNames, 300);
+        function checkScoreBump() {
+            const currentLeft = leftScoreEl.textContent;
+            const currentRight = rightScoreEl.textContent;
+
+            if (currentLeft !== lastLeftScore) {
+                leftScoreEl.classList.remove("bump");
+                void leftScoreEl.offsetWidth; // force reflow to restart animation
+                leftScoreEl.classList.add("bump");
+                lastLeftScore = currentLeft;
+            }
+
+            if (currentRight !== lastRightScore) {
+                rightScoreEl.classList.remove("bump");
+                void rightScoreEl.offsetWidth;
+                rightScoreEl.classList.add("bump");
+                lastRightScore = currentRight;
+            }
+        }
+
+        // run both regularly – ReplayHub updates fields, we react
+        setInterval(() => {
+            autoScaleNames();
+            checkScoreBump();
+        }, 300);
     </script>
 
 </body>
