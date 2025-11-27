@@ -29,6 +29,7 @@
     "db:migrate:show": "npm run migration:show --workspace=apps/api",
     "db:create": "npm run migration:create --workspace=apps/api --",
     "seed:tenant-perms": "cd apps/api && npx ts-node -r tsconfig-paths/register scripts/seed-tenant-permissions.ts",
+    "seed:permissions": "cd apps/api && npx ts-node -r tsconfig-paths/register scripts/seed-all-permissions.ts",
     "prepare": "husky",
     "mobile": "cd apps/mobile && npx expo start"
   },
