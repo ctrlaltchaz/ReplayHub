@@ -33,39 +33,46 @@ function FolderNode({ folder, orgSlug, selectedFolderId, onFolderSelect, level }
 
     return (
         <div>
-            <Button
-                variant="ghost"
-                size="sm"
-                className={`w-full justify-start text-left font-normal min-w-0 ${
+            <div
+                className={`flex items-center w-full rounded-md hover:bg-accent/50 cursor-pointer min-w-0 ${
                     isSelected ? 'bg-accent' : ''
                 }`}
                 style={{ paddingLeft: `${level * 12 + 8}px` }}
-                onClick={() => onFolderSelect(folder.id)}
             >
-                {hasChildren && (
-                    <ChevronRight
-                        className={`h-4 w-4 shrink-0 transition-transform ${
-                            isExpanded ? 'rotate-90' : ''
-                        }`}
+                {hasChildren ? (
+                    <button
+                        className="p-1 hover:bg-accent rounded shrink-0"
                         onClick={(e) => {
                             e.stopPropagation();
                             setIsExpanded(!isExpanded);
                         }}
-                    />
-                )}
-                {!hasChildren && <div className="w-4 shrink-0" />}
-                {isExpanded ? (
-                    <FolderOpen className="ml-2 h-4 w-4 shrink-0" />
+                    >
+                        <ChevronRight
+                            className={`h-4 w-4 transition-transform ${
+                                isExpanded ? 'rotate-90' : ''
+                            }`}
+                        />
+                    </button>
                 ) : (
-                    <Folder className="ml-2 h-4 w-4 shrink-0" />
+                    <div className="w-6 shrink-0" />
                 )}
-                <span className="ml-2 truncate min-w-0 flex-1" title={folder.name}>{folder.name}</span>
-                {folder._count && (
-                    <span className="ml-auto pl-2 text-xs text-muted-foreground shrink-0">
-                        {folder._count.assets}
-                    </span>
-                )}
-            </Button>
+                <button
+                    className="flex items-center flex-1 min-w-0 py-1.5 px-2 text-sm"
+                    onClick={() => onFolderSelect(folder.id)}
+                >
+                    {isExpanded ? (
+                        <FolderOpen className="h-4 w-4 shrink-0" />
+                    ) : (
+                        <Folder className="h-4 w-4 shrink-0" />
+                    )}
+                    <span className="ml-2 truncate min-w-0 flex-1" title={folder.name}>{folder.name}</span>
+                    {folder._count && (
+                        <span className="ml-auto pl-2 text-xs text-muted-foreground shrink-0">
+                            {folder._count.assets}
+                        </span>
+                    )}
+                </button>
+            </div>
 
             {isExpanded && hasChildren && (
                 <div>
