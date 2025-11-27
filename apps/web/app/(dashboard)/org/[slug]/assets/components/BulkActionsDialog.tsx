@@ -21,13 +21,15 @@ import type { AssetStatus } from '@/types/asset';
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { TagInput } from './TagInput';
+import { useAssetFolders } from '../hooks/useAssetFolders';
+import { useParams } from 'next/navigation';
 
 interface BulkActionsDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    action: 'tags' | 'status' | null;
+    action: 'tags' | 'status' | 'folder' | null;
     selectedCount: number;
-    onConfirm: (action: 'tags' | 'status', value: string[] | AssetStatus) => void;
+    onConfirm: (action: 'tags' | 'status' | 'folder', value: string[] | AssetStatus | string | null) => void;
     isProcessing: boolean;
     existingTags?: string[];
 }
@@ -41,14 +43,21 @@ export function BulkActionsDialog({
     isProcessing,
     existingTags = [],
 }: BulkActionsDialogProps) {
+    const params = useParams();
+    const slug = params.slug as string;
+    const { data: foldersResponse } = useAssetFolders(slug);
+    
     const [tags, setTags] = useState<string[]>([]);
     const [status, setStatus] = useState<AssetStatus>('active');
+    const [folderId, setFolderId] = useState<string | null>(null);
 
     const handleApply = () => {
         if (action === 'tags') {
             onConfirm('tags', tags);
         } else if (action === 'status') {
             onConfirm('status', status);
+        } else if (action === 'folder') {
+            onConfirm('folder', folderId);
         }
     };
 
@@ -58,6 +67,8 @@ export function BulkActionsDialog({
                 return 'Bulk Edit Tags';
             case 'status':
                 return 'Bulk Change Status';
+            case 'folder':
+                return 'Move to Folder';
             default:
                 return 'Bulk Actions';
         }
@@ -69,6 +80,8 @@ export function BulkActionsDialog({
                 return `Add tags to ${selectedCount} selected asset(s). These will be added to any existing tags.`;
             case 'status':
                 return `Change the status of ${selectedCount} selected asset(s).`;
+            case 'folder':
+                return `Move ${selectedCount} selected asset(s) to a folder. Select "Root" to move to the root level.`;
             default:
                 return '';
         }
@@ -106,6 +119,25 @@ export function BulkActionsDialog({
                                     <SelectItem value="active">Active</SelectItem>
                                     <SelectItem value="pending">Pending</SelectItem>
                                     <SelectItem value="archived">Archived</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+
+                    {action === 'folder' && (
+                        <div className="space-y-2">
+                            <Label>Destination Folder</Label>
+                            <Select value={folderId || 'root'} onValueChange={(value) => setFolderId(value === 'root' ? null : value)}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select folder" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="root">📁 Root</SelectItem>
+                                    {foldersResponse?.data.map((folder) => (
+                                        <SelectItem key={folder.id} value={folder.id}>
+                                            📁 {folder.name}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>

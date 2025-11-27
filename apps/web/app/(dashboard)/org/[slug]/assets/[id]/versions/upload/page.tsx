@@ -60,7 +60,7 @@ export default function UploadVersionPage() {
                 type: selectedFile.type,
             });
 
-            await uploadAsset.mutateAsync(versionFile);
+            await uploadAsset.mutateAsync({ file: versionFile });
 
             clearInterval(progressInterval);
             setUploadProgress(100);
