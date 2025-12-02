@@ -1,33 +1,47 @@
+import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { Alert, Animated, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { LoginScreen, LoginFormValues } from './screens/LoginScreen';
-import { TotpScreen } from './screens/TotpScreen';
-import { WebAppShell } from './components/WebAppShell';
-import { LoadingScreen } from './components/LoadingScreen';
-import { WEB_APP_URL } from './constants/env';
 import {
+  UniversalLoginResponse,
+  checkQuickLoginAvailable,
   fetchSessionProfile,
   loginWithEmail,
   logoutSession,
+  verifyQuickLoginPin,
   verifyTotpCode,
-  UniversalLoginResponse,
 } from './api/auth';
-import { clearCredentials, loadCredentials, saveCredentials } from './storage/credentials';
+import { LoadingScreen } from './components/LoadingScreen';
+import { WebAppShell } from './components/WebAppShell';
+import { WEB_APP_URL } from './constants/env';
+import { LoginFormValues, LoginScreen } from './screens/LoginScreen';
+import { QuickLoginScreen } from './screens/QuickLoginScreen';
+import { TotpScreen } from './screens/TotpScreen';
+import {
+  clearCredentials,
+  loadCredentials,
+  loadQuickLoginEmail,
+  saveCredentials,
+  saveQuickLoginEmail,
+} from './storage/credentials';
 
 const LOAD_MESSAGE = 'Checking saved credentials';
 
-type Stage = 'loading' | 'login' | 'totp' | 'web';
+type Stage = 'loading' | 'quickLogin' | 'login' | 'totp' | 'web';
 
 export default function App() {
   const [stage, setStage] = React.useState<Stage>('loading');
   const [loginPending, setLoginPending] = React.useState(false);
+  const [quickLoginPending, setQuickLoginPending] = React.useState(false);
   const [totpPending, setTotpPending] = React.useState(false);
   const [loginError, setLoginError] = React.useState<string | null>(null);
+  const [quickLoginError, setQuickLoginError] = React.useState<string | null>(null);
   const [totpError, setTotpError] = React.useState<string | null>(null);
   const [debugMessage, setDebugMessage] = React.useState<string | null>(null);
   const [initialValues, setInitialValues] = React.useState<Partial<LoginFormValues>>();
   const [pendingCreds, setPendingCreds] = React.useState<LoginFormValues | null>(null);
+  const [quickLoginEmail, setQuickLoginEmail] = React.useState<string | null>(null);
+  const [quickLoginName, setQuickLoginName] = React.useState<string | null>(null);
+  const [quickLoginAvatar, setQuickLoginAvatar] = React.useState<string | null>(null);
   const [pendingLoginResponse, setPendingLoginResponse] =
     React.useState<UniversalLoginResponse | null>(null);
   const [webKey, setWebKey] = React.useState(0);
@@ -168,6 +182,27 @@ export default function App() {
     [pendingCreds, pendingLoginResponse, finalizeAuth]
   );
 
+  const handleQuickLoginSubmit = React.useCallback(
+    async (pin: string) => {
+      if (!quickLoginEmail) return;
+
+      setQuickLoginPending(true);
+      setQuickLoginError(null);
+
+      try {
+        const response = await verifyQuickLoginPin(quickLoginEmail, pin);
+        await saveQuickLoginEmail(quickLoginEmail);
+        await finalizeAuth({ email: quickLoginEmail, password: '', rememberMe: true }, response);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Invalid PIN';
+        setQuickLoginError(message);
+      } finally {
+        setQuickLoginPending(false);
+      }
+    },
+    [quickLoginEmail, finalizeAuth]
+  );
+
   const handleLogout = React.useCallback(async () => {
     try {
       await logoutSession();
@@ -187,6 +222,24 @@ export default function App() {
 
   React.useEffect(() => {
     const bootstrap = async () => {
+      // Check for Quick Login first
+      const savedEmail = await loadQuickLoginEmail();
+      if (savedEmail) {
+        try {
+          const quickLoginCheck = await checkQuickLoginAvailable(savedEmail);
+          if (quickLoginCheck.available && quickLoginCheck.user) {
+            setQuickLoginEmail(savedEmail);
+            setQuickLoginName(quickLoginCheck.user.name || null);
+            setQuickLoginAvatar(quickLoginCheck.user.avatar || null);
+            setStage('quickLogin');
+            return;
+          }
+        } catch (error) {
+          console.warn('Quick login check failed', error);
+        }
+      }
+
+      // Fall back to saved credentials
       const stored = await loadCredentials();
       if (stored) {
         const defaults: LoginFormValues = {
@@ -212,6 +265,18 @@ export default function App() {
 
   if (stage === 'loading') {
     content = <LoadingScreen message={LOAD_MESSAGE} />;
+  } else if (stage === 'quickLogin') {
+    content = (
+      <QuickLoginScreen
+        userEmail={quickLoginEmail!}
+        userName={quickLoginName}
+        userAvatar={quickLoginAvatar}
+        isSubmitting={quickLoginPending}
+        error={quickLoginError}
+        onSubmit={handleQuickLoginSubmit}
+        onUsePassword={() => setStage('login')}
+      />
+    );
   } else if (stage === 'login') {
     content = (
       <LoginScreen

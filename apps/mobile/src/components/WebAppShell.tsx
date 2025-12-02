@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -9,9 +10,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { WebView } from 'react-native-webview';
 
 interface WebAppShellProps {
   url: string;
@@ -21,7 +21,7 @@ interface WebAppShellProps {
   onOpenSettings?: () => void;
 }
 
-const logoSource = require('../../assets/icon.png');
+const logoSource = require('../../assets/replayicon.png');
 
 export function WebAppShell({
   url,

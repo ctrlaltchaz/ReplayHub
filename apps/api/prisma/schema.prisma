@@ -27,6 +27,9 @@ model GlobalUser {
   pendingEmail            String?                      @map("pending_email")
   emailVerificationCode   String?                      @map("email_verification_code")
   emailVerificationExpiry DateTime?                    @map("email_verification_expiry")
+  quickLoginPinHash       String?                      @map("quick_login_pin_hash")
+  quickLoginEnabled       Boolean                      @default(false) @map("quick_login_enabled")
+  quickLoginDeviceId      String?                      @map("quick_login_device_id")
   auditLogs               AuditLog[]
   eventsCreated           Event[]                      @relation("EventCreator")
   eventsProduced          Event[]                      @relation("EventProductionLead")
@@ -57,13 +60,13 @@ model Organisation {
   updatedAt          DateTime                     @updatedAt @map("updated_at")
   quickLinksJson     Json?                        @default("[]") @map("quick_links_json")
   auditLogs          AuditLog[]                   @relation("TenantAuditLogs")
+  liveGraphics       LiveGraphic[]
   invites            OrgInvite[]
   orgUsers           OrgUser[]                    @relation("OrgUserToOrganisation")
   admins             OrganisationAdmin[]
   owner              GlobalUser                   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   productionSessions ProductionSession[]          @relation("OrganisationSessions")
   memberships        UserOrganisationMembership[]
-  liveGraphics       LiveGraphic[]
 
   @@map("organisations")
 }
@@ -109,15 +112,15 @@ model OrgUser {
   attendanceRecords   Attendance[]           @relation("AttendanceUser")
   reviewedAttendance  Attendance[]           @relation("AttendanceReviewer")
   auditLogs           AuditLog[]
+  staffAssignments    EventStaffAssignment[]
   createdIncidents    Incident[]             @relation("IncidentCreator")
   ownedIncidents      Incident[]             @relation("IncidentOwner")
+  createdLiveGraphics LiveGraphic[]          @relation("LiveGraphicCreatedBy")
+  updatedLiveGraphics LiveGraphic[]          @relation("LiveGraphicUpdatedBy")
   roles               OrgUserRole[]
   globalUser          GlobalUser?            @relation("OrgUserToGlobalUser", fields: [globalUserId], references: [id])
   organisation        Organisation           @relation("OrgUserToOrganisation", fields: [tenantId], references: [id], onDelete: Cascade)
   createdSessions     ProductionSession[]    @relation("SessionCreator")
-  staffAssignments    EventStaffAssignment[]
-  createdLiveGraphics LiveGraphic[]          @relation("LiveGraphicCreatedBy")
-  updatedLiveGraphics LiveGraphic[]          @relation("LiveGraphicUpdatedBy")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -194,11 +197,11 @@ model UserOrganisationMembership {
   createdAt              DateTime           @default(now()) @map("created_at")
   updatedAt              DateTime           @updatedAt @map("updated_at")
   roles                  MembershipRole[]
-  organisation           Organisation       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user                   GlobalUser         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passwordAuditLogs      PasswordAuditLog[]
   passwordEntriesCreated PasswordEntry[]    @relation("PasswordCreatedByMembership")
   passwordEntriesUpdated PasswordEntry[]    @relation("PasswordUpdatedByMembership")
-  passwordAuditLogs      PasswordAuditLog[]
+  organisation           Organisation       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                   GlobalUser         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, tenantId])
   @@unique([tenantId, email])
@@ -739,6 +742,7 @@ model Event {
   productionLeadGlobalUserId String?                @map("production_lead_global_user_id")
   attendance                 Attendance[]
   bookings                   Booking[]
+  staffAssignments           EventStaffAssignment[]
   createdByGlobalUser        GlobalUser?            @relation("EventCreator", fields: [createdByGlobalUserId], references: [id])
   lineup                     Lineup?                @relation(fields: [lineupId], references: [id])
   productionLeadGlobalUser   GlobalUser?            @relation("EventProductionLead", fields: [productionLeadGlobalUserId], references: [id])
@@ -746,7 +750,6 @@ model Event {
   incidents                  Incident[]
   productionSessions         ProductionSession[]
   runsheets                  Runsheet[]
-  staffAssignments           EventStaffAssignment[]
 
   @@index([tenantId, startAt, endAt])
   @@index([tenantId, eventType])
@@ -763,9 +766,8 @@ model EventStaffAssignment {
   roleLabel String?  @map("role_label")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-
-  event   Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  orgUser OrgUser @relation(fields: [orgUserId], references: [id], onDelete: Cascade)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  orgUser   OrgUser  @relation(fields: [orgUserId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, eventId, orgUserId])
   @@index([tenantId, eventId])
@@ -960,7 +962,6 @@ model DiscordScheduledNotification {
   tenantId           String                            @map("tenant_id")
   name               String
   channelId          String?                           @map("channel_id")
-  deliveryMethod     String                            @default("channel") @map("delivery_method")
   mentionRoleId      String?                           @map("mention_role_id")
   mentionEveryone    Boolean                           @default(false) @map("mention_everyone")
   embedTitle         String                            @map("embed_title")
@@ -981,6 +982,7 @@ model DiscordScheduledNotification {
   updatedBy          String?                           @map("updated_by")
   createdAt          DateTime                          @default(now()) @map("created_at")
   updatedAt          DateTime                          @updatedAt @map("updated_at")
+  deliveryMethod     String                            @default("channel") @map("delivery_method")
   runs               DiscordScheduledNotificationRun[]
 
   @@index([tenantId, status, nextRunAt])
@@ -1072,9 +1074,9 @@ model PasswordEntry {
   createdAt             DateTime                    @default(now()) @map("created_at")
   updatedAt             DateTime                    @updatedAt @map("updated_at")
   lastViewedAt          DateTime?                   @map("last_viewed_at")
+  auditLogs             PasswordAuditLog[]
   createdByMembership   UserOrganisationMembership  @relation("PasswordCreatedByMembership", fields: [createdByMembershipId], references: [id], onDelete: Cascade)
   updatedByMembership   UserOrganisationMembership? @relation("PasswordUpdatedByMembership", fields: [updatedByMembershipId], references: [id])
-  auditLogs             PasswordAuditLog[]
 
   @@index([tenantId])
   @@map("password_entries")
@@ -1089,8 +1091,8 @@ model PasswordAuditLog {
   ipAddress    String?                    @map("ip_address")
   userAgent    String?                    @map("user_agent")
   createdAt    DateTime                   @default(now()) @map("created_at")
-  password     PasswordEntry              @relation(fields: [passwordId], references: [id], onDelete: Cascade)
   membership   UserOrganisationMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  password     PasswordEntry              @relation(fields: [passwordId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, passwordId])
   @@index([tenantId, membershipId])
@@ -1107,17 +1109,83 @@ model LiveGraphic {
   filePath      String?      @map("file_path")
   publicUrl     String?      @map("public_url")
   state         Json         @default("{}")
-  status        String       @default("draft")
   createdBy     String?      @map("created_by")
   updatedBy     String?      @map("updated_by")
   createdAt     DateTime     @default(now()) @map("created_at")
-  updatedAt     DateTime     @updatedAt @map("updated_at")
-  organisation  Organisation @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  updatedAt     DateTime     @default(now()) @updatedAt @map("updated_at")
+  status        String       @default("draft")
   createdByUser OrgUser?     @relation("LiveGraphicCreatedBy", fields: [createdBy], references: [id])
+  organisation  Organisation @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   updatedByUser OrgUser?     @relation("LiveGraphicUpdatedBy", fields: [updatedBy], references: [id])
 
   @@index([tenantId])
   @@map("live_graphics")
+}
+
+model live_graphic_instances {
+  id                     String                   @id
+  tenant_id              String
+  template_id            String
+  title                  String
+  slug                   String?
+  overlay_token          String
+  status                 String                   @default("draft")
+  is_locked              Boolean                  @default(false)
+  created_by             String
+  created_at             DateTime                 @default(now())
+  updated_at             DateTime
+  live_graphic_templates live_graphic_templates   @relation(fields: [template_id], references: [id], onDelete: Cascade)
+  live_graphic_snapshots live_graphic_snapshots[]
+  live_graphic_states    live_graphic_states?
+
+  @@unique([tenant_id, overlay_token])
+  @@unique([tenant_id, slug])
+  @@index([tenant_id])
+  @@index([tenant_id, status])
+}
+
+model live_graphic_snapshots {
+  id                     String                 @id
+  tenant_id              String
+  instance_id            String
+  label                  String?
+  state_json             Json                   @default("{}")
+  created_by             String?
+  created_at             DateTime               @default(now())
+  live_graphic_instances live_graphic_instances @relation(fields: [instance_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
+  @@index([tenant_id, instance_id])
+}
+
+model live_graphic_states {
+  id                     String                 @id
+  tenant_id              String
+  instance_id            String                 @unique
+  preview_state          Json                   @default("{}")
+  live_state             Json                   @default("{}")
+  last_published_at      DateTime?
+  created_at             DateTime               @default(now())
+  updated_at             DateTime
+  live_graphic_instances live_graphic_instances @relation(fields: [instance_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
+}
+
+model live_graphic_templates {
+  id                     String                   @id
+  tenant_id              String
+  name                   String
+  description            String?
+  type                   String?                  @default("custom")
+  config_json            Json                     @default("{}")
+  theme_json             Json                     @default("{}")
+  created_by             String
+  created_at             DateTime                 @default(now())
+  updated_at             DateTime
+  live_graphic_instances live_graphic_instances[]
+
+  @@index([tenant_id])
 }
 
 enum AuditAction {

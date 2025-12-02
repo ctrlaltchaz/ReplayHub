@@ -99,3 +99,18 @@ export async function logoutSession() {
 export async function fetchSessionProfile() {
   return request('/auth/session', undefined, 'GET');
 }
+
+export async function checkQuickLoginAvailable(email: string) {
+  return request<{ available: boolean; user?: { email: string; name: string } }>(
+    `/global/auth/quick-login/check?email=${encodeURIComponent(email)}`,
+    undefined,
+    'GET'
+  );
+}
+
+export async function verifyQuickLoginPin(email: string, pin: string) {
+  return request<{ message: string; user: any }>('/global/auth/quick-login/verify', {
+    email,
+    pin,
+  });
+}

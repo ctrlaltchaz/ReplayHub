@@ -56,3 +56,26 @@ export async function clearCredentials() {
 
   await SecureStore.deleteItemAsync(STORAGE_KEY);
 }
+
+const QUICK_LOGIN_EMAIL_KEY = 'replayhub.quickLoginEmail';
+
+export async function saveQuickLoginEmail(email: string) {
+  if (!(await isStorageAvailable())) {
+    return;
+  }
+  await SecureStore.setItemAsync(QUICK_LOGIN_EMAIL_KEY, email);
+}
+
+export async function loadQuickLoginEmail(): Promise<string | null> {
+  if (!(await isStorageAvailable())) {
+    return null;
+  }
+  return await SecureStore.getItemAsync(QUICK_LOGIN_EMAIL_KEY);
+}
+
+export async function clearQuickLoginEmail() {
+  if (!(await isStorageAvailable())) {
+    return;
+  }
+  await SecureStore.deleteItemAsync(QUICK_LOGIN_EMAIL_KEY);
+}

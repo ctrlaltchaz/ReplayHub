@@ -35,6 +35,8 @@ export const orgPath = {
   reports: (slug: OrgSlug) => `/org/${slug}/reports`,
   settings: (slug: OrgSlug) => `/org/${slug}/settings`,
   admin: (slug: OrgSlug) => `/org/${slug}/admin`,
+  socialMedia: (slug: OrgSlug) => `/org/${slug}/social-media`,
+  crewTemplates: (slug: OrgSlug) => `/org/${slug}/crew-templates`,
 };
 
 // Navigation configuration for sidebar/topbar
@@ -51,14 +53,50 @@ export const ORG_NAV: NavItem[] = [
   { key: "overview", label: "Overview", href: orgPath.overview },
   { key: "tasks", label: "Your Tasks", href: orgPath.tasks, required: PERMISSIONS.CHECKLISTS_VIEW },
   { key: "profile", label: "My Profile", href: orgPath.profile },
-  { key: "events", label: "Events", href: orgPath.events, required: PERMISSIONS.EVENTS_VIEW },
   {
     key: "attendance",
     label: "Attendance",
     href: orgPath.attendance,
     required: PERMISSIONS.ATTENDANCE_VIEW,
   },
-  { key: "calendar", label: "Calendar", href: orgPath.calendar, required: PERMISSIONS.EVENTS_VIEW },
+  {
+    key: "events",
+    label: "Events",
+    href: orgPath.events,
+    required: PERMISSIONS.EVENTS_VIEW,
+    children: [
+      {
+        key: "events-list",
+        label: "Event Manager",
+        href: orgPath.events,
+        required: PERMISSIONS.EVENTS_VIEW,
+      },
+      {
+        key: "runsheets",
+        label: "Runsheets",
+        href: orgPath.runsheets,
+        required: PERMISSIONS.RUNSHEETS_VIEW,
+      },
+      {
+        key: "checklists",
+        label: "Checklists",
+        href: orgPath.checklists,
+        required: PERMISSIONS.CHECKLISTS_VIEW,
+      },
+      {
+        key: "calendar",
+        label: "Calendar",
+        href: orgPath.calendar,
+        required: PERMISSIONS.EVENTS_VIEW,
+      },
+      {
+        key: "crew-templates",
+        label: "Crew Templates",
+        href: orgPath.crewTemplates,
+        required: PERMISSIONS.EVENTS_MANAGE,
+      },
+    ],
+  },
   {
     key: "rosters",
     label: "Rosters",
@@ -91,53 +129,79 @@ export const ORG_NAV: NavItem[] = [
       },
     ],
   },
-  { key: "gamelog", label: "Game Log", href: orgPath.gamelog, required: PERMISSIONS.GAMELOG_VIEW },
   {
-    key: "live-graphics",
-    label: "Live Graphics",
+    key: "gamelog",
+    label: "Game Log",
+    href: orgPath.gamelog,
+    required: PERMISSIONS.GAMELOG_VIEW,
+    children: [
+      {
+        key: "gamelog-list",
+        label: "Game Logging",
+        href: orgPath.gamelog,
+        required: PERMISSIONS.GAMELOG_VIEW,
+      },
+      {
+        key: "player-stats",
+        label: "Player Stats",
+        href: orgPath.playerStats,
+        required: PERMISSIONS.ROSTERS_VIEW,
+      },
+    ],
+  },
+  {
+    key: "social-media",
+    label: "Social Media",
+    href: orgPath.socialMedia,
+    children: [
+      {
+        key: "social-media-coming-soon",
+        label: "Features Coming Soon",
+        href: orgPath.socialMedia,
+      },
+    ],
+  },
+  {
+    key: "utilities",
+    label: "Utilities",
     href: orgPath.liveGraphics,
-    required: PERMISSIONS.LIVE_GRAPHICS_VIEW,
-  },
-  {
-    key: "player-stats",
-    label: "Player Stats",
-    href: orgPath.playerStats,
-    required: PERMISSIONS.ROSTERS_VIEW,
-  },
-  {
-    key: "runsheets",
-    label: "Runsheets",
-    href: orgPath.runsheets,
-    required: PERMISSIONS.RUNSHEETS_VIEW,
-  },
-  {
-    key: "checklists",
-    label: "Checklists",
-    href: orgPath.checklists,
-    required: PERMISSIONS.CHECKLISTS_VIEW,
-  },
-  {
-    key: "passwords",
-    label: "Passwords",
-    href: orgPath.passwords,
-    required: PERMISSIONS.PASSWORDS_VIEW,
-  },
-  {
-    key: "inventory",
-    label: "Inventory",
-    href: orgPath.inventory,
-    required: PERMISSIONS.INVENTORY_VIEW,
+    required: [
+      PERMISSIONS.LIVE_GRAPHICS_VIEW,
+      PERMISSIONS.PASSWORDS_VIEW,
+      PERMISSIONS.INVENTORY_VIEW,
+      PERMISSIONS.INCIDENTS_VIEW,
+    ],
+    children: [
+      {
+        key: "live-graphics",
+        label: "Live Graphics",
+        href: orgPath.liveGraphics,
+        required: PERMISSIONS.LIVE_GRAPHICS_VIEW,
+      },
+      {
+        key: "passwords",
+        label: "Passwords",
+        href: orgPath.passwords,
+        required: PERMISSIONS.PASSWORDS_VIEW,
+      },
+      {
+        key: "inventory",
+        label: "Inventory",
+        href: orgPath.inventory,
+        required: PERMISSIONS.INVENTORY_VIEW,
+      },
+      {
+        key: "incidents",
+        label: "Incidents",
+        href: orgPath.incidents,
+        required: PERMISSIONS.INCIDENTS_VIEW,
+      },
+    ],
   },
   { key: "assets", label: "Assets", href: orgPath.assets, required: PERMISSIONS.ASSETS_UPLOAD },
   {
-    key: "incidents",
-    label: "Incidents",
-    href: orgPath.incidents,
-    required: PERMISSIONS.INCIDENTS_VIEW,
-  },
-  {
     key: "settings",
-    label: "Settings",
+    label: "Admin / Settings",
     href: orgPath.settings,
     required: PERMISSIONS.ORG_SETTINGS_MANAGE,
   },

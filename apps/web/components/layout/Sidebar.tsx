@@ -36,19 +36,30 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   calendar: require("lucide-react").Calendar,
   rosters: require("lucide-react").Users,
   gamelog: require("lucide-react").FileText,
-  "player-stats": require("lucide-react").BarChart3,
+  "player-stats": require("lucide-react").Gamepad2,
   runsheets: require("lucide-react").FileText,
   checklists: require("lucide-react").CheckSquare,
   passwords: require("lucide-react").Lock,
   tasks: require("lucide-react").ClipboardList,
+  // Submenu item icons
+  "events-list": require("lucide-react").ListChecks,
+  teams: require("lucide-react").Users,
+  players: require("lucide-react").UserPlus,
+  lineups: require("lucide-react").List,
+  achievements: require("lucide-react").Trophy,
+  "gamelog-list": require("lucide-react").FileEdit,
+  "social-media-coming-soon": require("lucide-react").Clock,
+  "crew-templates": require("lucide-react").Users2,
   inventory: require("lucide-react").Package,
   assets: require("lucide-react").Package2,
   incidents: require("lucide-react").AlertTriangle,
   reports: require("lucide-react").BarChart3,
   settings: require("lucide-react").Settings,
+  utilities: require("lucide-react").Wrench,
   "live-graphics": require("lucide-react").MonitorPlay,
   admin: require("lucide-react").Settings,
   attendance: require("lucide-react").Clock,
+  "social-media": require("lucide-react").Share2,
   // Admin navigation icons
   "control-center": require("lucide-react").Shield,
   organisations: require("lucide-react").Building,
@@ -85,7 +96,9 @@ export function Sidebar({
 }: SidebarProps) {
   // Load collapse state from localStorage
   const [isCollapsed, setIsCollapsed] = React.useState(false);
-  const [openSubmenus, setOpenSubmenus] = React.useState<Set<string>>(new Set(["rosters"]));
+  const [openSubmenus, setOpenSubmenus] = React.useState<Set<string>>(
+    new Set(["rosters", "events", "gamelog", "utilities", "social-media"])
+  );
   const [lastOrgSlug, setLastOrgSlug] = React.useState<string | null>(null);
   const [lastOrgName, setLastOrgName] = React.useState<string | null>(null);
   const [isMounted, setIsMounted] = React.useState(false);
@@ -118,7 +131,11 @@ export function Sidebar({
       setIsCollapsed(savedCollapsed === "true");
 
       const savedSubmenus = localStorage.getItem("sidebar-open-submenus");
-      setOpenSubmenus(savedSubmenus ? new Set(JSON.parse(savedSubmenus)) : new Set(["rosters"]));
+      setOpenSubmenus(
+        savedSubmenus
+          ? new Set(JSON.parse(savedSubmenus))
+          : new Set(["rosters", "events", "gamelog", "utilities", "social-media"])
+      );
 
       setLastOrgSlug(localStorage.getItem("lastOrgSlug"));
       setLastOrgName(localStorage.getItem("lastOrgName"));
@@ -132,6 +149,41 @@ export function Sidebar({
       setLastOrgSlug(slug);
     }
   }, [slug]);
+
+  // Auto-open parent menu when on a child page
+  React.useEffect(() => {
+    if (
+      pathname?.includes("/calendar/week") ||
+      pathname?.includes("/runsheets") ||
+      pathname?.includes("/checklists") ||
+      pathname?.includes("/crew-templates")
+    ) {
+      setOpenSubmenus((prev) => {
+        const newSet = new Set(prev);
+        newSet.add("events");
+        return newSet;
+      });
+    }
+    if (pathname?.includes("/player-stats")) {
+      setOpenSubmenus((prev) => {
+        const newSet = new Set(prev);
+        newSet.add("gamelog");
+        return newSet;
+      });
+    }
+    if (
+      pathname?.includes("/live-graphics") ||
+      pathname?.includes("/passwords") ||
+      pathname?.includes("/inventory") ||
+      pathname?.includes("/incidents")
+    ) {
+      setOpenSubmenus((prev) => {
+        const newSet = new Set(prev);
+        newSet.add("utilities");
+        return newSet;
+      });
+    }
+  }, [pathname]);
 
   // Persist collapse state to localStorage
   const toggleCollapse = () => {
@@ -404,14 +456,19 @@ export function Sidebar({
                   const href = slug ? item.href(slug) : "#";
                   // Check if current page is this route or a child route
                   const isActive = pathname === href || pathname?.startsWith(href + "/");
-                  // Check if any child is active by comparing pathname + search params
+                  // Check if any child is active
                   const hasActiveChild = item.children?.some((child) => {
                     const childHref = slug ? child.href(slug) : "#";
-                    // pathname includes the path, we need to check if we're on the rosters page
-                    return (
-                      pathname?.startsWith("/org/" + slug + "/rosters") &&
-                      (childHref.includes("?tab=") || pathname === childHref)
-                    );
+                    if (childHref.includes("?tab=")) {
+                      // Tab-based child (rosters)
+                      return (
+                        pathname?.startsWith("/org/" + slug + "/rosters") &&
+                        childHref.includes(searchParams?.get("tab") || "")
+                      );
+                    } else {
+                      // Path-based child (calendar, etc.)
+                      return pathname === childHref || pathname?.startsWith(childHref + "/");
+                    }
                   });
                   const Icon = iconMap[item.key] || iconMap.overview;
                   const badgeCount = getBadgeCount(item.key);
@@ -493,11 +550,24 @@ export function Sidebar({
                             if (!childHasAccess) return null;
 
                             const childHref = slug ? child.href(slug) : "#";
-                            // Check if this child tab is active by comparing pathname and query params
-                            const childIsActive =
-                              pathname?.startsWith("/org/" + slug + "/rosters") &&
-                              childHref.includes("?tab=") &&
-                              childHref.includes(searchParams?.get("tab") || "");
+                            // Check if this child tab is active
+                            // For rosters with tabs, check pathname and query params
+                            // For other children (like calendar), check if pathname matches
+                            let childIsActive = false;
+                            if (childHref.includes("?tab=")) {
+                              // Tab-based child (rosters)
+                              childIsActive =
+                                (pathname?.startsWith("/org/" + slug + "/rosters") &&
+                                  childHref.includes(searchParams?.get("tab") || "")) ??
+                                false;
+                            } else {
+                              // Path-based child (calendar, etc.)
+                              childIsActive =
+                                (pathname === childHref || pathname?.startsWith(childHref + "/")) ??
+                                false;
+                            }
+
+                            const ChildIcon = iconMap[child.key] || iconMap.overview;
 
                             return (
                               <Link
@@ -513,6 +583,7 @@ export function Sidebar({
                                 )}
                                 aria-current={childIsActive ? "page" : undefined}
                               >
+                                <ChildIcon className="h-4 w-4 shrink-0" />
                                 <span className="truncate">{child.label}</span>
                               </Link>
                             );
@@ -867,13 +938,19 @@ export function Sidebar({
                   const href = slug ? item.href(slug) : "#";
                   // Check if current page is this route or a child route
                   const isActive = pathname === href || pathname?.startsWith(href + "/");
-                  // Check if any child is active by comparing pathname + search params
+                  // Check if any child is active
                   const hasActiveChild = item.children?.some((child) => {
                     const childHref = slug ? child.href(slug) : "#";
-                    return (
-                      pathname?.startsWith("/org/" + slug + "/rosters") &&
-                      (childHref.includes("?tab=") || pathname === childHref)
-                    );
+                    if (childHref.includes("?tab=")) {
+                      // Tab-based child (rosters)
+                      return (
+                        pathname?.startsWith("/org/" + slug + "/rosters") &&
+                        childHref.includes(searchParams?.get("tab") || "")
+                      );
+                    } else {
+                      // Path-based child (calendar, etc.)
+                      return pathname === childHref || pathname?.startsWith(childHref + "/");
+                    }
                   });
                   const Icon = iconMap[item.key] || iconMap.overview;
                   const badgeCount = getBadgeCount(item.key);
@@ -948,11 +1025,22 @@ export function Sidebar({
                             if (!childHasAccess) return null;
 
                             const childHref = slug ? child.href(slug) : "#";
-                            // Check if this child tab is active by comparing pathname and query params
-                            const childIsActive =
-                              pathname?.startsWith("/org/" + slug + "/rosters") &&
-                              childHref.includes("?tab=") &&
-                              childHref.includes(searchParams?.get("tab") || "");
+                            // Check if this child tab is active
+                            let childIsActive = false;
+                            if (childHref.includes("?tab=")) {
+                              // Tab-based child (rosters)
+                              childIsActive =
+                                (pathname?.startsWith("/org/" + slug + "/rosters") &&
+                                  childHref.includes(searchParams?.get("tab") || "")) ??
+                                false;
+                            } else {
+                              // Path-based child (calendar, etc.)
+                              childIsActive =
+                                (pathname === childHref || pathname?.startsWith(childHref + "/")) ??
+                                false;
+                            }
+
+                            const ChildIcon = iconMap[child.key] || iconMap.overview;
 
                             return (
                               <Link
@@ -968,6 +1056,7 @@ export function Sidebar({
                                     : "hover:bg-secondary hover:text-secondary-foreground"
                                 )}
                               >
+                                <ChildIcon className="h-4 w-4 shrink-0" />
                                 <span className="truncate">{child.label}</span>
                               </Link>
                             );

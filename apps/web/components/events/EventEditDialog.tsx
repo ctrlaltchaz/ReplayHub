@@ -1,8 +1,9 @@
 "use client";
 
-import { Calendar, Loader2, Trash2, UserPlus } from "lucide-react";
+import { Calendar, Loader2, Trash2, UserPlus, Users } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import type { CreateEventData, Event, EventType, EventStaffRoleType } from "../../hooks/events";
+import { useCrewTemplates } from "../../hooks/crew-templates";
+import type { CreateEventData, Event, EventStaffRoleType, EventType } from "../../hooks/events";
 import { useTeams } from "../../hooks/rosters/useTeams";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
@@ -32,16 +33,18 @@ const COMMON_GAMES = [
   "Fortnite",
 ];
 const STAFF_ROLE_OPTIONS = [
-  { value: "broadcaster", label: "Broadcaster" },
-  { value: "shoutcaster", label: "Shoutcaster" },
-  { value: "presenter", label: "Presenter" },
   { value: "player", label: "Player" },
-  { value: "host", label: "Host" },
-  { value: "analyst", label: "Analyst" },
+  { value: "shoutcaster", label: "Shoutcaster" },
+  { value: "broadcaster", label: "Broadcaster" },
+  { value: "director", label: "Director" },
   { value: "producer", label: "Producer" },
   { value: "observer", label: "Observer" },
+  { value: "technician", label: "Technician" },
   { value: "social_media_runner", label: "Social Media Runner" },
-  { value: "other", label: "Other" },
+  { value: "editor", label: "Editor" },
+  { value: "filmer", label: "Filmer" },
+  { value: "photographer", label: "Photographer" },
+  { value: "tutor", label: "Tutor" },
 ];
 
 export function EventEditDialog({
@@ -57,6 +60,9 @@ export function EventEditDialog({
 
   // Fetch teams for the tournament dropdown
   const { data: teams = [], isLoading: teamsLoading } = useTeams(slug, { status: "active" });
+
+  // Fetch crew templates
+  const { data: crewTemplates = [] } = useCrewTemplates(slug);
 
   const [formData, setFormData] = useState<CreateEventData>({
     title: "",
@@ -319,6 +325,21 @@ export function EventEditDialog({
 
       if (!newAssignments.length) return prev;
       return { ...prev, staffAssignments: [...existing, ...newAssignments] };
+    });
+  };
+
+  const applyCrewTemplate = (templateId: string) => {
+    const template = crewTemplates.find((t) => t.id === templateId);
+    if (!template) return;
+
+    setFormData((prev) => {
+      const newAssignments = template.members.map((member) => ({
+        orgUserId: member.orgUserId,
+        roleType: member.role.toLowerCase().replace(/\s+/g, "_") as EventStaffRoleType,
+        roleLabel: member.role,
+      }));
+
+      return { ...prev, staffAssignments: newAssignments };
     });
   };
 
@@ -826,6 +847,31 @@ export function EventEditDialog({
                   Add person
                 </Button>
               </div>
+
+              {crewTemplates.length > 0 && (
+                <div className="rounded-md border bg-muted/30 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <Label className="text-sm font-medium">Apply Crew Template</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Quickly populate crew assignments from a saved template. This will replace
+                    current assignments.
+                  </p>
+                  <Select onValueChange={applyCrewTemplate} disabled={isSubmitting}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a template..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {crewTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name} ({template.members.length} members)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-md border bg-muted/30 p-3">
                 <div className="flex-1 min-w-[220px] space-y-1">

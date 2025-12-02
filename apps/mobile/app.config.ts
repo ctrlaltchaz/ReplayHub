@@ -6,7 +6,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: 'replayhub-mobile',
   version: '1.0.0',
   orientation: 'portrait',
-  icon: './assets/icon.png',
+  icon: './assets/replayicon.png',
   userInterfaceStyle: 'automatic',
   newArchEnabled: true,
   scheme: 'replayhub',
@@ -20,6 +20,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: 'com.replayhub.app',
     infoPlist: {
       NSCameraUsageDescription: 'Upload avatars and assets directly from your camera.',
+      ITSAppUsesNonExemptEncryption: false,
     },
   },
   android: {
@@ -38,6 +39,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: ['expo-secure-store'],
   extra: {
+    eas: {
+      projectId: '8f75734f-edbe-4ad0-9686-2e6599360081',
+    },
     webAppUrl: process.env.EXPO_PUBLIC_WEB_APP_URL ?? 'https://app.replayhub.gg',
     apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'https://app.replayhub.gg/api',
   },

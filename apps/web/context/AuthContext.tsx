@@ -1,5 +1,6 @@
 "use client";
 
+import { ApiError } from "@/lib/api/errors";
 import {
   useGlobalLogin,
   useGlobalLogout,
@@ -18,7 +19,6 @@ import {
   type UnifiedOrgMembership,
   type UnifiedUserProfile,
 } from "@/lib/auth/session";
-import { ApiError } from "@/lib/api/errors";
 import * as React from "react";
 
 interface AuthContextType {
@@ -187,6 +187,7 @@ export function AuthProvider({ children, orgSlug }: AuthProviderProps) {
       name: sessionUser.name,
       avatar: sessionUser.avatar,
       isGlobalAdmin: sessionUser.isGlobalAdmin,
+      quickLoginEnabled: (sessionUser as any).quickLoginEnabled ?? false,
     };
   }, [sessionUser]);
 

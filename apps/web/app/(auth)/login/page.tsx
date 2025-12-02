@@ -1,5 +1,6 @@
 "use client";
 
+import { QuickLoginPrompt } from "@/components/quick-login-prompt";
 import { AppButton } from "@/components/ui/AppButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -121,6 +122,7 @@ function UniversalLoginContent() {
   const [requiresTotp, setRequiresTotp] = useState(false);
   const [loginResponse, setLoginResponse] = useState<UniversalLoginResponse | null>(null);
   const [selectedOrg, setSelectedOrg] = useState<string | null>(null);
+  const [showQuickLogin, setShowQuickLogin] = useState(true);
 
   // Check if user is already logged in and redirect
   React.useEffect(() => {
@@ -246,6 +248,11 @@ function UniversalLoginContent() {
   const handleLoginSuccess = async (data: UniversalLoginResponse) => {
     try {
       console.log("[Login] Login successful, refreshing auth context...");
+
+      // Save email for Quick Login (if user has it enabled, they can use PIN next time)
+      if (email) {
+        localStorage.setItem("replayhub_quick_login_email", email);
+      }
 
       // Refresh auth context to load the global user session
       await refresh();
@@ -690,149 +697,185 @@ function UniversalLoginContent() {
             </p>
           </div>
 
-          <form
-            onSubmit={handleLogin}
-            className="space-y-4 sm:space-y-5"
-            role="form"
-            aria-label="Login form"
-          >
-            <div className="space-y-2">
-              <Label htmlFor="email" className="font-montserrat font-medium text-sm">
-                Email Address
-              </Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                autoComplete="email"
-                autoFocus
-                aria-label="Email address"
-                aria-required="true"
-                aria-invalid={error ? "true" : "false"}
-                className="h-11 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+          {/* Quick Login Prompt */}
+          {showQuickLogin && (
+            <div className="animate-in fade-in duration-300">
+              <QuickLoginPrompt
+                onSuccess={handleLoginSuccess}
+                onBack={() => setShowQuickLogin(false)}
               />
             </div>
+          )}
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="font-montserrat font-medium text-sm">
-                Password
-              </Label>
-              <div className="relative">
+          {!showQuickLogin && (
+            <form
+              onSubmit={handleLogin}
+              className="space-y-4 sm:space-y-5 animate-in fade-in duration-300"
+              role="form"
+              aria-label="Login form"
+            >
+              <div className="space-y-2">
+                <Label htmlFor="email" className="font-montserrat font-medium text-sm">
+                  Email Address
+                </Label>
                 <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
                   required
-                  autoComplete="current-password"
-                  aria-label="Password"
+                  autoComplete="email"
+                  autoFocus
+                  aria-label="Email address"
                   aria-required="true"
                   aria-invalid={error ? "true" : "false"}
-                  className="h-11 pr-10 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                  className="h-11 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
-                  tabIndex={-1}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" aria-hidden="true" />
-                  ) : (
-                    <Eye className="h-4 w-4" aria-hidden="true" />
-                  )}
-                </button>
               </div>
-            </div>
 
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="remember"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  aria-label="Remember me for future logins"
-                  className="h-4 w-4 rounded border-gray-300 text-[#2ef6fc] focus:ring-2 focus:ring-[#2ef6fc] transition-colors cursor-pointer"
-                />
-                <Label
-                  htmlFor="remember"
-                  className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer select-none"
-                >
-                  Remember me
+              <div className="space-y-2">
+                <Label htmlFor="password" className="font-montserrat font-medium text-sm">
+                  Password
                 </Label>
-              </div>
-              <Link
-                href="/forgot-password"
-                className="text-sm font-medium text-[#2ef6fc] hover:text-[#fc040e] transition-colors"
-              >
-                Forgot password?
-              </Link>
-            </div>
-
-            {successMessage && (
-              <div
-                role="status"
-                aria-live="polite"
-                className="rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 p-3 animate-fade-in"
-              >
-                <div className="flex items-center gap-2">
-                  <CheckCircle2
-                    className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0"
-                    aria-hidden="true"
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    autoComplete="current-password"
+                    aria-label="Password"
+                    aria-required="true"
+                    aria-invalid={error ? "true" : "false"}
+                    className="h-11 pr-10 transition-all duration-200 focus:ring-2 focus:ring-blue-500"
                   />
-                  <p className="text-sm text-green-800 dark:text-green-200 font-medium">
-                    {successMessage}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </button>
                 </div>
               </div>
-            )}
 
-            {error && (
-              <div
-                role="alert"
-                aria-live="assertive"
-                className="rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 p-3 animate-shake"
-              >
-                <div className="flex items-start gap-2">
-                  <AlertCircle
-                    className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5"
-                    aria-hidden="true"
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="remember"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    aria-label="Remember me for future logins"
+                    className="h-4 w-4 rounded border-gray-300 text-[#2ef6fc] focus:ring-2 focus:ring-[#2ef6fc] transition-colors cursor-pointer"
                   />
-                  <p className="text-sm text-red-800 dark:text-red-200 font-medium">{error}</p>
+                  <Label
+                    htmlFor="remember"
+                    className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer select-none"
+                  >
+                    Remember me
+                  </Label>
                 </div>
+                <Link
+                  href="/forgot-password"
+                  className="text-sm font-medium text-[#2ef6fc] hover:text-[#fc040e] transition-colors"
+                >
+                  Forgot password?
+                </Link>
               </div>
-            )}
 
-            <AppButton
-              type="submit"
-              isLoading={isLoading}
-              disabled={!email || !password || isLoading}
-              className="w-full h-11 bg-gradient-to-r from-[#2ef6fc] to-[#fc040e] hover:opacity-90 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <span className="flex items-center gap-2">
-                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Signing in...
-                </span>
-              ) : (
+              {successMessage && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 p-3 animate-fade-in"
+                >
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2
+                      className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0"
+                      aria-hidden="true"
+                    />
+                    <p className="text-sm text-green-800 dark:text-green-200 font-medium">
+                      {successMessage}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div
+                  role="alert"
+                  aria-live="assertive"
+                  className="rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 p-3 animate-shake"
+                >
+                  <div className="flex items-start gap-2">
+                    <AlertCircle
+                      className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5"
+                      aria-hidden="true"
+                    />
+                    <p className="text-sm text-red-800 dark:text-red-200 font-medium">{error}</p>
+                  </div>
+                </div>
+              )}
+
+              <AppButton
+                type="submit"
+                isLoading={isLoading}
+                disabled={!email || !password || isLoading}
+                className="w-full h-11 bg-gradient-to-r from-[#2ef6fc] to-[#fc040e] hover:opacity-90 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <span className="flex items-center gap-2">
+                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Signing in...
+                  </span>
+                ) : (
+                  <>
+                    Sign In
+                    <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </AppButton>
+
+              {/* Show Quick Login option if available */}
+              {localStorage.getItem("replayhub_quick_login_email") && (
                 <>
-                  Sign In
-                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-gray-300"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-2 bg-white text-gray-500">Or</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickLogin(true)}
+                    className="w-full px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium flex items-center justify-center gap-2"
+                  >
+                    <Lock className="w-4 h-4" />
+                    Sign in with Quick Login PIN
+                  </button>
                 </>
               )}
-            </AppButton>
-            <p className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
-              Version {DISPLAY_VERSION}
-            </p>
-          </form>
+
+              <p className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
+                Version {DISPLAY_VERSION}
+              </p>
+            </form>
+          )}
 
           {/* Security badge */}
           <div className="text-center mt-6">

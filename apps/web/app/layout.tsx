@@ -1,3 +1,5 @@
+import { InstallPrompt } from "@/components/install-prompt";
+import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import type { Metadata, Viewport } from "next";
 import { Montserrat } from "next/font/google";
 import * as React from "react";
@@ -17,6 +19,15 @@ export const metadata: Metadata = {
   icons: {
     icon: "/icon.png",
     apple: "/icon.png",
+  },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "ReplayHub",
+  },
+  formatDetection: {
+    telephone: false,
   },
 };
 
@@ -42,6 +53,8 @@ export default function RootLayout({
       >
         <React.Suspense fallback={null}>
           <Providers>{children}</Providers>
+          <InstallPrompt />
+          <ServiceWorkerRegistration />
         </React.Suspense>
       </body>
     </html>

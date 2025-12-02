@@ -52,7 +52,8 @@ function AuthRedirectGuard({ children }: { children: React.ReactNode }) {
       pathname.startsWith("/forgot-password") ||
       pathname.startsWith("/reset-password") ||
       pathname.startsWith("/invite") ||
-      pathname.startsWith("/health")
+      pathname.startsWith("/health") ||
+      pathname.startsWith("/install")
     );
   }, [pathname]);
 

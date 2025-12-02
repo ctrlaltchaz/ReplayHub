@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import {
   ArrowLeft,
   BadgeCheck,
+  Code,
   Link2,
   ListChecks,
   Loader2,
@@ -534,6 +535,94 @@ export default function LiveGraphicDetailPage() {
                 }
                 helper="Drop this into dashboards or OBS browser sources."
               />
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 border-blue-500/40 bg-blue-50/20 dark:border-blue-400/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                <Code className="h-5 w-5" />
+                Available state fields
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Reference these keys with{" "}
+                <code className="rounded bg-muted px-1 py-0.5">data-replayhub-field</code> anywhere
+                in your overlay HTML.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6 text-sm">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">
+                    Scoreboard
+                  </p>
+                  <ul className="space-y-1 text-muted-foreground">
+                    <li>
+                      <code className="rounded bg-muted px-1 py-0.5">title</code> – Main heading
+                    </li>
+                    <li>
+                      <code className="rounded bg-muted px-1 py-0.5">subtitle</code> – Secondary
+                      heading
+                    </li>
+                    <li>
+                      <code className="rounded bg-muted px-1 py-0.5">statusText</code> – Show match
+                      status
+                    </li>
+                    <li>
+                      <code className="rounded bg-muted px-1 py-0.5">message</code> – Extra
+                      ticker/announcement
+                    </li>
+                  </ul>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">
+                    Teams / players
+                  </p>
+                  <ul className="space-y-1 text-muted-foreground">
+                    <li>
+                      <code className="rounded bg-muted px-1 py-0.5">leftName</code> – Left
+                      team/player name
+                    </li>
+                    <li>
+                      <code className="rounded bg-muted px-1 py-0.5">rightName</code> – Right
+                      team/player name
+                    </li>
+                    <li>
+                      <code className="rounded bg-muted px-1 py-0.5">leftScore</code> – Left score
+                    </li>
+                    <li>
+                      <code className="rounded bg-muted px-1 py-0.5">rightScore</code> – Right score
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              <Separator />
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">
+                  Custom keys
+                </p>
+                <p className="text-muted-foreground">
+                  Drop any JSON into <strong>Extra JSON</strong> (e.g.{" "}
+                  <code>{`{"map":"Ascent"}`}</code>). Each key becomes available immediately as{" "}
+                  <code>data-replayhub-field="map"</code> (or whatever name you use).
+                </p>
+              </div>
+              <Separator />
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-300">
+                  Example markup
+                </p>
+                <pre className="rounded-xl bg-slate-900 p-4 text-xs text-slate-100 overflow-x-auto">
+                  {`<div class="scoreboard">
+  <span data-replayhub-field="leftName">Team A</span>
+  <span data-replayhub-field="leftScore">0</span>
+  <span class="vs">vs</span>
+  <span data-replayhub-field="rightScore">0</span>
+  <span data-replayhub-field="rightName">Team B</span>
+</div>
+<p data-replayhub-field="message">Match starting soon...</p>`}
+                </pre>
+              </div>
             </CardContent>
           </Card>
         </div>

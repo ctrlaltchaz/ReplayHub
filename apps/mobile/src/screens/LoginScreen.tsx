@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -11,7 +12,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 export interface LoginFormValues {
   email: string;
@@ -28,7 +28,7 @@ interface LoginScreenProps {
   onClearStorage?: () => void;
 }
 
-const logoSource = require('../../assets/icon.png');
+const logoSource = require('../../assets/replayicon.png');
 
 export function LoginScreen({
   initialValues,

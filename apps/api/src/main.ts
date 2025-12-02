@@ -33,13 +33,14 @@ function dumpRoutes(app: INestApplication) {
             routes.push({
               method: method.toUpperCase(),
               path: path,
-              type: 'express'
+              type: 'express',
             });
           });
         } else if (layer.name === 'router') {
           // Nested router
           if (layer.regexp && layer.keys) {
-            const basePath = layer.keys.length > 0 ? `/${layer.keys.map((k: any) => `:${k.name}`).join('/')}` : '';
+            const basePath =
+              layer.keys.length > 0 ? `/${layer.keys.map((k: any) => `:${k.name}`).join('/')}` : '';
             if (layer.handle && layer.handle.stack) {
               layer.handle.stack.forEach((nestedLayer: any) => {
                 if (nestedLayer.route) {
@@ -49,7 +50,7 @@ function dumpRoutes(app: INestApplication) {
                     routes.push({
                       method: method.toUpperCase(),
                       path: fullPath,
-                      type: 'nested'
+                      type: 'nested',
                     });
                   });
                 }
@@ -105,9 +106,11 @@ async function bootstrap() {
   }
 
   // Security
-  app.use(helmet({
-    crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow uploads to be accessed
-  }));
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow uploads to be accessed
+    })
+  );
   app.use(compression());
   app.use(cookieParser());
 
@@ -127,7 +130,10 @@ async function bootstrap() {
     cookieSameSite = true;
   } else if (sessionSameSiteRaw === 'false') {
     cookieSameSite = false;
-  } else if (sessionSameSiteRaw && allowedSameSite.includes(sessionSameSiteRaw as 'lax' | 'strict' | 'none')) {
+  } else if (
+    sessionSameSiteRaw &&
+    allowedSameSite.includes(sessionSameSiteRaw as 'lax' | 'strict' | 'none')
+  ) {
     cookieSameSite = sessionSameSiteRaw as 'lax' | 'strict' | 'none';
   }
 
@@ -146,7 +152,7 @@ async function bootstrap() {
         domain: cookieDomain, // '.replayhub.app' in prod, undefined in dev
       },
       rolling: true, // Extend session on each request to prevent logout during active use
-    }),
+    })
   );
 
   console.log('[Session] Cookie config:', {
@@ -155,7 +161,9 @@ async function bootstrap() {
     sameSite: cookieSameSite,
     domain: cookieDomain || 'undefined (localhost)',
     forceSecureCookies,
-    note: cookieSecure ? 'Secure cookies enabled' : 'DEV: Secure cookies disabled for localhost compatibility',
+    note: cookieSecure
+      ? 'Secure cookies enabled'
+      : 'DEV: Secure cookies disabled for localhost compatibility',
   });
 
   // Trace scheduling middleware (temporary for debugging) - AFTER session middleware
@@ -164,7 +172,7 @@ async function bootstrap() {
   // CORS with enhanced credential support
   const corsOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
-    : ['http://localhost:3000', 'http://localhost:3001'];
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://10.0.0.125:3000'];
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -204,7 +212,7 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: false, // Temporarily disabled for debugging
       transform: true,
-      exceptionFactory: (errors) => {
+      exceptionFactory: errors => {
         log('[VALIDATION ERROR] Validation failed:', JSON.stringify(errors, null, 2));
         const messages = errors.map(error => Object.values(error.constraints || {}).join(', '));
         return new BadRequestException(messages);

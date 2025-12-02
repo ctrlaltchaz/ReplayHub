@@ -1,8 +1,8 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { createId } from '@paralleldrive/cuid2';
+import { AuditService } from '../../../common/audit/audit.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { DiscordService } from '../../discord/discord.service';
-import { AuditService } from '../../../common/audit/audit.service';
 import {
   CalendarWeekQueryDto,
   CreateEventDto,
@@ -70,22 +70,24 @@ export class EventsService {
 
     toInsert.forEach(assignment => {
       const start = insertParams.length + 1;
+      const now = new Date();
       insertParams.push(
         createId(),
         tenantId,
         eventId,
         assignment.orgUserId,
         assignment.roleType,
-        assignment.roleLabel || null
+        assignment.roleLabel || null,
+        now
       );
       valuesSql.push(
-        `($${start}, $${start + 1}, $${start + 2}, $${start + 3}, $${start + 4}, $${start + 5})`
+        `($${start}, $${start + 1}, $${start + 2}, $${start + 3}, $${start + 4}, $${start + 5}, $${start + 6})`
       );
     });
 
     await tx.$executeRawUnsafe(
       `
-            INSERT INTO event_staff_assignments (id, tenant_id, event_id, org_user_id, role_type, role_label)
+            INSERT INTO event_staff_assignments (id, tenant_id, event_id, org_user_id, role_type, role_label, updated_at)
             VALUES ${valuesSql.join(', ')}
         `,
       ...insertParams
