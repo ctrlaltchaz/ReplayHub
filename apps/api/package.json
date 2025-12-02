@@ -1,10 +1,10 @@
 {
   "name": "@esports-ops/api",
-  "version": "1.0.0",
+  "version": "0.3.0 (beta) Last update: 02-12-2025",
   "description": "Multi-tenant esports operations platform backend API",
-  "author": "Your Team",
+  "author": "Charlie McKeon / McKeon Web Solutions",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "LICENSED",
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
