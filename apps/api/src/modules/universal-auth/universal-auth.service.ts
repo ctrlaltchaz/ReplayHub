@@ -19,7 +19,9 @@ export class UniversalAuthService {
     async universalLogin(loginDto: UniversalLoginDto, req: Request) {
         const { email, password, rememberMe } = loginDto;
 
+        console.log('[UniversalAuth] Login attempt for:', email);
         const { globalAccount, orgAccounts } = await this.unifiedUsers.getAccountsByEmail(email);
+        console.log('[UniversalAuth] Found globalAccount:', !!globalAccount, 'orgAccounts:', orgAccounts.length);
 
         if (!globalAccount && orgAccounts.length === 0) {
             throw new UnauthorizedException('Invalid credentials');
@@ -41,7 +43,9 @@ export class UniversalAuthService {
         }
 
         if (globalAccount) {
+            console.log('[UniversalAuth] Verifying password for global account');
             const isValidPassword = await this.unifiedUsers.verifyPassword(globalAccount.passwordHash, password);
+            console.log('[UniversalAuth] Password valid:', isValidPassword);
 
             if (!isValidPassword) {
                 throw new UnauthorizedException('Invalid credentials');
