@@ -703,6 +703,7 @@ function UniversalLoginContent() {
               <QuickLoginPrompt
                 onSuccess={handleLoginSuccess}
                 onBack={() => setShowQuickLogin(false)}
+                onNotAvailable={() => setShowQuickLogin(false)}
               />
             </div>
           )}

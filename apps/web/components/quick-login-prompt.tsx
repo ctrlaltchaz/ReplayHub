@@ -8,9 +8,10 @@ import { useEffect, useState } from "react";
 interface QuickLoginPromptProps {
   onSuccess: (user: any) => void;
   onBack: () => void;
+  onNotAvailable?: () => void;
 }
 
-export function QuickLoginPrompt({ onSuccess, onBack }: QuickLoginPromptProps) {
+export function QuickLoginPrompt({ onSuccess, onBack, onNotAvailable }: QuickLoginPromptProps) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -34,6 +35,7 @@ export function QuickLoginPrompt({ onSuccess, onBack }: QuickLoginPromptProps) {
     const email = getStoredEmail();
     if (!email) {
       setChecking(false);
+      onNotAvailable?.();
       return;
     }
 
@@ -50,9 +52,13 @@ export function QuickLoginPrompt({ onSuccess, onBack }: QuickLoginPromptProps) {
           result.user.avatar ? `${getServerUrl()}${result.user.avatar}` : "No avatar"
         );
         setUserInfo(result.user);
+      } else {
+        // Quick login not available for this user
+        onNotAvailable?.();
       }
     } catch (err) {
       console.error("Failed to check quick login", err);
+      onNotAvailable?.();
     } finally {
       setChecking(false);
     }
