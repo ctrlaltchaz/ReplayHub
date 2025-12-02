@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
+import { getApiUrl } from '@/lib/api/config';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
 import { PERMISSIONS } from '@/lib/permissions/utils';
 import type { Asset, AssetStatus } from '@/types/asset';
@@ -17,10 +18,16 @@ import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { AssetCard } from './components/AssetCard';
 import { BulkActionsDialog } from './components/BulkActionsDialog';
+import { CreateFolderDialog } from './components/CreateFolderDialog';
+import { DeleteFolderDialog } from './components/DeleteFolderDialog';
+import { FolderBreadcrumb } from './components/FolderBreadcrumb';
+import { FolderTree } from './components/FolderTree';
 import { UploadDialog } from './components/UploadDialog';
 import { useAssets } from './hooks/useAssets';
+import { useAssetFolder } from './hooks/useAssetFolder';
 import { useAssetTags } from './hooks/useAssetTags';
 import { useDeleteAsset } from './hooks/useDeleteAsset';
+import { useDeleteFolder } from './hooks/useDeleteFolder';
 
 export default function AssetsPage() {
     usePageTitle('Assets');
@@ -33,19 +40,28 @@ export default function AssetsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<AssetStatus | 'all'>('all');
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
+    const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
     const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+    const [createFolderDialogOpen, setCreateFolderDialogOpen] = useState(false);
+    const [deleteFolderDialogOpen, setDeleteFolderDialogOpen] = useState(false);
+    const [showFolderSidebar, setShowFolderSidebar] = useState(true);
     const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
-    const [bulkAction, setBulkAction] = useState<'tags' | 'status' | null>(null);
+    const [bulkAction, setBulkAction] = useState<'tags' | 'status' | 'folder' | null>(null);
     const [isProcessingBulk, setIsProcessingBulk] = useState(false);
+    const [isDeletingFolder, setIsDeletingFolder] = useState(false);
 
     const { data: response, isLoading } = useAssets(slug, {
         q: searchQuery || undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
+        folderId: currentFolderId || undefined,
     });
+    
+    const { data: currentFolder } = useAssetFolder(slug, currentFolderId);
 
     const { data: tagsResponse } = useAssetTags(slug);
     const allTags = tagsResponse?.tags || [];
     const deleteAsset = useDeleteAsset(slug);
+    const deleteFolder = useDeleteFolder(slug);
 
     const assets = response?.data || [];
 
@@ -120,26 +136,74 @@ export default function AssetsPage() {
         }
     };
 
-    const handleBulkAction = async (action: 'tags' | 'status', value: string[] | AssetStatus) => {
+    const handleBulkAction = async (action: 'tags' | 'status' | 'folder', value: string[] | AssetStatus | string | null) => {
         setIsProcessingBulk(true);
         let successCount = 0;
         let errorCount = 0;
+        let firstError = '';
 
         for (const assetId of selectedAssets) {
             try {
-                const url = `${process.env.NEXT_PUBLIC_API_URL}/org/${slug}/assets/${assetId}`;
-                const updateData = action === 'tags'
-                    ? { tags: value as string[] }
-                    : { status: value as AssetStatus };
+                const url = getApiUrl(`/org/${slug}/assets/${assetId}`);
+                let updateData;
+                
+                if (action === 'tags') {
+                    const tagsArray = value as string[];
+                    updateData = { tags: tagsArray.join(', ') };
+                } else if (action === 'status') {
+                    updateData = { status: value as AssetStatus };
+                } else if (action === 'folder') {
+                    updateData = { folderId: value as string | null };
+                }
 
-                await fetch(url, {
+                console.log('=== BULK UPDATE REQUEST ===');
+                console.log('URL:', url);
+                console.log('Action:', action);
+                console.log('Asset ID:', assetId);
+                console.log('Update data:', JSON.stringify(updateData));
+                console.log('Value passed:', value);
+
+                const response = await fetch(url, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(updateData),
                     credentials: 'include',
                 });
-                successCount++;
+
+                console.log('Response status:', response.status, 'OK:', response.ok);
+
+                if (!response.ok) {
+                    let errorMessage = `HTTP ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        console.error('Failed to update asset:', assetId, 'Status:', response.status, 'Error:', errorData);
+                        errorMessage = errorData.message || JSON.stringify(errorData);
+                    } catch (e) {
+                        // Not JSON, try to get text
+                        try {
+                            const errorText = await response.text();
+                            console.error('Failed to update asset:', assetId, 'Status:', response.status, 'Error text:', errorText);
+                            errorMessage = errorText || errorMessage;
+                        } catch (e2) {
+                            console.error('Failed to update asset:', assetId, 'Status:', response.status, 'Could not parse error');
+                        }
+                    }
+                    
+                    // Store first error message for toast
+                    if (!firstError) {
+                        firstError = errorMessage;
+                    }
+                    errorCount++;
+                } else {
+                    const responseData = await response.json();
+                    console.log('Update successful:', responseData);
+                    successCount++;
+                }
             } catch (error) {
+                console.error('Error updating asset:', assetId, error);
+                if (!firstError) {
+                    firstError = error instanceof Error ? error.message : 'Network error';
+                }
                 errorCount++;
             }
         }
@@ -151,11 +215,101 @@ export default function AssetsPage() {
         // Refresh data
         queryClient.invalidateQueries({ queryKey: ['assets', slug] });
         queryClient.invalidateQueries({ queryKey: ['asset-tags', slug] });
+        queryClient.invalidateQueries({ queryKey: ['asset-folders', slug] });
 
         toast({
-            title: 'Bulk Update Complete',
-            description: `${successCount} asset(s) updated${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+            title: errorCount > 0 ? 'Bulk Update Failed' : 'Bulk Update Complete',
+            description: errorCount > 0 && firstError 
+                ? `${successCount} asset(s) updated, ${errorCount} failed. Error: ${firstError}`
+                : `${successCount} asset(s) updated successfully`,
+            variant: errorCount > 0 ? 'destructive' : 'default',
         });
+    };
+
+    const handleDeleteFolder = async (action: 'delete-all' | 'move-assets', targetFolderId?: string | null) => {
+        if (!currentFolderId || currentFolderId === 'root') return;
+
+        setIsDeletingFolder(true);
+
+        try {
+            // If moving assets, bulk update them first
+            if (action === 'move-assets') {
+                const assetsToMove = assets.filter(asset => asset.folderId === currentFolderId);
+                
+                let successCount = 0;
+                let errorCount = 0;
+
+                for (const asset of assetsToMove) {
+                    try {
+                        const url = getApiUrl(`/org/${slug}/assets/${asset.id}`);
+                        const response = await fetch(url, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                folderId: targetFolderId === undefined ? null : targetFolderId,
+                            }),
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Failed to move asset');
+                        }
+                        successCount++;
+                    } catch (error) {
+                        console.error('Error moving asset:', asset.id, error);
+                        errorCount++;
+                    }
+                }
+
+                if (errorCount > 0) {
+                    toast({
+                        title: 'Error Moving Assets',
+                        description: `${errorCount} asset(s) could not be moved. Please try again.`,
+                        variant: 'destructive',
+                    });
+                    setIsDeletingFolder(false);
+                    setDeleteFolderDialogOpen(false);
+                    return;
+                }
+            } else if (action === 'delete-all') {
+                // Delete all assets in the folder
+                const assetsToDelete = assets.filter(asset => asset.folderId === currentFolderId);
+                
+                for (const asset of assetsToDelete) {
+                    try {
+                        await deleteAsset.mutateAsync(asset.id);
+                    } catch (error) {
+                        console.error('Error deleting asset:', asset.id, error);
+                    }
+                }
+            }
+
+            // Now delete the folder
+            await deleteFolder.mutateAsync(currentFolderId);
+            
+            toast({
+                title: 'Folder Deleted',
+                description: action === 'move-assets' 
+                    ? 'The folder has been deleted and assets have been moved.'
+                    : 'The folder and all its assets have been deleted.',
+            });
+
+            // Reset to root view
+            setCurrentFolderId(null);
+            setDeleteFolderDialogOpen(false);
+            
+            // Refresh data
+            queryClient.invalidateQueries({ queryKey: ['asset-folders', slug] });
+            queryClient.invalidateQueries({ queryKey: ['assets', slug] });
+        } catch (error: any) {
+            toast({
+                title: 'Delete Failed',
+                description: error.message || 'Failed to delete folder.',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsDeletingFolder(false);
+        }
     };
 
     const handleBulkDelete = async () => {
@@ -189,37 +343,93 @@ export default function AssetsPage() {
 
     return (
         <div className="container mx-auto p-4 sm:p-6">
-            <div className="space-y-6">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                            <FileText className="w-6 h-6" />
-                            Asset Library
-                        </h1>
-                        <p className="text-muted-foreground text-sm sm:text-base">Manage your digital assets and media files</p>
+            <div className="flex gap-6">
+                {/* Folder Sidebar */}
+                {showFolderSidebar && (
+                    <aside className="w-64 shrink-0 hidden lg:block">
+                        <Card className="sticky top-4">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base flex items-center justify-between">
+                                    <span>Folders</span>
+                                    <div className="flex items-center gap-1">
+                                        {currentFolderId && currentFolderId !== 'root' && (
+                                            <PermissionGuard required={PERMISSIONS.ASSETS_MANAGE}>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                                    onClick={() => setDeleteFolderDialogOpen(true)}
+                                                    title="Delete current folder"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </PermissionGuard>
+                                        )}
+                                        <PermissionGuard required={PERMISSIONS.ASSETS_UPLOAD}>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-8 w-8 p-0"
+                                                onClick={() => setCreateFolderDialogOpen(true)}
+                                                title="Create new folder"
+                                            >
+                                                <Plus className="h-4 w-4" />
+                                            </Button>
+                                        </PermissionGuard>
+                                    </div>
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="px-0 pb-0">
+                                <FolderTree
+                                    orgSlug={slug}
+                                    selectedFolderId={currentFolderId}
+                                    onFolderSelect={setCurrentFolderId}
+                                />
+                            </CardContent>
+                        </Card>
+                    </aside>
+                )}
+
+                {/* Main Content */}
+                <div className="flex-1 min-w-0 space-y-6">
+                    {/* Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                                <FileText className="w-6 h-6" />
+                                Asset Library
+                            </h1>
+                            <p className="text-muted-foreground text-sm sm:text-base">Manage your digital assets and media files</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {stats.pending > 0 && (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => router.push(`/org/${slug}/assets/pending`)}
+                                    className="w-full sm:w-auto"
+                                >
+                                    <Badge variant="secondary" className="mr-2">
+                                        {stats.pending}
+                                    </Badge>
+                                    Review Pending
+                                </Button>
+                            )}
+                            <PermissionGuard required={PERMISSIONS.ASSETS_UPLOAD}>
+                                <Button onClick={() => setUploadDialogOpen(true)} className="w-full sm:w-auto">
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Upload Asset
+                                </Button>
+                            </PermissionGuard>
+                        </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        {stats.pending > 0 && (
-                            <Button
-                                variant="outline"
-                                onClick={() => router.push(`/org/${slug}/assets/pending`)}
-                                className="w-full sm:w-auto"
-                            >
-                                <Badge variant="secondary" className="mr-2">
-                                    {stats.pending}
-                                </Badge>
-                                Review Pending
-                            </Button>
-                        )}
-                        <PermissionGuard required={PERMISSIONS.ASSETS_UPLOAD}>
-                            <Button onClick={() => setUploadDialogOpen(true)} className="w-full sm:w-auto">
-                                <Plus className="w-4 h-4 mr-2" />
-                                Upload Asset
-                            </Button>
-                        </PermissionGuard>
-                    </div>
-                </div>
+
+                    {/* Breadcrumb */}
+                    {currentFolderId && currentFolder && (
+                        <FolderBreadcrumb
+                            folders={[currentFolder as any]}
+                            onFolderClick={setCurrentFolderId}
+                        />
+                    )}
 
                 {/* Stats Cards */}
                 <div className="grid gap-4 md:grid-cols-5">
@@ -367,6 +577,15 @@ export default function AssetsPage() {
                                         Change Status
                                     </Button>
                                     <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setBulkAction('folder')}
+                                        disabled={isProcessingBulk}
+                                    >
+                                        <FileText className="w-4 h-4 mr-2" />
+                                        Move to Folder
+                                    </Button>
+                                    <Button
                                         variant="destructive"
                                         size="sm"
                                         onClick={handleBulkDelete}
@@ -471,14 +690,40 @@ export default function AssetsPage() {
                         </CardContent>
                     </Card>
                 )}
+                </div>
+                {/* End Main Content */}
             </div>
+            {/* End Flex Container */}
 
             {/* Upload Dialog */}
             <UploadDialog
                 open={uploadDialogOpen}
                 onOpenChange={setUploadDialogOpen}
                 orgSlug={slug}
+                currentFolderId={currentFolderId}
                 onSuccess={handleUploadSuccess}
+            />
+
+            {/* Create Folder Dialog */}
+            <CreateFolderDialog
+                open={createFolderDialogOpen}
+                onOpenChange={setCreateFolderDialogOpen}
+                orgSlug={slug}
+                parentId={currentFolderId}
+                onSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ['asset-folders', slug] });
+                }}
+            />
+
+            {/* Delete Folder Dialog */}
+            <DeleteFolderDialog
+                open={deleteFolderDialogOpen}
+                onOpenChange={setDeleteFolderDialogOpen}
+                folderName={currentFolder?.name}
+                folderId={currentFolderId}
+                assetCount={filteredAssets.filter(a => a.folderId === currentFolderId).length}
+                onConfirm={handleDeleteFolder}
+                isProcessing={isDeletingFolder}
             />
 
             {/* Bulk Actions Dialog */}

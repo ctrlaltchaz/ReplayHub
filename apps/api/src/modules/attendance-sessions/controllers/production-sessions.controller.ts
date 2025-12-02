@@ -44,7 +44,8 @@ export class ProductionSessionsController {
     @Query() query: QuerySessionsDto
   ) {
     const actualTenantId = req.tenant?.id || tenantId;
-    await this.sessionsService.ensureDefaultSession(actualTenantId, req.orgUser?.id);
+    // Removed auto-creation of default session - sessions should be created manually
+    // await this.sessionsService.ensureDefaultSession(actualTenantId, req.orgUser?.id);
     return this.sessionsService.listSessions(actualTenantId, query);
   }
 

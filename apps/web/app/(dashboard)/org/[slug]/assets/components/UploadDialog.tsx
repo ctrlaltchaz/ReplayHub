@@ -11,15 +11,18 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
-import { FileText, Film, Image as ImageIcon, Music, Upload, X } from 'lucide-react';
+import { FileText, Film, Folder, Image as ImageIcon, Music, Upload, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
+import { useAssetFolders } from '../hooks/useAssetFolders';
 import { useUploadAsset } from '../hooks/useUploadAsset';
 
 interface UploadDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     orgSlug: string;
+    currentFolderId?: string | null;
     onSuccess?: () => void;
 }
 
@@ -46,11 +49,15 @@ function formatFileSize(bytes: number): string {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-export function UploadDialog({ open, onOpenChange, orgSlug, onSuccess }: UploadDialogProps) {
+export function UploadDialog({ open, onOpenChange, orgSlug, currentFolderId, onSuccess }: UploadDialogProps) {
     const [files, setFiles] = useState<FileWithProgress[]>([]);
     const [isDragging, setIsDragging] = useState(false);
+    const [selectedFolderId, setSelectedFolderId] = useState<string | null>(currentFolderId || null);
     const { toast } = useToast();
     const uploadAsset = useUploadAsset(orgSlug);
+    
+    // Fetch root folders for selection
+    const { data: foldersResponse } = useAssetFolders(orgSlug, { parentId: 'root' });
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -112,7 +119,10 @@ export function UploadDialog({ open, onOpenChange, orgSlug, onSuccess }: UploadD
                     ));
                 }, 100);
 
-                await uploadAsset.mutateAsync(fileItem.file);
+                await uploadAsset.mutateAsync({ 
+                    file: fileItem.file,
+                    folderId: selectedFolderId 
+                });
 
                 clearInterval(progressInterval);
 
@@ -178,6 +188,35 @@ export function UploadDialog({ open, onOpenChange, orgSlug, onSuccess }: UploadD
                 </DialogHeader>
 
                 <div className="space-y-4">
+                    {/* Folder Selection */}
+                    <div className="space-y-2">
+                        <Label htmlFor="folder-select">Destination Folder (Optional)</Label>
+                        <Select 
+                            value={selectedFolderId || 'root'} 
+                            onValueChange={(value) => setSelectedFolderId(value === 'root' ? null : value)}
+                        >
+                            <SelectTrigger id="folder-select">
+                                <SelectValue placeholder="Select a folder" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="root">
+                                    <div className="flex items-center gap-2">
+                                        <Folder className="h-4 w-4" />
+                                        <span>Root (No folder)</span>
+                                    </div>
+                                </SelectItem>
+                                {foldersResponse?.data.map((folder) => (
+                                    <SelectItem key={folder.id} value={folder.id}>
+                                        <div className="flex items-center gap-2">
+                                            <Folder className="h-4 w-4" />
+                                            <span>{folder.name}</span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
                     {/* Drag and Drop Area */}
                     <div
                         onDragOver={handleDragOver}

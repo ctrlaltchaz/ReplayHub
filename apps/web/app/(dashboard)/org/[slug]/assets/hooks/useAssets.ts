@@ -7,6 +7,7 @@ export function useAssets(orgSlug: string, query: QueryAssetsDto = {}) {
     if (query.q) params.set('q', query.q);
     if (query.status) params.set('status', query.status);
     if (query.tag) params.set('tag', query.tag);
+    if (query.folderId !== undefined) params.set('folderId', query.folderId);
     if (query.limit) params.set('limit', query.limit.toString());
     if (query.cursor) params.set('cursor', query.cursor);
 

@@ -22,6 +22,10 @@ export class QueryAssetsDto {
     status?: string;
 
     @IsOptional()
+    @IsString()
+    folderId?: string; // filter by folder (use 'root' for root level, 'null' for no folder)
+
+    @IsOptional()
     @Type(() => Number)
     @IsInt()
     @Min(1)
@@ -45,6 +49,9 @@ export class UpdateAssetDto {
     @IsOptional()
     @IsString()
     tags?: string;
+
+    @IsOptional()
+    folderId?: string | null;
 }
 
 // Asset upload response DTO

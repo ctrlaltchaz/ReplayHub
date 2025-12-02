@@ -2,11 +2,20 @@ import { getApiUrl } from '@/lib/api/config';
 import type { AssetUploadResponse } from '@/types/asset';
 import { useMutation } from '@tanstack/react-query';
 
+interface UploadAssetParams {
+    file: File;
+    folderId?: string | null;
+}
+
 export function useUploadAsset(orgSlug: string) {
     return useMutation({
-        mutationFn: async (file: File) => {
+        mutationFn: async (params: UploadAssetParams) => {
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('file', params.file);
+            
+            if (params.folderId) {
+                formData.append('folderId', params.folderId);
+            }
 
             const url = getApiUrl(`/org/${orgSlug}/assets/upload`);
             const response = await fetch(url, {

@@ -12,6 +12,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
+import { getApiUrl } from '@/lib/api/config';
 import {
     ArrowLeft,
     Calendar,
@@ -32,7 +33,7 @@ import {
     X,
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApproveAsset } from '../hooks/useApproveAsset';
 import { useAsset } from '../hooks/useAsset';
 import { useDeleteAsset } from '../hooks/useDeleteAsset';
@@ -48,11 +49,47 @@ export default function AssetDetailPage() {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [approveDialogOpen, setApproveDialogOpen] = useState(false);
     const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [previewLoading, setPreviewLoading] = useState(true);
 
     const { data: asset, isLoading } = useAsset(slug, assetId);
     const deleteAsset = useDeleteAsset(slug);
     const approveAsset = useApproveAsset(slug);
     const rejectAsset = useRejectAsset(slug);
+
+    // Fetch preview with credentials
+    useEffect(() => {
+        if (asset && (asset.mime.startsWith('image/') || asset.mime.startsWith('video/') || asset.mime.startsWith('audio/'))) {
+            setPreviewLoading(true);
+            const fetchPreview = async () => {
+                try {
+                    const url = getApiUrl(`/org/${slug}/assets/${asset.id}/download`);
+                    const response = await fetch(url, { credentials: 'include' });
+                    
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const blobUrl = URL.createObjectURL(blob);
+                        setPreviewUrl(blobUrl);
+                    }
+                } catch (error) {
+                    console.error('Preview fetch error:', error);
+                } finally {
+                    setPreviewLoading(false);
+                }
+            };
+
+            fetchPreview();
+
+            // Cleanup blob URL on unmount
+            return () => {
+                if (previewUrl) {
+                    URL.revokeObjectURL(previewUrl);
+                }
+            };
+        } else {
+            setPreviewLoading(false);
+        }
+    }, [asset, slug]);
 
     const handleDownload = () => {
         if (!asset) return;
@@ -255,34 +292,56 @@ export default function AssetDetailPage() {
                                 <CardTitle>Preview</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {isImage ? (
+                                {previewLoading ? (
+                                    <div className="flex items-center justify-center py-12 bg-muted rounded-lg">
+                                        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : isImage ? (
                                     <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
-                                        <img
-                                            src={`${process.env.NEXT_PUBLIC_API_URL}/org/${slug}/assets/${asset.id}/download`}
-                                            alt={asset.name}
-                                            className="w-full h-full object-contain"
-                                        />
+                                        {previewUrl ? (
+                                            <img
+                                                src={previewUrl}
+                                                alt={asset.name}
+                                                className="w-full h-full object-contain"
+                                            />
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-full">
+                                                <ImageIcon className="w-16 h-16 text-muted-foreground mb-4" />
+                                                <p className="text-sm text-muted-foreground">Failed to load preview</p>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : isVideo ? (
                                     <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
-                                        <video
-                                            controls
-                                            className="w-full h-full"
-                                            src={`${process.env.NEXT_PUBLIC_API_URL}/org/${slug}/assets/${asset.id}/download`}
-                                        >
-                                            Your browser does not support the video tag.
-                                        </video>
+                                        {previewUrl ? (
+                                            <video
+                                                controls
+                                                className="w-full h-full"
+                                                src={previewUrl}
+                                            >
+                                                Your browser does not support the video tag.
+                                            </video>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-full">
+                                                <Film className="w-16 h-16 text-muted-foreground mb-4" />
+                                                <p className="text-sm text-muted-foreground">Failed to load preview</p>
+                                            </div>
+                                        )}
                                     </div>
                                 ) : isAudio ? (
                                     <div className="flex flex-col items-center justify-center py-12 bg-muted rounded-lg">
                                         <Music className="w-16 h-16 text-muted-foreground mb-4" />
-                                        <audio
-                                            controls
-                                            className="w-full max-w-md"
-                                            src={`${process.env.NEXT_PUBLIC_API_URL}/org/${slug}/assets/${asset.id}/download`}
-                                        >
-                                            Your browser does not support the audio tag.
-                                        </audio>
+                                        {previewUrl ? (
+                                            <audio
+                                                controls
+                                                className="w-full max-w-md"
+                                                src={previewUrl}
+                                            >
+                                                Your browser does not support the audio tag.
+                                            </audio>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground">Failed to load audio</p>
+                                        )}
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center justify-center py-12 bg-muted rounded-lg">

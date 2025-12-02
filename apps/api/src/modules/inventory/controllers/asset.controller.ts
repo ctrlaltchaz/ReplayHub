@@ -24,6 +24,7 @@ import { UnifiedTenantAuthGuard } from '../../../common/tenant/guards/unified-te
 import { Can } from '../../rbac/decorators/can.decorator';
 import { PermissionGuard } from '../../rbac/guards/permission.guard';
 import { QueryAssetsDto, UpdateAssetDto } from '../dto/asset.dto';
+import { CreateFolderDto, QueryFoldersDto, UpdateFolderDto } from '../dto/folder.dto';
 import { AssetService } from '../services/asset.service';
 
 @ApiTags('assets')
@@ -33,18 +34,87 @@ import { AssetService } from '../services/asset.service';
 export class AssetController {
   constructor(private readonly assetService: AssetService) {}
 
+  // ========== FOLDER ENDPOINTS (must come before :id routes) ==========
+
+  @Post('folders')
+  @Can('assets.upload')
+  @ApiOperation({ summary: 'Create a new folder' })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'Folder created successfully' })
+  async createFolder(@Req() req: Request, @Body() createFolderDto: CreateFolderDto) {
+    return await this.assetService.createFolder(
+      req.tenant!.id,
+      createFolderDto,
+      req.orgUser!.id,
+      req.orgUser?.email ?? null
+    );
+  }
+
+  @Get('folders')
+  @Can('assets.upload')
+  @ApiOperation({ summary: 'List folders with filtering and pagination' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Folders retrieved successfully' })
+  async findFolders(@Req() req: Request, @Query() query: QueryFoldersDto) {
+    return await this.assetService.findFolders(req.tenant!.id, query);
+  }
+
+  @Get('folders/:folderId')
+  @Can('assets.upload')
+  @ApiOperation({ summary: 'Get folder by ID with its contents' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Folder retrieved successfully' })
+  async findFolderById(@Req() req: Request, @Param('folderId') folderId: string) {
+    return await this.assetService.findFolderById(req.tenant!.id, folderId);
+  }
+
+  @Put('folders/:folderId')
+  @Can('assets.manage')
+  @ApiOperation({ summary: 'Update folder (rename or move)' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Folder updated successfully' })
+  async updateFolder(
+    @Req() req: Request,
+    @Param('folderId') folderId: string,
+    @Body() updateFolderDto: UpdateFolderDto
+  ) {
+    return await this.assetService.updateFolder(
+      req.tenant!.id,
+      folderId,
+      updateFolderDto,
+      req.orgUser?.id ?? null,
+      req.orgUser?.email ?? null
+    );
+  }
+
+  @Delete('folders/:folderId')
+  @Can('assets.manage')
+  @ApiOperation({ summary: 'Delete an empty folder' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Folder deleted successfully' })
+  async deleteFolder(@Req() req: Request, @Param('folderId') folderId: string) {
+    return await this.assetService.deleteFolder(
+      req.tenant!.id,
+      folderId,
+      req.orgUser?.id ?? null,
+      req.orgUser?.email ?? null
+    );
+  }
+
+  // ========== ASSET ENDPOINTS ==========
+
   @Post('upload')
   @Can('assets.upload')
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Upload asset file' })
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Asset uploaded successfully' })
-  async uploadAsset(@Req() req: Request, @UploadedFile() file: Express.Multer.File) {
+  async uploadAsset(
+    @Req() req: Request,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('folderId') folderId?: string
+  ) {
     return await this.assetService.uploadAsset(
       req.tenant!.id,
       file,
       req.orgUser!.id,
-      req.orgUser?.email ?? null
+      req.orgUser?.email ?? null,
+      folderId
     );
   }
 
