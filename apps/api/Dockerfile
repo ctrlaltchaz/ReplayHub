@@ -22,8 +22,8 @@ WORKDIR /workspace/apps/api
 RUN npx prisma generate
 
 # Build the API
-WORKDIR /workspace
-RUN npm run build --workspace=@esports-ops/api
+WORKDIR /workspace/apps/api
+RUN npx nest build
 
 # Production image
 FROM base AS runner
