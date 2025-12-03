@@ -68,6 +68,7 @@ WORKDIR /app/apps/api
 # Ensure runtime-only deps that are not in prod deps list
 RUN npm --prefix /app/apps/api install fs-extra --omit=dev --no-save
 RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
+RUN mkdir -p /app/node_modules/@prisma && cp -r /app/apps/api/node_modules/@prisma /app/node_modules/
 WORKDIR /app
 
 # Final runtime image
