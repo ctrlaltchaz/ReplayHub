@@ -39,9 +39,14 @@ ARG PRISMA_DB_URL
 ENV DATABASE_URL=${PRISMA_DB_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
+
+# Generate Prisma client from the API directory
 WORKDIR /app/apps/api
 RUN nest --version
-RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
+
+# Install @prisma/client explicitly in the workspace before generating
+RUN npm install @prisma/client
+RUN npx prisma generate --schema=${PRISMA_SCHEMA}
 RUN npm run build
 
 # Final runtime image
@@ -51,6 +56,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3001
 ENV ASSET_UPLOAD_DIR=/app/data
+
+# Install openssl for Prisma
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl \
+  && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nestjs
@@ -62,8 +72,10 @@ COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder /app/apps/api/scripts ./apps/api/scripts
 
-RUN mkdir -p ${ASSET_UPLOAD_DIR} && chown -R nestjs:nodejs ${ASSET_UPLOAD_DIR}
+RUN mkdir -p ${ASSET_UPLOAD_DIR} && chown -R nestjs:nodejs ${ASSET_UPLOAD_DIR} \
+  && chmod +x /app/apps/api/scripts/*.sh 2>/dev/null || true
 
 USER nestjs
 WORKDIR /app/apps/api
