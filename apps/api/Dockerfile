@@ -6,16 +6,16 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /workspace
 
 # Copy package files
-COPY package.json package-lock.json* ./
+COPY package. json package-lock.json* ./
 COPY apps/api/package.json ./apps/api/
-COPY apps/web/package.json ./apps/web/
+COPY apps/web/package. json ./apps/web/
 COPY packages/ui/package.json ./packages/ui/
 
 # Install dependencies
 RUN npm ci
 
-# Downgrade Prisma to stable 5.x (6.x has WASM bugs)
-RUN npm install prisma@5 @prisma/client@5
+# Fix Prisma (6.x has WASM bugs) and install nest CLI
+RUN npm install prisma@5 @prisma/client@5 @nestjs/cli
 
 # Build stage
 FROM base AS builder
@@ -24,10 +24,11 @@ COPY --from=deps /workspace/node_modules ./node_modules
 COPY . . 
 
 # Generate Prisma client
-RUN cd apps/api && npx prisma generate
+WORKDIR /workspace/apps/api
+RUN npx prisma generate
 
-# Build the API using npx
-RUN cd apps/api && npx nest build
+# Build the API using direct path to nest
+RUN /workspace/node_modules/.bin/nest build
 
 # Production image
 FROM base AS runner
