@@ -62,12 +62,10 @@ COPY package-lock.json ./
 COPY apps/api/package*.json ./apps/api/
 COPY apps/api/prisma ./apps/api/prisma
 ENV PATH="/usr/local/bin:/app/node_modules/.bin:/app/apps/api/node_modules/.bin:${PATH}"
-RUN npm ci --omit=dev --workspace=@esports-ops/api
+RUN npm ci --workspaces --include-workspace-root
+RUN npm prune --omit=dev
 WORKDIR /app/apps/api
-# Ensure Prisma client is present before generate in the prod deps layer
-RUN npm --prefix /app/apps/api install @prisma/client --omit=dev --no-save
 RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
-RUN cp -r /app/apps/api/node_modules/@prisma /app/node_modules/
 WORKDIR /app
 
 # Final runtime image
