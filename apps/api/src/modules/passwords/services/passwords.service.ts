@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma } from '../../generated/prisma';
+import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 import { Request } from 'express';
 import { PrismaService } from '../../../database/prisma.service';

@@ -40,20 +40,16 @@ ENV DATABASE_URL=${PRISMA_DB_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
 
-# Generate Prisma client
+# Generate Prisma client  
 WORKDIR /app/apps/api
 RUN nest --version
 
-# Create a wrapper npm script that intercepts install attempts and does nothing
-RUN echo '#!/bin/sh\nif [ "$1" = "install" ] || [ "$1" = "i" ]; then\n  exit 0\nfi\nexec /usr/local/bin/npm "$@"' > /tmp/npm-wrapper && \
-  chmod +x /tmp/npm-wrapper
+# Install @prisma/client directly in the API workspace using npm workspace command
+# This ensures it's in the right place for Prisma generate
+RUN cd /app && npm install @prisma/client --workspace=apps/api --legacy-peer-deps
 
-# Use the wrapper npm to prevent Prisma's auto-install from failing
-ENV PATH="/tmp:$PATH"
-RUN mv /tmp/npm-wrapper /tmp/npm && prisma generate --schema=${PRISMA_SCHEMA}
-
-# Restore original npm
-ENV PATH="/usr/local/bin:/app/node_modules/.bin:/app/apps/api/node_modules/.bin:${PATH}"
+# Now generate the client (it will find @prisma/client in node_modules)
+RUN prisma generate --schema=${PRISMA_SCHEMA}
 
 RUN npm run build
 
