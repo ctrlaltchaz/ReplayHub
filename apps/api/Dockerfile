@@ -46,8 +46,8 @@ RUN nest --version
 
 # Create local node_modules/@prisma/client symlink to satisfy Prisma's check
 RUN mkdir -p node_modules/@prisma && \
-    ln -s /app/node_modules/@prisma/client node_modules/@prisma/client || \
-    cp -r /app/node_modules/@prisma/client node_modules/@prisma/client
+  ln -s /app/node_modules/@prisma/client node_modules/@prisma/client || \
+  cp -r /app/node_modules/@prisma/client node_modules/@prisma/client
 
 # Generate Prisma client to custom output path
 RUN prisma generate --schema=${PRISMA_SCHEMA}
