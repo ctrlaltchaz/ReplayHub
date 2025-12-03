@@ -16,9 +16,9 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 
-# Align npm to 10.9.3 to match local tooling
-RUN npm install -g npm@10.9.3
-ENV PATH="/app/node_modules/.bin:/app/apps/api/node_modules/.bin:${PATH}"
+# Align npm to 10.9.3 to match local tooling and install Nest CLI globally
+RUN npm install -g npm@10.9.3 @nestjs/cli
+ENV PATH="/usr/local/bin:/app/node_modules/.bin:/app/apps/api/node_modules/.bin:${PATH}"
 
 COPY package*.json ./
 COPY package-lock.json ./
@@ -28,8 +28,8 @@ COPY packages/ui/package*.json ./packages/ui/
 COPY apps/api/prisma ./apps/api/prisma
 
 RUN npm ci --workspaces --include-workspace-root
-# Ensure Prisma client and Nest CLI are present in the API workspace (local node_modules)
-RUN npm --prefix /app/apps/api install @prisma/client @nestjs/cli --omit=dev --no-save
+# Ensure Prisma client is present in the API workspace (local node_modules)
+RUN npm --prefix /app/apps/api install @prisma/client --omit=dev --no-save
 
 # Build the API
 FROM deps AS builder
@@ -39,7 +39,7 @@ ENV DATABASE_URL=${PRISMA_DB_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
 WORKDIR /app/apps/api
-RUN /app/apps/api/node_modules/.bin/nest --version
+RUN nest --version
 RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
 RUN npm run build:api
 
