@@ -4,7 +4,7 @@
 ARG PRISMA_SCHEMA=prisma/schema.prisma
 ARG PRISMA_DB_URL=postgresql://postgres:postgres@localhost:5432/postgres
 
-FROM node:20-slim AS base
+FROM node:22-slim AS base
 WORKDIR /app
 
 # Install all workspace dependencies (including dev) so we can build
@@ -15,6 +15,10 @@ ENV DATABASE_URL=${PRISMA_DB_URL}
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
+
+# Align npm to 10.9.3 to match local tooling
+RUN npm install -g npm@10.9.3
+ENV PATH="/app/node_modules/.bin:/app/apps/api/node_modules/.bin:${PATH}"
 
 COPY package*.json ./
 COPY package-lock.json ./
@@ -45,7 +49,7 @@ WORKDIR /app
 RUN npm prune --omit=dev
 
 # Final runtime image
-FROM node:20-slim AS runner
+FROM node:22-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
