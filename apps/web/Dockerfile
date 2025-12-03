@@ -1,7 +1,6 @@
 # syntax=docker/dockerfile:1
 # Production image for @esports-ops/web (Next.js 14)
 
-<<<<<<< HEAD
 ARG PRISMA_DB_URL=postgresql://postgres:postgres@localhost:5432/postgres
 
 FROM node:22-slim AS base
@@ -29,37 +28,11 @@ RUN npm ci --workspaces --include-workspace-root
 FROM deps AS builder
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
-=======
-FROM node:20-slim AS base
-WORKDIR /app
-
-# Install all workspace dependencies (including dev) so we can build
-FROM base AS deps
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
-  && rm -rf /var/lib/apt/lists/*
-
-COPY package*.json ./
-COPY apps/web/package*.json ./apps/web/
-COPY apps/api/package*.json ./apps/api/
-COPY packages/ui/package*.json ./packages/ui/
-
-RUN npm ci
-
-# Build the shared UI package and the web app
-FROM deps AS builder
-COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1
->>>>>>> 2dbb6da03be70d19d4a4f932899b220386a02dda
 RUN npm run build --workspace=@esports-ops/ui
 RUN npm run build --workspace=@esports-ops/web
 
 # Final runtime image
-<<<<<<< HEAD
 FROM node:22-slim AS runner
-=======
-FROM node:20-slim AS runner
->>>>>>> 2dbb6da03be70d19d4a4f932899b220386a02dda
 WORKDIR /app
 
 ENV NODE_ENV=production
