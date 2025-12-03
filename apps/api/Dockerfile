@@ -11,6 +11,8 @@ WORKDIR /app
 FROM base AS deps
 ARG PRISMA_DB_URL
 ENV DATABASE_URL=${PRISMA_DB_URL}
+ENV NODE_ENV=development
+ENV NPM_CONFIG_PRODUCTION=false
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
@@ -41,7 +43,7 @@ COPY . .
 WORKDIR /app/apps/api
 RUN nest --version
 RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
-RUN npm run build
+RUN npm run build:api
 
 # Trim dev dependencies for the runtime image
 FROM builder AS prune
