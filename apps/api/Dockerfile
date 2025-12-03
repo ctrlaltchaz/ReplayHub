@@ -9,7 +9,10 @@ WORKDIR /workspace
 COPY package.json package-lock.json* ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/ui/package.json ./packages/ui/
-RUN npm ci --ignore-scripts
+
+# Disable husky and install dependencies (keep scripts for binary linking)
+ENV HUSKY=0
+RUN npm ci
 
 # Build stage
 FROM base AS builder
@@ -21,9 +24,9 @@ COPY . .
 WORKDIR /workspace/apps/api
 RUN npx prisma generate
 
-# Build the API
-WORKDIR /workspace/apps/api
-RUN npx nest build
+# Build the API using the root script
+WORKDIR /workspace
+RUN npm run build:api
 
 # Production image
 FROM base AS runner
@@ -44,7 +47,7 @@ COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/src/database ./src
 
 # Copy Prisma files for runtime
 COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/prisma ./prisma
-COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nestjs:nodejs /workspace/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/src/generated ./src/generated
 
 USER nestjs

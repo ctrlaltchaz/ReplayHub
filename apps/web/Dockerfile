@@ -9,7 +9,10 @@ WORKDIR /workspace
 COPY package.json package-lock.json* ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/ui/package.json ./packages/ui/
-RUN npm ci --ignore-scripts
+
+# Disable husky and install dependencies
+ENV HUSKY=0
+RUN npm ci
 
 # Build stage
 FROM base AS builder
@@ -22,8 +25,8 @@ ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Build the web app
-RUN npm run build --workspace=@esports-ops/web
+# Build the web app using root script
+RUN npm run build:web
 
 # Production image
 FROM base AS runner
