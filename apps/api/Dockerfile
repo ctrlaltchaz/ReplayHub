@@ -78,7 +78,8 @@ COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/apps/api/scripts ./apps/api/scripts
 
-RUN mkdir -p ${ASSET_UPLOAD_DIR} && chown -R nestjs:nodejs ${ASSET_UPLOAD_DIR} \
+RUN mkdir -p ${ASSET_UPLOAD_DIR} /app/apps/api/logs \
+  && chown -R nestjs:nodejs ${ASSET_UPLOAD_DIR} /app/apps/api/logs \
   && chmod +x /app/apps/api/scripts/*.sh 2>/dev/null || true
 
 USER nestjs
