@@ -62,8 +62,7 @@ COPY package-lock.json ./
 COPY apps/api/package*.json ./apps/api/
 COPY apps/api/prisma ./apps/api/prisma
 ENV PATH="/usr/local/bin:/app/node_modules/.bin:/app/apps/api/node_modules/.bin:${PATH}"
-RUN npm ci --workspaces --include-workspace-root
-RUN npm prune --omit=dev
+RUN npm ci --omit=dev --workspace=@esports-ops/api
 WORKDIR /app/apps/api
 # Ensure runtime-only deps that are not in prod deps list
 RUN npm --prefix /app/apps/api install fs-extra --omit=dev --no-save
