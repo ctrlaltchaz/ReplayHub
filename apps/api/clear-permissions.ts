@@ -1,4 +1,4 @@
-import { PrismaClient } from './src/generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 const TENANT_ID = 'cmh5exllt0002vr80jvywmnbv';
