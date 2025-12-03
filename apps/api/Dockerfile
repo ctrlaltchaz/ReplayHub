@@ -63,13 +63,11 @@ COPY apps/api/package*.json ./apps/api/
 COPY apps/api/prisma ./apps/api/prisma
 ENV PATH="/usr/local/bin:/app/node_modules/.bin:/app/apps/api/node_modules/.bin:${PATH}"
 RUN npm ci --omit=dev --workspaces --include-workspace-root
+WORKDIR /app
+# Ensure runtime-only deps that may not be listed in API workspace
+RUN npm install --omit=dev --no-save fs-extra json2csv
 WORKDIR /app/apps/api
-# Ensure runtime-only deps that are not in prod deps list
-RUN npm --prefix /app/apps/api install fs-extra json2csv --omit=dev --no-save
 RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
-RUN mkdir -p /app/node_modules/@prisma /app/node_modules/.prisma && \
-  cp -r /app/apps/api/node_modules/@prisma /app/node_modules/ && \
-  cp -r /app/apps/api/node_modules/.prisma /app/node_modules/
 WORKDIR /app
 
 # Final runtime image
