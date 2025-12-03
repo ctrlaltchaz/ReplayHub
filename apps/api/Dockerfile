@@ -62,7 +62,7 @@ COPY package-lock.json ./
 COPY apps/api/package*.json ./apps/api/
 COPY apps/api/prisma ./apps/api/prisma
 ENV PATH="/usr/local/bin:/app/node_modules/.bin:/app/apps/api/node_modules/.bin:${PATH}"
-RUN npm ci --omit=dev --workspace=@esports-ops/api
+RUN npm ci --omit=dev --workspaces --include-workspace-root
 WORKDIR /app/apps/api
 # Ensure runtime-only deps that are not in prod deps list
 RUN npm --prefix /app/apps/api install fs-extra json2csv --omit=dev --no-save
