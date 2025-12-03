@@ -41,7 +41,7 @@ COPY . .
 WORKDIR /app/apps/api
 RUN nest --version
 RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
-RUN npm run build:api
+RUN npm run build
 
 # Trim dev dependencies for the runtime image
 FROM builder AS prune
