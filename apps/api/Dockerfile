@@ -5,9 +5,10 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /workspace
 
-# Copy package files from monorepo root and workspaces
-COPY package.json package-lock.json* ./
+# Copy package files
+COPY package. json package-lock.json* ./
 COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
 COPY packages/ui/package.json ./packages/ui/
 
 # Install dependencies
@@ -17,14 +18,12 @@ RUN npm ci
 FROM base AS builder
 WORKDIR /workspace
 COPY --from=deps /workspace/node_modules ./node_modules
-COPY . .
+COPY .  .
 
 # Generate Prisma client
-WORKDIR /workspace/apps/api
-RUN npx prisma generate
+RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
 
-# Build the API using the root script
-WORKDIR /workspace
+# Build the API (from root)
 RUN npm run build:api
 
 # Production image
@@ -41,19 +40,17 @@ COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/dist ./dist
 COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/package.json ./package.json
 COPY --from=builder --chown=nestjs:nodejs /workspace/node_modules ./node_modules
 
-# Copy database migration files and data source
-COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/src/database ./src/database
-
-# Copy Prisma files for runtime
+# Copy Prisma schema and generated client
 COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/prisma ./prisma
-COPY --from=builder --chown=nestjs:nodejs /workspace/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/src/generated ./src/generated
+COPY --from=builder --chown=nestjs:nodejs /workspace/node_modules/. prisma ./node_modules/.prisma
+
+# Copy database migrations for TypeORM
+COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/src/database ./src/database
 
 USER nestjs
 
-EXPOSE 3000
+EXPOSE 3001
 
-ENV PORT=3000
+ENV PORT=3001
 
-# Run migrations then start the app
-CMD ["sh", "-c", "npm run migration:run && node dist/main"]
+CMD ["node", "dist/main"]
