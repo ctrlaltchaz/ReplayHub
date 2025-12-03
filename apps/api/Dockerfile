@@ -43,7 +43,7 @@ COPY . .
 WORKDIR /app/apps/api
 RUN nest --version
 RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
-RUN npm run build
+RUN npm run build:api
 
 # Production deps only for API workspace
 FROM node:22-slim AS prod-deps
@@ -83,4 +83,4 @@ WORKDIR /app/apps/api
 
 EXPOSE 3001
 
-CMD ["node", "dist/main"]
+CMD ["node", "dist/src/main.js"]
