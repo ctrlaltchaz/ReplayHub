@@ -44,14 +44,16 @@ COPY . .
 WORKDIR /app/apps/api
 RUN nest --version
 
-# Create local node_modules/@prisma/client symlink to satisfy Prisma's check
-RUN mkdir -p node_modules/@prisma && \
-  ln -s /app/node_modules/@prisma/client node_modules/@prisma/client || \
-  cp -r /app/node_modules/@prisma/client node_modules/@prisma/client
+# Set npm config to prevent workspace issues during Prisma generate
+# Also set PRISMA environment to skip certain checks
+RUN npm config set fund false && \
+  npm config set update-notifier false
 
-# Generate Prisma client to custom output path
-RUN prisma generate --schema=${PRISMA_SCHEMA}
+# Generate using the workspace structure - run from root to respect workspaces
+WORKDIR /app
+RUN cd apps/api && npx --yes -p prisma@6.17.0 prisma generate --schema=prisma/schema.prisma
 
+WORKDIR /app/apps/api
 RUN npm run build
 
 # Final runtime image
