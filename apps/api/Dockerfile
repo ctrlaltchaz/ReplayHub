@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Production image for @esports-ops/api (NestJS + Prisma)
 
-ARG PRISMA_SCHEMA=apps/api/prisma/schema.prisma
+ARG PRISMA_SCHEMA=prisma/schema.prisma
 ARG PRISMA_DB_URL=postgresql://postgres:postgres@localhost:5432/postgres
 
 FROM node:20-slim AS base
@@ -33,9 +33,9 @@ ARG PRISMA_DB_URL
 ENV DATABASE_URL=${PRISMA_DB_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
-WORKDIR /app
-RUN npm exec prisma generate --workspace=@esports-ops/api -- --schema=${PRISMA_SCHEMA}
-RUN npm run build:api
+WORKDIR /app/apps/api
+RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
+RUN npm run build
 
 # Trim dev dependencies for the runtime image
 FROM builder AS prune
