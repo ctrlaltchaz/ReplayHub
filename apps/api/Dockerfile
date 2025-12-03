@@ -1,39 +1,57 @@
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
-WORKDIR /app
+WORKDIR /workspace
 
-# Install dependencies based on the preferred package manager
+# Copy package files from monorepo root and workspaces
 COPY package.json package-lock.json* ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/ui/package.json ./packages/ui/
 RUN npm ci
 
-# Rebuild the source code only when needed
+# Build stage
 FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+WORKDIR /workspace
+COPY --from=deps /workspace/node_modules ./node_modules
 COPY . .
 
-RUN npm run build
+# Generate Prisma client
+WORKDIR /workspace/apps/api
+RUN npx prisma generate
 
-# Production image, copy all the files and run nest
+# Build the API
+WORKDIR /workspace
+RUN npm run build --workspace=@esports-ops/api
+
+# Production image
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nestjs
 
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
+# Copy built files
+COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/dist ./dist
+COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/package.json ./package.json
+COPY --from=builder --chown=nestjs:nodejs /workspace/node_modules ./node_modules
+
+# Copy database migration files and data source
+COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/src/database ./src/database
+
+# Copy Prisma files for runtime
+COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/prisma ./prisma
+COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/src/generated ./src/generated
 
 USER nestjs
 
-EXPOSE 3001
+EXPOSE 3000
 
-ENV PORT 3001
+ENV PORT=3000
 
-CMD ["npm", "run", "start:prod"]
+# Run migrations then start the app
+CMD ["sh", "-c", "npm run migration:run && node dist/main"]
