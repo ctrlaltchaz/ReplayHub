@@ -46,7 +46,7 @@ RUN nest --version
 
 # Create a wrapper npm script that intercepts install attempts and does nothing
 RUN echo '#!/bin/sh\nif [ "$1" = "install" ] || [ "$1" = "i" ]; then\n  exit 0\nfi\nexec /usr/local/bin/npm "$@"' > /tmp/npm-wrapper && \
-    chmod +x /tmp/npm-wrapper
+  chmod +x /tmp/npm-wrapper
 
 # Use the wrapper npm to prevent Prisma's auto-install from failing
 ENV PATH="/tmp:$PATH"
