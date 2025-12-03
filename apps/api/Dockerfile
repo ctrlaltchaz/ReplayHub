@@ -1,11 +1,17 @@
 # syntax=docker/dockerfile:1
 # Production image for @esports-ops/api (NestJS + Prisma)
 
+ARG PRISMA_SCHEMA=prisma/schema.prisma
+ARG PRISMA_DB_URL=postgresql://postgres:postgres@localhost:5432/postgres
+
 FROM node:20-slim AS base
 WORKDIR /app
 
 # Install all workspace dependencies (including dev) so we can build
 FROM base AS deps
+ARG PRISMA_DB_URL
+ENV DATABASE_URL=${PRISMA_DB_URL}
+
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
@@ -14,18 +20,25 @@ COPY package*.json ./
 COPY apps/api/package*.json ./apps/api/
 COPY apps/web/package*.json ./apps/web/
 COPY packages/ui/package*.json ./packages/ui/
+COPY apps/api/prisma ./apps/api/prisma
 
 RUN npm ci
 
 # Build the API
 FROM deps AS builder
-COPY . .
+ARG PRISMA_SCHEMA
+ARG PRISMA_DB_URL
+ENV DATABASE_URL=${PRISMA_DB_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build --workspace=@esports-ops/api
+COPY . .
+WORKDIR /app/apps/api
+RUN npx prisma generate --schema=${PRISMA_SCHEMA}
+RUN npm run build
 
 # Trim dev dependencies for the runtime image
 FROM builder AS prune
 ENV NODE_ENV=production
+WORKDIR /app
 RUN npm prune --omit=dev
 
 # Final runtime image
