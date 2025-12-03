@@ -1,60 +1,54 @@
-FROM node:20-alpine AS base
+# syntax=docker/dockerfile:1
+# Production image for @esports-ops/api (NestJS + Prisma)
 
-# Install dependencies only when needed
+FROM node:20-slim AS base
+WORKDIR /app
+
+# Install all workspace dependencies (including dev) so we can build
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
-WORKDIR /workspace
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
 
-# Copy package files
-COPY package.json package-lock.json* ./
-COPY apps/api/package.json ./apps/api/
-COPY apps/web/package.json ./apps/web/
-COPY packages/ui/package.json ./packages/ui/
+COPY package*.json ./
+COPY apps/api/package*.json ./apps/api/
+COPY apps/web/package*.json ./apps/web/
+COPY packages/ui/package*.json ./packages/ui/
 
-# Install dependencies
 RUN npm ci
 
-# Fix Prisma (6.x has WASM bugs) and install nest CLI
-RUN npm install prisma@5 @prisma/client@5 @nestjs/cli
+# Build the API
+FROM deps AS builder
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build --workspace=@esports-ops/api
 
-# Build stage
-FROM base AS builder
-WORKDIR /workspace
-COPY --from=deps /workspace/node_modules ./node_modules
-COPY . . 
+# Trim dev dependencies for the runtime image
+FROM builder AS prune
+ENV NODE_ENV=production
+RUN npm prune --omit=dev
 
-# Generate Prisma client
-WORKDIR /workspace/apps/api
-RUN npx prisma generate
-
-# Build the API using direct path to nest
-RUN /workspace/node_modules/.bin/nest build
-
-# Production image
-FROM base AS runner
+# Final runtime image
+FROM node:20-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV PORT=3001
+ENV ASSET_UPLOAD_DIR=/app/data
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nestjs
+RUN addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 nestjs
 
-# Copy built files
-COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/dist ./dist
-COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/package.json ./package.json
-COPY --from=builder --chown=nestjs:nodejs /workspace/node_modules ./node_modules
+COPY --from=prune /app/node_modules ./node_modules
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
+COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 
-# Copy Prisma schema and generated client
-COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/prisma ./prisma
-COPY --from=builder --chown=nestjs:nodejs /workspace/node_modules/. prisma ./node_modules/.prisma
-
-# Copy database migrations for TypeORM
-COPY --from=builder --chown=nestjs:nodejs /workspace/apps/api/src/database ./src/database
+RUN mkdir -p ${ASSET_UPLOAD_DIR} && chown -R nestjs:nodejs ${ASSET_UPLOAD_DIR}
 
 USER nestjs
+WORKDIR /app/apps/api
 
 EXPOSE 3001
-
-ENV PORT=3001
 
 CMD ["node", "dist/main"]
