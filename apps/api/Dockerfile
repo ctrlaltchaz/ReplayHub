@@ -6,7 +6,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /workspace
 
 # Copy package files
-COPY package.json package-lock.json* ./
+COPY package. json package-lock.json* ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY packages/ui/package.json ./packages/ui/
@@ -20,12 +20,8 @@ WORKDIR /workspace
 COPY --from=deps /workspace/node_modules ./node_modules
 COPY . .
 
-# Delete existing Prisma client and regenerate
-WORKDIR /workspace/apps/api
-RUN rm -rf ../../node_modules/.prisma../../node_modules/@prisma/client
-RUN npm install @prisma/client
-RUN npx prisma generate
-WORKDIR /workspace
+# Generate Prisma client
+RUN cd apps/api && npx prisma generate
 
 # Build the API (from root)
 RUN npm run build:api
