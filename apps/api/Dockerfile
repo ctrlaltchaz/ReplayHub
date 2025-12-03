@@ -18,10 +18,12 @@ RUN npm ci
 FROM base AS builder
 WORKDIR /workspace
 COPY --from=deps /workspace/node_modules ./node_modules
-COPY .  .
+COPY .  . 
 
-# Generate Prisma client
-RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
+# Generate Prisma client (from apps/api directory)
+WORKDIR /workspace/apps/api
+RUN npx prisma generate
+WORKDIR /workspace
 
 # Build the API (from root)
 RUN npm run build:api
