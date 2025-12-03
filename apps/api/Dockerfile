@@ -44,7 +44,12 @@ COPY . .
 WORKDIR /app/apps/api
 RUN nest --version
 
-# Generate Prisma client to custom output path (avoids auto-install issues in monorepo)
+# Create local node_modules/@prisma/client symlink to satisfy Prisma's check
+RUN mkdir -p node_modules/@prisma && \
+    ln -s /app/node_modules/@prisma/client node_modules/@prisma/client || \
+    cp -r /app/node_modules/@prisma/client node_modules/@prisma/client
+
+# Generate Prisma client to custom output path
 RUN prisma generate --schema=${PRISMA_SCHEMA}
 
 RUN npm run build
