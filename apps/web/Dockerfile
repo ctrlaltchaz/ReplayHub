@@ -1,51 +1,54 @@
-FROM node:18-alpine AS base
+# syntax=docker/dockerfile:1
+# Production image for @esports-ops/web (Next.js 14)
 
-# Install dependencies only when needed
+ARG PRISMA_DB_URL=postgresql://postgres:postgres@localhost:5432/postgres
+
+FROM node:22-slim AS base
+WORKDIR /app
+
+# Install all workspace dependencies (including dev) so we can build
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
-WORKDIR /app
+ARG PRISMA_DB_URL
+ENV DATABASE_URL=${PRISMA_DB_URL}
 
-# Install dependencies based on the preferred package manager
-COPY package.json package-lock.json* ./
-RUN npm ci
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
 
-# Rebuild the source code only when needed
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY package*.json ./
+COPY package-lock.json ./
+COPY apps/web/package*.json ./apps/web/
+COPY apps/api/package*.json ./apps/api/
+COPY packages/ui/package*.json ./packages/ui/
+COPY apps/api/prisma ./apps/api/prisma
+
+RUN npm ci --workspaces --include-workspace-root
+
+# Build the shared UI package and the web app
+FROM deps AS builder
+ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
+RUN npm run build --workspace=@esports-ops/ui
+RUN npm run build --workspace=@esports-ops/web
 
-# Next.js collects completely anonymous telemetry data about general usage.
-# Learn more here: https://nextjs.org/telemetry
-# Uncomment the following line in case you want to disable telemetry during the build.
-ENV NEXT_TELEMETRY_DISABLED 1
-
-RUN npm run build
-
-# Production image, copy all the files and run next
-FROM base AS runner
+# Final runtime image
+FROM node:22-slim AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/public ./public
+COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder /app/apps/web/.next/standalone ./
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 
-# Set the correct permission for prerender cache
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
-
-# Automatically leverage output traces to reduce image size
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
+WORKDIR /app/apps/web
 USER nextjs
 
 EXPOSE 3000
-
-ENV PORT 3000
 
 CMD ["node", "server.js"]

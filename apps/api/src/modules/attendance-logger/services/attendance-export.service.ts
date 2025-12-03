@@ -2,7 +2,7 @@ import { Injectable, Logger, NotImplementedException } from '@nestjs/common';
 import { Parser } from 'json2csv';
 import * as fs from 'fs-extra';
 import * as path from 'path';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../generated/prisma';
 import { PrismaService } from '../../../database/prisma.service';
 import { AttendanceExportDto, AttendanceExportFormat } from '../dto/attendance-logger.dto';
 import { AuditService } from '../../../common/audit/audit.service';

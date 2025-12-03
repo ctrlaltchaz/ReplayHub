@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Event, ProductionSession } from '@prisma/client';
+import { Event, ProductionSession } from '../../generated/prisma';
 
 export interface ClockInPolicyResult {
   now: Date;

@@ -1,0 +1,32 @@
+node_modules
+apps/*/node_modules
+packages/*/node_modules
+
+# Build artifacts
+**/.next
+**/dist
+**/coverage
+**/.turbo
+**/.cache
+**/logs
+tsconfig.tsbuildinfo
+
+# VCS / editor
+.git
+.gitignore
+.vscode
+.vs
+*.swp
+npm-debug.log*
+yarn-error.log*
+
+# Local env + temp data
+.env*
+tmp_cookies.txt
+
+# Dumps / large assets
+*.dump
+*.sql
+IMPROVEDAPP.zip
+replayhub_working.dump
+replayhub_working.sql
