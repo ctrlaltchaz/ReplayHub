@@ -43,13 +43,22 @@ COPY . .
 WORKDIR /app/apps/api
 RUN nest --version
 RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
-RUN npm run build
+RUN npm run build:api
 
-# Trim dev dependencies for the runtime image
-FROM builder AS prune
-ENV NODE_ENV=production
+# Production deps only for API workspace
+FROM node:22-slim AS prod-deps
 WORKDIR /app
-RUN npm prune --omit=dev
+ENV NODE_ENV=production
+ENV DATABASE_URL=${PRISMA_DB_URL}
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+RUN npm install -g npm@10.9.3
+COPY package*.json ./
+COPY package-lock.json ./
+COPY apps/api/package*.json ./apps/api/
+COPY apps/api/prisma ./apps/api/prisma
+RUN npm ci --omit=dev --workspace=@esports-ops/api
 
 # Final runtime image
 FROM node:22-slim AS runner
@@ -62,7 +71,7 @@ ENV ASSET_UPLOAD_DIR=/app/data
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nestjs
 
-COPY --from=prune /app/node_modules ./node_modules
+COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
