@@ -9,7 +9,7 @@ WORKDIR /workspace
 COPY package.json package-lock.json* ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/ui/package.json ./packages/ui/
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 # Build stage
 FROM base AS builder
