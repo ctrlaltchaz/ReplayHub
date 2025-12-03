@@ -17,6 +17,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
+COPY package-lock.json ./
 COPY apps/api/package*.json ./apps/api/
 COPY apps/web/package*.json ./apps/web/
 COPY packages/ui/package*.json ./packages/ui/
@@ -32,7 +33,7 @@ ENV DATABASE_URL=${PRISMA_DB_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
 WORKDIR /app/apps/api
-RUN npx prisma generate --schema=${PRISMA_SCHEMA}
+RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
 RUN npm run build
 
 # Trim dev dependencies for the runtime image
