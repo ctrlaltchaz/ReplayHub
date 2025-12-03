@@ -44,13 +44,16 @@ COPY . .
 WORKDIR /app/apps/api
 RUN nest --version
 
-# Workaround: Create a package.json in output dir to prevent Prisma auto-install
-RUN mkdir -p src/generated/prisma && \
-  echo '{"name":"@prisma/client","version":"6.17.1"}' > src/generated/prisma/package.json
+# Create a wrapper npm script that intercepts install attempts and does nothing
+RUN echo '#!/bin/sh\nif [ "$1" = "install" ] || [ "$1" = "i" ]; then\n  exit 0\nfi\nexec /usr/local/bin/npm "$@"' > /tmp/npm-wrapper && \
+    chmod +x /tmp/npm-wrapper
 
-# Set NODE_PATH so Prisma can find @prisma/client from root workspace
-ENV NODE_PATH=/app/node_modules
-RUN prisma generate --schema=${PRISMA_SCHEMA}
+# Use the wrapper npm to prevent Prisma's auto-install from failing
+ENV PATH="/tmp:$PATH"
+RUN mv /tmp/npm-wrapper /tmp/npm && prisma generate --schema=${PRISMA_SCHEMA}
+
+# Restore original npm
+ENV PATH="/usr/local/bin:/app/node_modules/.bin:/app/apps/api/node_modules/.bin:${PATH}"
 
 RUN npm run build
 
