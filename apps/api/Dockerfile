@@ -65,6 +65,8 @@ ENV PATH="/usr/local/bin:/app/node_modules/.bin:/app/apps/api/node_modules/.bin:
 RUN npm ci --workspaces --include-workspace-root
 RUN npm prune --omit=dev
 WORKDIR /app/apps/api
+# Ensure runtime-only deps that are not in prod deps list
+RUN npm --prefix /app/apps/api install fs-extra --omit=dev --no-save
 RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
 WORKDIR /app
 
