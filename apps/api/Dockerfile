@@ -67,6 +67,7 @@ WORKDIR /app/apps/api
 # Ensure Prisma client is present before generate in the prod deps layer
 RUN npm --prefix /app/apps/api install @prisma/client --omit=dev --no-save
 RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
+RUN cp -r /app/apps/api/node_modules/@prisma /app/node_modules/
 WORKDIR /app
 
 # Final runtime image
@@ -86,6 +87,7 @@ COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 
 RUN mkdir -p ${ASSET_UPLOAD_DIR} && chown -R nestjs:nodejs ${ASSET_UPLOAD_DIR}
+RUN ln -s /app/node_modules /app/apps/api/node_modules
 
 USER nestjs
 WORKDIR /app/apps/api
