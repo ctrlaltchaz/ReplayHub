@@ -67,6 +67,8 @@ WORKDIR /app
 # Ensure runtime-only deps that may not be listed in API workspace
 RUN npm install --omit=dev --no-save fs-extra json2csv
 WORKDIR /app/apps/api
+# Ensure Prisma client exists before generate (some npm workspace layouts omit it)
+RUN npm --prefix /app/apps/api install @prisma/client --omit=dev --no-save
 RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
 WORKDIR /app
 
