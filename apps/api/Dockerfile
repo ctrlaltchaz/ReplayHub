@@ -24,8 +24,8 @@ COPY packages/ui/package*.json ./packages/ui/
 COPY apps/api/prisma ./apps/api/prisma
 
 RUN npm ci --workspaces --include-workspace-root
-# Ensure Prisma client is present in the API workspace
-RUN npm install @prisma/client --workspace=@esports-ops/api --no-save
+# Ensure Prisma client is present in the API workspace (local node_modules)
+RUN npm --prefix /app/apps/api install @prisma/client --omit=dev --no-save
 
 # Build the API
 FROM deps AS builder
