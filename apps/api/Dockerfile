@@ -29,7 +29,6 @@ COPY apps/web/package*.json ./apps/web/
 COPY packages/ui/package*.json ./packages/ui/
 COPY apps/api/prisma ./apps/api/prisma
 COPY apps/api/tsconfig.json ./apps/api/tsconfig.json
-COPY apps/api/tsconfig.build.json ./apps/api/tsconfig.build.json
 
 RUN npm ci --workspaces --include-workspace-root
 # Ensure Prisma client is present in the API workspace (local node_modules)
@@ -50,6 +49,8 @@ RUN npm run build
 # Production deps only for API workspace
 FROM node:22-slim AS prod-deps
 WORKDIR /app
+ARG PRISMA_SCHEMA=prisma/schema.prisma
+ARG PRISMA_DB_URL=postgresql://postgres:postgres@localhost:5432/postgres
 ENV NODE_ENV=production
 ENV DATABASE_URL=${PRISMA_DB_URL}
 RUN apt-get update \
@@ -60,7 +61,11 @@ COPY package*.json ./
 COPY package-lock.json ./
 COPY apps/api/package*.json ./apps/api/
 COPY apps/api/prisma ./apps/api/prisma
+ENV PATH="/usr/local/bin:/app/node_modules/.bin:/app/apps/api/node_modules/.bin:${PATH}"
 RUN npm ci --omit=dev --workspace=@esports-ops/api
+WORKDIR /app/apps/api
+RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
+WORKDIR /app
 
 # Final runtime image
 FROM node:22-slim AS runner
