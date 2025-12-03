@@ -65,7 +65,7 @@ ENV PATH="/usr/local/bin:/app/node_modules/.bin:/app/apps/api/node_modules/.bin:
 RUN npm ci --omit=dev --workspace=@esports-ops/api
 WORKDIR /app/apps/api
 # Ensure runtime-only deps that are not in prod deps list
-RUN npm --prefix /app/apps/api install fs-extra --omit=dev --no-save
+RUN npm --prefix /app/apps/api install fs-extra json2csv --omit=dev --no-save
 RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
 RUN mkdir -p /app/node_modules/@prisma /app/node_modules/.prisma && \
   cp -r /app/apps/api/node_modules/@prisma /app/node_modules/ && \
