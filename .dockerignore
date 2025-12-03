@@ -1,136 +1,32 @@
-# Dependencies
 node_modules
-.pnp
-.pnp.js
-
-# Testing
-coverage
-*.lcov
-.nyc_output
-
-# Production builds (will be rebuilt in Docker)
-dist
-build
-.next
-out
-.vercel
-.turbo
-
-# Archives
-*.zip
-*.tar.gz
-*.rar
-
-# Environment variables (except production example)
-.env
-.env*.local
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-!.env.production.example
-
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# OS files
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-*~
-
-# IDE
-.vscode
-.idea
-*.sublime-project
-*.sublime-workspace
-
-# Temporary files
-tmp
-temp
-*.tmp
-
-# Database files
-*.sqlite
-*.sqlite3
-*.db
-*.dump
-dump.rdb
-
-# Git
-.git
-.gitignore
-.gitattributes
-
-# Documentation
-*.md
-!README.md
-
-# Docker files (don't copy into build context unnecessarily)
-Dockerfile*
-docker-compose*
-.dockerignore
-
-# CI/CD
-.github
-.gitlab-ci.yml
-.travis.yml
-
-# Development scripts and test files
-scripts
-!apps/api/scripts
-test
-*.test.js
-*.test.ts
-*.spec.js
-*.spec.ts
-
-# Backup files
-*.backup
-*.bak
-
-# Uploads and user content
-uploads
-public/uploads
-
-# Redis dump
-dump.rdb
-
-# PM2
-.pm2
-pids
-*.pid
+apps/*/node_modules
+packages/*/node_modules
 
 # Build artifacts
-*.tsbuildinfo
+**/.next
+**/dist
+**/coverage
+**/.turbo
+**/.cache
+**/logs
+tsconfig.tsbuildinfo
 
-# Yarn
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
+# VCS / editor
+.git
+.gitignore
+.vscode
+.vs
+*.swp
+npm-debug.log*
+yarn-error.log*
 
-# Optional caches
-.npm
-.eslintcache
+# Local env + temp data
+.env*
+tmp_cookies.txt
 
-# Misc
-.specstory
-nginx
-startup
-server-scripts
-security-audit-artifacts
-*.gamelog-manifest.json
-route-manifest.json
-PRODUCTION_CORS_FIX.txt
-app.js
-web.js
+# Dumps / large assets
+*.dump
+*.sql
+IMPROVEDAPP.zip
+replayhub_working.dump
+replayhub_working.sql
