@@ -22,7 +22,7 @@ COPY . .
 
 # Delete existing Prisma client and regenerate
 WORKDIR /workspace/apps/api
-RUN rm -rf ../../node_modules/. prisma ../../node_modules/@prisma/client
+RUN rm -rf ../../node_modules/.prisma../../node_modules/@prisma/client
 RUN npm install @prisma/client
 RUN npx prisma generate
 WORKDIR /workspace
