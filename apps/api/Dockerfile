@@ -44,12 +44,7 @@ COPY . .
 WORKDIR /app/apps/api
 RUN nest --version
 
-# Set npm config to prevent workspace issues during Prisma generate
-# Also set PRISMA environment to skip certain checks
-RUN npm config set fund false && \
-  npm config set update-notifier false
-
-# Generate using the workspace structure - run from root to respect workspaces
+# Use npx with a fresh Prisma CLI to avoid workspace npm install issues
 WORKDIR /app
 RUN cd apps/api && npx --yes -p prisma@6.17.0 prisma generate --schema=prisma/schema.prisma
 
