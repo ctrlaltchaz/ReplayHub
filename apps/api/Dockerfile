@@ -31,8 +31,6 @@ COPY apps/api/prisma ./apps/api/prisma
 COPY apps/api/tsconfig.json ./apps/api/tsconfig.json
 
 RUN npm ci --workspaces --include-workspace-root
-# Ensure Prisma client is present in the API workspace (local node_modules)
-RUN npm --prefix /app/apps/api install @prisma/client --omit=dev --no-save
 
 # Build the API
 FROM deps AS builder
@@ -46,32 +44,6 @@ RUN nest --version
 RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
 RUN npm run build
 
-# Production deps only for API workspace
-FROM node:22-slim AS prod-deps
-WORKDIR /app
-ARG PRISMA_SCHEMA=prisma/schema.prisma
-ARG PRISMA_DB_URL=postgresql://postgres:postgres@localhost:5432/postgres
-ENV NODE_ENV=production
-ENV DATABASE_URL=${PRISMA_DB_URL}
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
-  && rm -rf /var/lib/apt/lists/*
-RUN npm install -g npm@10.9.3
-COPY package*.json ./
-COPY package-lock.json ./
-COPY apps/api/package*.json ./apps/api/
-COPY apps/api/prisma ./apps/api/prisma
-ENV PATH="/usr/local/bin:/app/node_modules/.bin:/app/apps/api/node_modules/.bin:${PATH}"
-RUN npm ci --omit=dev --workspaces --include-workspace-root
-WORKDIR /app
-# Ensure runtime-only deps that may not be listed in API workspace
-RUN npm install --omit=dev --no-save fs-extra json2csv
-WORKDIR /app/apps/api
-# Ensure Prisma client exists before generate (some npm workspace layouts omit it)
-RUN npm --prefix /app/apps/api install @prisma/client --omit=dev --no-save
-RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
-WORKDIR /app
-
 # Final runtime image
 FROM node:22-slim AS runner
 WORKDIR /app
@@ -83,13 +55,15 @@ ENV ASSET_UPLOAD_DIR=/app/data
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nestjs
 
-COPY --from=prod-deps /app/node_modules ./node_modules
+# Copy root node_modules and workspace structure
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 
 RUN mkdir -p ${ASSET_UPLOAD_DIR} && chown -R nestjs:nodejs ${ASSET_UPLOAD_DIR}
-RUN ln -s /app/node_modules /app/apps/api/node_modules
 
 USER nestjs
 WORKDIR /app/apps/api
