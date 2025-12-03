@@ -28,8 +28,8 @@ COPY packages/ui/package*.json ./packages/ui/
 COPY apps/api/prisma ./apps/api/prisma
 
 RUN npm ci --workspaces --include-workspace-root
-# Ensure Prisma client is present in the API workspace (local node_modules)
-RUN npm --prefix /app/apps/api install @prisma/client --omit=dev --no-save
+# Ensure Prisma client and Nest CLI are present in the API workspace (local node_modules)
+RUN npm --prefix /app/apps/api install @prisma/client @nestjs/cli --omit=dev --no-save
 
 # Build the API
 FROM deps AS builder
@@ -39,8 +39,9 @@ ENV DATABASE_URL=${PRISMA_DB_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
 WORKDIR /app/apps/api
+RUN /app/apps/api/node_modules/.bin/nest --version
 RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
-RUN npm run build
+RUN npm run build:api
 
 # Trim dev dependencies for the runtime image
 FROM builder AS prune
