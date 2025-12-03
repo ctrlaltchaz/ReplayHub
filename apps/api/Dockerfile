@@ -40,13 +40,12 @@ ENV DATABASE_URL=${PRISMA_DB_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
 
-# Generate Prisma client from the API directory
+# Generate Prisma client from workspace root to respect workspace structure
+WORKDIR /app
+RUN cd apps/api && npx prisma generate --schema=${PRISMA_SCHEMA}
+
 WORKDIR /app/apps/api
 RUN nest --version
-
-# Install @prisma/client explicitly in the workspace before generating
-RUN npm install @prisma/client
-RUN npx prisma generate --schema=${PRISMA_SCHEMA}
 RUN npm run build
 
 # Final runtime image
