@@ -28,6 +28,8 @@ COPY apps/api/package*.json ./apps/api/
 COPY apps/web/package*.json ./apps/web/
 COPY packages/ui/package*.json ./packages/ui/
 COPY apps/api/prisma ./apps/api/prisma
+COPY apps/api/tsconfig.json ./apps/api/tsconfig.json
+COPY apps/api/tsconfig.build.json ./apps/api/tsconfig.build.json
 
 RUN npm ci --workspaces --include-workspace-root
 # Ensure Prisma client is present in the API workspace (local node_modules)
