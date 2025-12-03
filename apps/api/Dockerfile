@@ -6,16 +6,16 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /workspace
 
 # Copy package files
-COPY package.json package-lock.json* ./
+COPY package. json package-lock.json* ./
 COPY apps/api/package.json ./apps/api/
-COPY apps/web/package.json ./apps/web/
+COPY apps/web/package. json ./apps/web/
 COPY packages/ui/package.json ./packages/ui/
 
 # Install dependencies
 RUN npm ci
 
-# Downgrade Prisma to stable 5.x (6.x has WASM bugs) and rebuild to fix bin links
-RUN npm install prisma@5 @prisma/client@5 && npm rebuild
+# Downgrade Prisma to stable 5.x (6.x has WASM bugs)
+RUN npm install prisma@5 @prisma/client@5
 
 # Build stage
 FROM base AS builder
@@ -26,8 +26,8 @@ COPY . .
 # Generate Prisma client
 RUN cd apps/api && npx prisma generate
 
-# Build the API (from root)
-RUN npm run build:api
+# Build the API using npx
+RUN cd apps/api && npx nest build
 
 # Production image
 FROM base AS runner
