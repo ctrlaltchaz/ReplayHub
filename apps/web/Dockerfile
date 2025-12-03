@@ -22,7 +22,7 @@ COPY apps/api/package*.json ./apps/api/
 COPY packages/ui/package*.json ./packages/ui/
 COPY apps/api/prisma ./apps/api/prisma
 
-RUN npm ci --workspaces --include-workspace-root
+RUN npm ci --workspaces --include-workspace-root --include=dev
 
 # Build the shared UI package and the web app
 FROM deps AS builder
