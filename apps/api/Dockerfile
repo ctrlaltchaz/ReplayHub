@@ -44,11 +44,14 @@ COPY . .
 WORKDIR /app/apps/api
 RUN nest --version
 
-# Use npx with a fresh Prisma CLI to avoid workspace npm install issues
-WORKDIR /app
-RUN cd apps/api && npx --yes -p prisma@6.17.0 prisma generate --schema=prisma/schema.prisma
+# Workaround: Create a package.json in output dir to prevent Prisma auto-install
+RUN mkdir -p src/generated/prisma && \
+  echo '{"name":"@prisma/client","version":"6.17.1"}' > src/generated/prisma/package.json
 
-WORKDIR /app/apps/api
+# Set NODE_PATH so Prisma can find @prisma/client from root workspace
+ENV NODE_PATH=/app/node_modules
+RUN prisma generate --schema=${PRISMA_SCHEMA}
+
 RUN npm run build
 
 # Final runtime image
