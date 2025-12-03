@@ -44,19 +44,9 @@ COPY . .
 WORKDIR /app/apps/api
 RUN nest --version
 
-<<<<<<< HEAD
 # Generate Prisma client to custom output path (avoids auto-install issues in monorepo)
 RUN prisma generate --schema=${PRISMA_SCHEMA}
 
-=======
-# Manually install @prisma/client in the workspace if not present
-RUN if [ ! -d "node_modules/@prisma/client" ] && [ ! -d "../../node_modules/@prisma/client" ]; then \
-  cd /app && npm install @prisma/client --workspace=apps/api; \
-  fi
-
-# Now generate with the prisma CLI from PATH
-RUN prisma generate --schema=${PRISMA_SCHEMA}
->>>>>>> 2dbb6da03be70d19d4a4f932899b220386a02dda
 RUN npm run build
 
 # Final runtime image
