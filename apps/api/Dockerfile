@@ -18,11 +18,12 @@ RUN npm ci
 FROM base AS builder
 WORKDIR /workspace
 COPY --from=deps /workspace/node_modules ./node_modules
-COPY .  .
+COPY . .
 
-# Generate Prisma client (use binary engine, not WASM)
+# Delete existing Prisma client and regenerate
 WORKDIR /workspace/apps/api
-ENV PRISMA_CLI_QUERY_ENGINE_TYPE=binary
+RUN rm -rf ../../node_modules/. prisma ../../node_modules/@prisma/client
+RUN npm install @prisma/client
 RUN npx prisma generate
 WORKDIR /workspace
 
