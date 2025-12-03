@@ -64,6 +64,8 @@ COPY apps/api/prisma ./apps/api/prisma
 ENV PATH="/usr/local/bin:/app/node_modules/.bin:/app/apps/api/node_modules/.bin:${PATH}"
 RUN npm ci --omit=dev --workspace=@esports-ops/api
 WORKDIR /app/apps/api
+# Ensure Prisma client is present before generate in the prod deps layer
+RUN npm --prefix /app/apps/api install @prisma/client --omit=dev --no-save
 RUN npm exec prisma generate -- --schema=${PRISMA_SCHEMA}
 WORKDIR /app
 
