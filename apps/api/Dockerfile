@@ -86,5 +86,5 @@ WORKDIR /app/apps/api
 
 EXPOSE 3001
 
-# Run migrations and start the application
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main.js"]
+# Start the application (migrations handled separately via Coolify post-deploy or database client)
+CMD ["node", "dist/src/main.js"]
