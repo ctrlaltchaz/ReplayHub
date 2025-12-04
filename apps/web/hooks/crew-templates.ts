@@ -4,13 +4,22 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 export interface CrewTemplateMember {
   id?: string;
   orgUserId: string;
-  role: string;
+  groupId?: string;
   notes?: string;
   user?: {
     id: string;
     displayName: string;
     email: string;
   };
+}
+
+export interface CrewTemplateGroup {
+  id: string;
+  name: string;
+  description?: string;
+  displayOrder: number;
+  icon?: string;
+  members: CrewTemplateMember[];
 }
 
 export interface CrewTemplate {
@@ -22,21 +31,29 @@ export interface CrewTemplate {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
-  members: CrewTemplateMember[];
+  groups: CrewTemplateGroup[];
+}
+
+export interface CreateCrewTemplateGroupData {
+  name: string;
+  description?: string;
+  displayOrder: number;
+  icon?: string;
+  members: Omit<CrewTemplateMember, "id" | "user">[];
 }
 
 export interface CreateCrewTemplateData {
   name: string;
   description?: string;
   isDefault?: boolean;
-  members: Omit<CrewTemplateMember, "id" | "user">[];
+  groups: CreateCrewTemplateGroupData[];
 }
 
 export interface UpdateCrewTemplateData {
   name?: string;
   description?: string;
   isDefault?: boolean;
-  members?: Omit<CrewTemplateMember, "id" | "user">[];
+  groups?: CreateCrewTemplateGroupData[];
 }
 
 // Get all crew templates

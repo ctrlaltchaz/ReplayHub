@@ -38,7 +38,7 @@ const staffRoleEnum = [
 ] as const;
 const staffAssignmentSchema = z.object({
   orgUserId: z.string().cuid(),
-  roleType: z.enum(staffRoleEnum),
+  roleType: z.string().min(1).max(100), // Accept any string for dynamic crew groups
   roleLabel: z.string().max(100).optional(),
 });
 
@@ -100,8 +100,10 @@ export class StaffAssignmentDto {
   @MaxLength(30)
   orgUserId: string;
 
-  @ApiProperty({ description: 'Role type for the event', enum: staffRoleEnum })
-  @IsEnum(staffRoleEnum)
+  @ApiProperty({ description: 'Role type for the event (dynamic from crew groups)' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
   roleType: string;
 
   @ApiPropertyOptional({ description: 'Custom role label (e.g., play-by-play, host)' })
@@ -477,7 +479,7 @@ export class QueryEventsDto {
 }
 
 // Alias for convenience
-export class EventFiltersDto extends QueryEventsDto {}
+export class EventFiltersDto extends QueryEventsDto { }
 
 export class AssignLineupDto {
   @ApiProperty({ description: 'Lineup ID to assign to event' })
@@ -562,7 +564,7 @@ export class QueryResourcesDto {
 }
 
 // Alias for consistency with service naming
-export class ResourceFiltersDto extends QueryResourcesDto {}
+export class ResourceFiltersDto extends QueryResourcesDto { }
 
 // ============================================================================
 // BOOKING DTOs

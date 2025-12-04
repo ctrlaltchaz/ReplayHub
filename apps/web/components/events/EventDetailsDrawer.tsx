@@ -1,5 +1,6 @@
 "use client";
 
+import { getServerUrl } from "@/lib/api/config";
 import { format, parseISO } from "date-fns";
 import {
   Award,
@@ -20,9 +21,8 @@ import {
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useEvent } from "../../hooks/events";
-import { Badge } from "../ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { getServerUrl } from "@/lib/api/config";
+import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Separator } from "../ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../ui/sheet";
@@ -318,43 +318,64 @@ export function EventDetailsDrawer({
                       <Users className="h-4 w-4" />
                       Talent &amp; Crew
                     </h3>
-                    <div className="space-y-2">
-                      {crewAssignments.map((staff) => (
-                        <div
-                          key={`${staff.orgUserId}-${staff.roleType}-${staff.roleLabel || ""}`}
-                          className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <Avatar className="h-10 w-10">
-                              {getStaffAvatarUrl(staff.avatar) ? (
-                                <AvatarImage
-                                  src={getStaffAvatarUrl(staff.avatar)}
-                                  alt={staff.displayName || staff.email || "User"}
-                                />
-                              ) : (
-                                <AvatarFallback>
-                                  {getInitials(staff.displayName || staff.email)}
-                                </AvatarFallback>
-                              )}
-                            </Avatar>
-                            <div className="space-y-0.5 min-w-0">
-                              <div className="font-montserrat font-semibold text-sm break-words">
-                                {staff.displayName || "Unassigned"}
-                              </div>
-                              <div className="text-xs text-muted-foreground break-words">
-                                {formatStaffRole(staff.roleType, staff.roleLabel)}
-                              </div>
-                            </div>
+                    {/* Group crew by roleType */}
+                    {Object.entries(
+                      crewAssignments.reduce((acc, staff) => {
+                        const roleKey = staff.roleType || "other";
+                        if (!acc[roleKey]) acc[roleKey] = [];
+                        acc[roleKey].push(staff);
+                        return acc;
+                      }, {} as Record<string, typeof crewAssignments>)
+                    ).map(([roleType, staffList]) => (
+                      <div key={roleType} className="space-y-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            {roleType.replace(/_/g, " ")}
                           </div>
-                          <Badge
-                            variant="secondary"
-                            className="capitalize self-start sm:self-center"
-                          >
-                            {staff.roleType}
+                          <div className="h-px flex-1 bg-border" />
+                          <Badge variant="outline" className="text-xs">
+                            {staffList.length}
                           </Badge>
                         </div>
-                      ))}
-                    </div>
+                        <div className="space-y-2">
+                          {staffList.map((staff) => (
+                            <div
+                              key={`${staff.orgUserId}-${staff.roleType}-${staff.roleLabel || ""}`}
+                              className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <Avatar className="h-10 w-10">
+                                  {getStaffAvatarUrl(staff.avatar) ? (
+                                    <AvatarImage
+                                      src={getStaffAvatarUrl(staff.avatar)}
+                                      alt={staff.displayName || staff.email || "User"}
+                                    />
+                                  ) : (
+                                    <AvatarFallback>
+                                      {getInitials(staff.displayName || staff.email)}
+                                    </AvatarFallback>
+                                  )}
+                                </Avatar>
+                                <div className="space-y-0.5 min-w-0">
+                                  <div className="font-montserrat font-semibold text-sm break-words">
+                                    {staff.displayName || "Unassigned"}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground break-words">
+                                    {staff.roleLabel || roleType.replace(/_/g, " ")}
+                                  </div>
+                                </div>
+                              </div>
+                              <Badge
+                                variant="secondary"
+                                className="capitalize self-start sm:self-center"
+                              >
+                                {roleType.replace(/_/g, " ")}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -483,7 +504,7 @@ export function EventDetailsDrawer({
                     <div className="bg-muted/30 rounded-lg p-3 border flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-background border flex items-center justify-center flex-shrink-0">
                         {event.tournamentStage === "Finals" ||
-                        event.tournamentStage === "Grand Finals" ? (
+                          event.tournamentStage === "Grand Finals" ? (
                           <Crown className="h-5 w-5 text-yellow-500" />
                         ) : event.tournamentStage === "Semifinals" ? (
                           <Medal className="h-5 w-5 text-orange-500" />

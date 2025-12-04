@@ -8,7 +8,7 @@ import {
 
 @Injectable()
 export class CrewTemplatesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(
     organizationId: string,
@@ -64,12 +64,22 @@ export class CrewTemplatesService {
       }
     }
 
-    // Add members
+    // Add members (map temporary group IDs to real database IDs)
     if (data.members && data.members.length > 0) {
       for (const member of data.members) {
+        // Extract group index from groupId like "group-0" -> 0
+        let actualGroupId = null;
+        if (member.groupId && member.groupId.startsWith('group-')) {
+          const groupIndex = parseInt(member.groupId.split('-')[1]);
+          actualGroupId = groupIdMap.get(groupIndex) || null;
+        } else if (member.groupId) {
+          // Already a real UUID
+          actualGroupId = member.groupId;
+        }
+
         await this.prisma.$executeRaw`
           INSERT INTO event_crew_template_members (template_id, org_user_id, group_id, notes)
-          VALUES (${templateId}, ${member.orgUserId}, ${member.groupId || null}, ${member.notes || null})
+          VALUES (${templateId}, ${member.orgUserId}, ${actualGroupId}, ${member.notes || null})
         `;
       }
     }
@@ -270,12 +280,22 @@ export class CrewTemplatesService {
         groupIdMap.set(i, groupResult[0].id);
       }
 
-      // Add new members
+      // Add new members (map temporary group IDs to real database IDs)
       if (data.members) {
         for (const member of data.members) {
+          // Extract group index from groupId like "group-0" -> 0
+          let actualGroupId = null;
+          if (member.groupId && member.groupId.startsWith('group-')) {
+            const groupIndex = parseInt(member.groupId.split('-')[1]);
+            actualGroupId = groupIdMap.get(groupIndex) || null;
+          } else if (member.groupId) {
+            // Already a real UUID
+            actualGroupId = member.groupId;
+          }
+
           await this.prisma.$executeRaw`
             INSERT INTO event_crew_template_members (template_id, org_user_id, group_id, notes)
-            VALUES (${id}, ${member.orgUserId}, ${member.groupId || null}, ${member.notes || null})
+            VALUES (${id}, ${member.orgUserId}, ${actualGroupId}, ${member.notes || null})
           `;
         }
       }

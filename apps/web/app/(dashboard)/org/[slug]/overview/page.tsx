@@ -5,9 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/context/AuthContext";
+import { useProductionSessions } from "@/hooks/attendance/useProductionSessions";
+import type { Event } from "@/hooks/events";
 import { apiGet } from "@/lib/api/client";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { hasPermission, PERMISSIONS } from "@/lib/permissions/utils";
+import { format } from "date-fns";
 import {
   AlertTriangle,
   Calendar,
@@ -21,14 +24,11 @@ import {
   Users,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { NextEventWidget } from "./components/NextEventWidget";
 import { useMyChecklistTasks } from "../checklists/hooks/useMyChecklistTasks";
-import Link from "next/link";
-import { format } from "date-fns";
-import type { Event } from "@/hooks/events";
-import { useProductionSessions } from "@/hooks/attendance/useProductionSessions";
+import { NextEventWidget } from "./components/NextEventWidget";
 
 interface OrgOverview {
   totalEvents?: number;
@@ -115,6 +115,7 @@ export default function OverviewPage() {
     eventTitle: string;
     eventDate: string;
     roleDisplay?: string;
+    isToday?: boolean;
   } | null>(null);
   const [roleLoading, setRoleLoading] = useState(false);
   const todayDate = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
@@ -241,12 +242,12 @@ export default function OverviewPage() {
             const staff =
               typeof (evt as any).staffAssignments === "string"
                 ? (() => {
-                    try {
-                      return JSON.parse((evt as any).staffAssignments);
-                    } catch {
-                      return [];
-                    }
-                  })()
+                  try {
+                    return JSON.parse((evt as any).staffAssignments);
+                  } catch {
+                    return [];
+                  }
+                })()
                 : evt.staffAssignments || [];
             return { ...evt, staffAssignments: staff };
           })
@@ -372,15 +373,20 @@ export default function OverviewPage() {
             matchingRole?.roleLabel ||
             (matchingRole?.roleType
               ? matchingRole.roleType
-                  .split("_")
-                  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-                  .join(" ")
+                .split("_")
+                .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                .join(" ")
               : undefined);
+
+          const eventStart = new Date(assignmentEvent.startAt);
+          const eventDateStr = format(eventStart, "yyyy-MM-dd");
+          const isToday = eventDateStr === todayDate;
 
           setRoleCard({
             eventTitle: assignmentEvent.title,
-            eventDate: format(new Date(assignmentEvent.startAt), "EEE, MMM d"),
+            eventDate: format(eventStart, "EEE, MMM d"),
             roleDisplay: computedRoleDisplay,
+            isToday,
           });
         } else {
           setRoleCard(null);
@@ -390,9 +396,9 @@ export default function OverviewPage() {
             matchingRole?.roleLabel ||
             (matchingRole?.roleType
               ? matchingRole.roleType
-                  .split("_")
-                  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-                  .join(" ")
+                .split("_")
+                .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                .join(" ")
               : undefined);
           console.log("[Overview] Role card set", {
             eventTitle: assignmentEvent.title,
@@ -499,7 +505,7 @@ export default function OverviewPage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-sm font-montserrat">
                     <Users className="h-4 w-4 text-primary" />
-                    Your Role Today{roleCard?.eventDate ? ` • ${roleCard.eventDate}` : ""}
+                    {roleCard?.isToday ? "Your Role Today" : "Your Role"}{roleCard?.eventDate ? ` • ${roleCard.eventDate}` : ""}
                   </CardTitle>
                   <CardDescription className="text-xs">
                     Quick glance at what you're slated to do

@@ -91,7 +91,7 @@ export const ORG_NAV: NavItem[] = [
       },
       {
         key: "crew-templates",
-        label: "Crew Templates",
+        label: "Crew Management",
         href: orgPath.crewTemplates,
         required: PERMISSIONS.EVENTS_MANAGE,
       },

@@ -32,20 +32,6 @@ const COMMON_GAMES = [
   "Apex Legends",
   "Fortnite",
 ];
-const STAFF_ROLE_OPTIONS = [
-  { value: "player", label: "Player" },
-  { value: "shoutcaster", label: "Shoutcaster" },
-  { value: "broadcaster", label: "Broadcaster" },
-  { value: "director", label: "Director" },
-  { value: "producer", label: "Producer" },
-  { value: "observer", label: "Observer" },
-  { value: "technician", label: "Technician" },
-  { value: "social_media_runner", label: "Social Media Runner" },
-  { value: "editor", label: "Editor" },
-  { value: "filmer", label: "Filmer" },
-  { value: "photographer", label: "Photographer" },
-  { value: "tutor", label: "Tutor" },
-];
 
 export function EventEditDialog({
   slug,
@@ -57,12 +43,28 @@ export function EventEditDialog({
 }: EventEditDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("general");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [appliedTemplateName, setAppliedTemplateName] = useState<string>("");
 
   // Fetch teams for the tournament dropdown
   const { data: teams = [], isLoading: teamsLoading } = useTeams(slug, { status: "active" });
 
   // Fetch crew templates
   const { data: crewTemplates = [] } = useCrewTemplates(slug);
+
+  // Extract unique group names from crew templates to use as role options
+  const availableRoles = React.useMemo(() => {
+    const groupNames = new Set<string>();
+    crewTemplates.forEach((template) => {
+      template.groups?.forEach((group) => {
+        groupNames.add(group.name);
+      });
+    });
+    return Array.from(groupNames).sort().map((name) => ({
+      value: name.toLowerCase().replace(/\s+/g, "_"),
+      label: name,
+    }));
+  }, [crewTemplates]);
 
   const [formData, setFormData] = useState<CreateEventData>({
     title: "",
@@ -279,11 +281,12 @@ export function EventEditDialog({
   };
 
   const addStaffAssignment = () => {
+    const defaultRole = availableRoles[0]?.value || "";
     setFormData((prev) => ({
       ...prev,
       staffAssignments: [
         ...(prev.staffAssignments || []),
-        { orgUserId: "", roleType: "shoutcaster", roleLabel: "" },
+        { orgUserId: "", roleType: defaultRole as EventStaffRoleType, roleLabel: "" },
       ],
     }));
   };
@@ -328,19 +331,25 @@ export function EventEditDialog({
     });
   };
 
-  const applyCrewTemplate = (templateId: string) => {
-    const template = crewTemplates.find((t) => t.id === templateId);
+  const applyCrewTemplate = () => {
+    if (!selectedTemplateId) return;
+
+    const template = crewTemplates.find((t) => t.id === selectedTemplateId);
     if (!template) return;
 
     setFormData((prev) => {
-      const newAssignments = template.members.map((member) => ({
-        orgUserId: member.orgUserId,
-        roleType: member.role.toLowerCase().replace(/\s+/g, "_") as EventStaffRoleType,
-        roleLabel: member.role,
-      }));
+      const newAssignments = template.groups.flatMap((group) =>
+        group.members.map((member) => ({
+          orgUserId: member.orgUserId,
+          roleType: group.name.toLowerCase().replace(/\s+/g, "_") as EventStaffRoleType,
+          roleLabel: "",
+        }))
+      );
 
       return { ...prev, staffAssignments: newAssignments };
     });
+
+    setAppliedTemplateName(template.name);
   };
 
   const assignedIds = new Set(
@@ -439,120 +448,120 @@ export function EventEditDialog({
               {(formData.eventType === "Tournament" ||
                 formData.eventType === "Showmatch" ||
                 formData.eventType === "Broadcast") && (
-                <div className="border border-blue-200 rounded-lg p-4 space-y-4 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900">
-                  <h4 className="font-medium text-sm text-blue-900 dark:text-blue-100 flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
-                      />
-                    </svg>
-                    Tournament Details
-                  </h4>
+                  <div className="border border-blue-200 rounded-lg p-4 space-y-4 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900">
+                    <h4 className="font-medium text-sm text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
+                        />
+                      </svg>
+                      Tournament Details
+                    </h4>
 
-                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="teamId">
+                          Your Team <span className="text-red-500">*</span>
+                        </Label>
+                        <Select
+                          value={formData.teamId || "_none"}
+                          onValueChange={(value) =>
+                            handleInputChange("teamId", value === "_none" ? undefined : value)
+                          }
+                          disabled={isSubmitting || teamsLoading}
+                        >
+                          <SelectTrigger id="teamId">
+                            <SelectValue
+                              placeholder={teamsLoading ? "Loading teams..." : "Select your team"}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="_none">None</SelectItem>
+                            {teams.map((team) => (
+                              <SelectItem key={team.id} value={team.id}>
+                                {team.name} ({team.game})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="opponent">
+                          Opponent Team <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="opponent"
+                          value={formData.opponent}
+                          onChange={(e) => handleInputChange("opponent", e.target.value)}
+                          placeholder="Enter opponent team name"
+                          maxLength={200}
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="tournamentName">Tournament Name</Label>
+                        <Input
+                          id="tournamentName"
+                          value={formData.tournamentName}
+                          onChange={(e) => handleInputChange("tournamentName", e.target.value)}
+                          placeholder="e.g., NESL Week 5"
+                          maxLength={200}
+                          disabled={isSubmitting}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="tournamentStage">Stage</Label>
+                        <Select
+                          value={formData.tournamentStage || "_none"}
+                          onValueChange={(value) =>
+                            handleInputChange("tournamentStage", value === "_none" ? "" : value)
+                          }
+                          disabled={isSubmitting}
+                        >
+                          <SelectTrigger id="tournamentStage">
+                            <SelectValue placeholder="Select stage" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="_none">None</SelectItem>
+                            <SelectItem value="Groups">Groups</SelectItem>
+                            <SelectItem value="Round of 16">Round of 16</SelectItem>
+                            <SelectItem value="Quarterfinals">Quarterfinals</SelectItem>
+                            <SelectItem value="Semifinals">Semifinals</SelectItem>
+                            <SelectItem value="Finals">Finals</SelectItem>
+                            <SelectItem value="Grand Finals">Grand Finals</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
-                      <Label htmlFor="teamId">
-                        Your Team <span className="text-red-500">*</span>
-                      </Label>
+                      <Label htmlFor="bestOf">Best of</Label>
                       <Select
-                        value={formData.teamId || "_none"}
-                        onValueChange={(value) =>
-                          handleInputChange("teamId", value === "_none" ? undefined : value)
-                        }
-                        disabled={isSubmitting || teamsLoading}
+                        value={formData.bestOf?.toString() || "1"}
+                        onValueChange={(value) => handleInputChange("bestOf", parseInt(value))}
+                        disabled={isSubmitting}
                       >
-                        <SelectTrigger id="teamId">
-                          <SelectValue
-                            placeholder={teamsLoading ? "Loading teams..." : "Select your team"}
-                          />
+                        <SelectTrigger id="bestOf">
+                          <SelectValue placeholder="Select best of" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="_none">None</SelectItem>
-                          {teams.map((team) => (
-                            <SelectItem key={team.id} value={team.id}>
-                              {team.name} ({team.game})
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="1">Best of 1</SelectItem>
+                          <SelectItem value="3">Best of 3</SelectItem>
+                          <SelectItem value="5">Best of 5</SelectItem>
+                          <SelectItem value="7">Best of 7</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="opponent">
-                        Opponent Team <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id="opponent"
-                        value={formData.opponent}
-                        onChange={(e) => handleInputChange("opponent", e.target.value)}
-                        placeholder="Enter opponent team name"
-                        maxLength={200}
-                        disabled={isSubmitting}
-                      />
-                    </div>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="tournamentName">Tournament Name</Label>
-                      <Input
-                        id="tournamentName"
-                        value={formData.tournamentName}
-                        onChange={(e) => handleInputChange("tournamentName", e.target.value)}
-                        placeholder="e.g., NESL Week 5"
-                        maxLength={200}
-                        disabled={isSubmitting}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="tournamentStage">Stage</Label>
-                      <Select
-                        value={formData.tournamentStage || "_none"}
-                        onValueChange={(value) =>
-                          handleInputChange("tournamentStage", value === "_none" ? "" : value)
-                        }
-                        disabled={isSubmitting}
-                      >
-                        <SelectTrigger id="tournamentStage">
-                          <SelectValue placeholder="Select stage" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none">None</SelectItem>
-                          <SelectItem value="Groups">Groups</SelectItem>
-                          <SelectItem value="Round of 16">Round of 16</SelectItem>
-                          <SelectItem value="Quarterfinals">Quarterfinals</SelectItem>
-                          <SelectItem value="Semifinals">Semifinals</SelectItem>
-                          <SelectItem value="Finals">Finals</SelectItem>
-                          <SelectItem value="Grand Finals">Grand Finals</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="bestOf">Best of</Label>
-                    <Select
-                      value={formData.bestOf?.toString() || "1"}
-                      onValueChange={(value) => handleInputChange("bestOf", parseInt(value))}
-                      disabled={isSubmitting}
-                    >
-                      <SelectTrigger id="bestOf">
-                        <SelectValue placeholder="Select best of" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">Best of 1</SelectItem>
-                        <SelectItem value="3">Best of 3</SelectItem>
-                        <SelectItem value="5">Best of 5</SelectItem>
-                        <SelectItem value="7">Best of 7</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
+                )}
 
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes</Label>
@@ -828,172 +837,180 @@ export function EventEditDialog({
             </TabsContent>
 
             <TabsContent value="talent" className="space-y-4 mt-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <Label>On-air crew</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Assign broadcasters, shoutcasters, and presenters for this broadcast, and note
-                    their exact role.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addStaffAssignment}
-                  disabled={isSubmitting}
-                >
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Add person
-                </Button>
+              <div className="space-y-1">
+                <Label>Talent & Crew Assignments</Label>
+                <p className="text-sm text-muted-foreground">
+                  Assign team members by crew group. Apply a template or build assignments manually.
+                </p>
               </div>
 
-              {crewTemplates.length > 0 && (
-                <div className="rounded-md border bg-muted/30 p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <Label className="text-sm font-medium">Apply Crew Template</Label>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Quickly populate crew assignments from a saved template. This will replace
-                    current assignments.
+              {availableRoles.length === 0 && (
+                <div className="rounded-md bg-yellow-50 border border-yellow-200 p-4">
+                  <p className="text-sm text-yellow-800">
+                    <strong>No crew groups defined.</strong> Go to Crew Management to create crew groups first.
                   </p>
-                  <Select onValueChange={applyCrewTemplate} disabled={isSubmitting}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a template..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {crewTemplates.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.name} ({template.members.length} members)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
               )}
 
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-md border bg-muted/30 p-3">
-                <div className="flex-1 min-w-[220px] space-y-1">
-                  <Label className="text-sm">Quick assign remaining users</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Assign {remainingUsers.length} unassigned org users to a single role.
-                  </p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                  <Select
-                    value={bulkRoleType}
-                    onValueChange={(value) => setBulkRoleType(value as EventStaffRoleType)}
-                    disabled={isSubmitting}
-                  >
-                    <SelectTrigger className="sm:w-[200px]">
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {STAFF_ROLE_OPTIONS.map((role) => (
-                        <SelectItem key={role.value} value={role.value}>
-                          {role.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={assignRemainingToRole}
-                    disabled={isSubmitting || remainingUsers.length === 0}
-                  >
-                    Assign remaining ({remainingUsers.length})
-                  </Button>
-                </div>
-              </div>
-
-              {(formData.staffAssignments?.length || 0) === 0 ? (
-                <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-                  No talent assigned yet. Add broadcasters, shoutcasters, or presenters to include
-                  them on this event.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {formData.staffAssignments?.map((assignment, index) => (
-                    <div
-                      key={index}
-                      className="grid grid-cols-12 gap-3 rounded-md border bg-muted/30 p-3"
-                    >
-                      <div className="col-span-5 space-y-1">
-                        <Label>Person</Label>
-                        <Select
-                          value={assignment.orgUserId || "_none"}
-                          onValueChange={(value) =>
-                            updateStaffAssignment(
-                              index,
-                              "orgUserId",
-                              value === "_none" ? "" : value
-                            )
-                          }
-                          disabled={isSubmitting}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select user" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="_none">Select user</SelectItem>
-                            {productionLeads.map((lead) => (
-                              <SelectItem key={lead.id} value={lead.id}>
-                                {lead.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="col-span-4 space-y-1">
-                        <Label>Role</Label>
-                        <Select
-                          value={assignment.roleType || "shoutcaster"}
-                          onValueChange={(value) => updateStaffAssignment(index, "roleType", value)}
-                          disabled={isSubmitting}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select role" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {STAFF_ROLE_OPTIONS.map((role) => (
-                              <SelectItem key={role.value} value={role.value}>
-                                {role.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="col-span-3 space-y-1">
-                        <Label>Specific label</Label>
-                        <Input
-                          value={assignment.roleLabel || ""}
-                          onChange={(e) =>
-                            updateStaffAssignment(index, "roleLabel", e.target.value)
-                          }
-                          placeholder="e.g., Play-by-play"
-                          maxLength={100}
-                          disabled={isSubmitting}
-                        />
-                      </div>
-
-                      <div className="col-span-12 flex justify-end">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeStaffAssignment(index)}
-                          disabled={isSubmitting}
-                          title="Remove person"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+              {crewTemplates.length > 0 && (
+                <div className="rounded-md border p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <Label className="text-sm font-medium">Crew Template</Label>
                     </div>
-                  ))}
+                    {appliedTemplateName && (
+                      <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 px-2 py-1 rounded">
+                        Applied: {appliedTemplateName}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Select a crew template and click Apply to load assignments (replaces current assignments).
+                  </p>
+                  <div className="flex gap-2">
+                    <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId} disabled={isSubmitting}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select a template..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {crewTemplates.map((template) => {
+                          const memberCount = template.groups?.reduce(
+                            (total, g) => total + (g.members?.length || 0),
+                            0
+                          ) || 0;
+                          return (
+                            <SelectItem key={template.id} value={template.id}>
+                              {template.name} ({memberCount} members)
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      onClick={applyCrewTemplate}
+                      disabled={isSubmitting || !selectedTemplateId}
+                      variant="default"
+                    >
+                      Apply Template
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Group assignments by role type */}
+              {availableRoles.length > 0 && (
+                <div className="space-y-3">
+                  {availableRoles.map((role) => {
+                    const roleAssignments = (formData.staffAssignments || []).filter(
+                      (a) => a.roleType === role.value
+                    );
+
+                    return (
+                      <div key={role.value} className="rounded-md border p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-semibold">{role.label}</Label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setFormData((prev) => ({
+                                ...prev,
+                                staffAssignments: [
+                                  ...(prev.staffAssignments || []),
+                                  { orgUserId: "", roleType: role.value as EventStaffRoleType, roleLabel: "" },
+                                ],
+                              }));
+                            }}
+                            disabled={isSubmitting}
+                          >
+                            <UserPlus className="h-3 w-3 mr-1" />
+                            Add
+                          </Button>
+                        </div>
+
+                        {roleAssignments.length === 0 ? (
+                          <p className="text-xs text-muted-foreground italic">
+                            No one assigned to this role yet
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {formData.staffAssignments?.map((assignment, index) => {
+                              if (assignment.roleType !== role.value) return null;
+
+                              // Filter out already selected users
+                              const selectedUserIds = (formData.staffAssignments || [])
+                                .filter((_, i) => i !== index)
+                                .map(a => a.orgUserId)
+                                .filter(Boolean);
+                              const availableUsers = productionLeads.filter(
+                                lead => !selectedUserIds.includes(lead.id) || lead.id === assignment.orgUserId
+                              );
+
+                              return (
+                                <div key={index} className="grid grid-cols-12 gap-2">
+                                  <div className="col-span-6">
+                                    <Select
+                                      value={assignment.orgUserId || "_none"}
+                                      onValueChange={(value) =>
+                                        updateStaffAssignment(
+                                          index,
+                                          "orgUserId",
+                                          value === "_none" ? "" : value
+                                        )
+                                      }
+                                      disabled={isSubmitting}
+                                    >
+                                      <SelectTrigger className="h-9">
+                                        <SelectValue placeholder="Select user" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="_none">Select user</SelectItem>
+                                        {availableUsers.map((lead) => (
+                                          <SelectItem key={lead.id} value={lead.id}>
+                                            {lead.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  <div className="col-span-5">
+                                    <Input
+                                      value={assignment.roleLabel || ""}
+                                      onChange={(e) =>
+                                        updateStaffAssignment(index, "roleLabel", e.target.value)
+                                      }
+                                      placeholder="Specific role/notes"
+                                      maxLength={100}
+                                      disabled={isSubmitting}
+                                      className="h-9"
+                                    />
+                                  </div>
+
+                                  <div className="col-span-1 flex items-center">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeStaffAssignment(index)}
+                                      disabled={isSubmitting}
+                                      className="h-9 w-9 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      title="Remove"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </TabsContent>
