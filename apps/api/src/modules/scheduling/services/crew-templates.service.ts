@@ -50,12 +50,26 @@ export class CrewTemplatesService {
 
     const templateId = template[0].id;
 
+    // Create groups and track their IDs
+    const groupIdMap = new Map<number, string>(); // index -> groupId
+    if (data.groups && data.groups.length > 0) {
+      for (let i = 0; i < data.groups.length; i++) {
+        const group = data.groups[i];
+        const groupResult = await this.prisma.$queryRaw<any[]>`
+          INSERT INTO event_crew_template_groups (template_id, name, description, display_order)
+          VALUES (${templateId}, ${group.name}, ${group.description || null}, ${group.displayOrder || i})
+          RETURNING id
+        `;
+        groupIdMap.set(i, groupResult[0].id);
+      }
+    }
+
     // Add members
     if (data.members && data.members.length > 0) {
       for (const member of data.members) {
         await this.prisma.$executeRaw`
-          INSERT INTO event_crew_template_members (template_id, org_user_id, role, notes)
-          VALUES (${templateId}, ${member.orgUserId}, ${member.role}, ${member.notes || null})
+          INSERT INTO event_crew_template_members (template_id, org_user_id, group_id, notes)
+          VALUES (${templateId}, ${member.orgUserId}, ${member.groupId || null}, ${member.notes || null})
         `;
       }
     }
@@ -109,20 +123,56 @@ export class CrewTemplatesService {
 
     const template = templates[0];
 
-    // Get members
-    const members = await this.prisma.$queryRaw<any[]>`
+    // Get groups with their members
+    const groups = await this.prisma.$queryRaw<any[]>`
       SELECT 
-        m.id,
-        m.org_user_id,
-        m.role,
-        m.notes,
-        ou.display_name,
-        ou.email
-      FROM event_crew_template_members m
-      JOIN org_users ou ON m.org_user_id = ou.id
-      WHERE m.template_id = ${id}
-      ORDER BY m.role, ou.display_name
+        g.id,
+        g.template_id,
+        g.name,
+        g.description,
+        g.display_order,
+        g.created_at,
+        g.updated_at
+      FROM event_crew_template_groups g
+      WHERE g.template_id = ${id}
+      ORDER BY g.display_order, g.name
     `;
+
+    const groupsWithMembers = [];
+    for (const group of groups) {
+      const members = await this.prisma.$queryRaw<any[]>`
+        SELECT 
+          m.id,
+          m.org_user_id,
+          m.notes,
+          ou.display_name,
+          ou.email
+        FROM event_crew_template_members m
+        JOIN org_users ou ON m.org_user_id = ou.id
+        WHERE m.group_id = ${group.id}
+        ORDER BY ou.display_name
+      `;
+
+      groupsWithMembers.push({
+        id: group.id,
+        templateId: group.template_id,
+        name: group.name,
+        description: group.description,
+        displayOrder: group.display_order,
+        createdAt: group.created_at,
+        updatedAt: group.updated_at,
+        members: members.map(m => ({
+          id: m.id,
+          orgUserId: m.org_user_id,
+          notes: m.notes,
+          user: {
+            id: m.org_user_id,
+            displayName: m.display_name,
+            email: m.email,
+          },
+        })),
+      });
+    }
 
     return {
       id: template.id,
@@ -133,17 +183,7 @@ export class CrewTemplatesService {
       createdBy: template.created_by,
       createdAt: template.created_at,
       updatedAt: template.updated_at,
-      members: members.map(m => ({
-        id: m.id,
-        orgUserId: m.org_user_id,
-        role: m.role,
-        notes: m.notes,
-        user: {
-          id: m.org_user_id,
-          displayName: m.display_name,
-          email: m.email,
-        },
-      })),
+      groups: groupsWithMembers,
     };
   }
 

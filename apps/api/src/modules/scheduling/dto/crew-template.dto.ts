@@ -3,11 +3,31 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
+  Min,
   ValidateNested,
 } from 'class-validator';
+
+export class CrewTemplateGroupDto {
+  @ApiProperty({ description: 'Group name', example: 'Production Team' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiPropertyOptional({ description: 'Group description' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ description: 'Display order', default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  displayOrder?: number;
+}
 
 export class CrewTemplateMemberDto {
   @ApiProperty({ description: 'User ID' })
@@ -15,10 +35,10 @@ export class CrewTemplateMemberDto {
   @IsNotEmpty()
   orgUserId: string;
 
-  @ApiProperty({ description: 'Role in the crew/talent', example: 'host' })
+  @ApiPropertyOptional({ description: 'Group ID (optional if adding to existing group)' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  role: string;
+  groupId?: string;
 
   @ApiPropertyOptional({ description: 'Additional notes' })
   @IsOptional()
@@ -41,6 +61,12 @@ export class CreateCrewTemplateDto {
   @IsOptional()
   @IsBoolean()
   isDefault?: boolean;
+
+  @ApiProperty({ description: 'List of crew groups', type: [CrewTemplateGroupDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CrewTemplateGroupDto)
+  groups: CrewTemplateGroupDto[];
 
   @ApiProperty({ description: 'List of crew/talent members', type: [CrewTemplateMemberDto] })
   @IsArray()
@@ -66,6 +92,16 @@ export class UpdateCrewTemplateDto {
   isDefault?: boolean;
 
   @ApiPropertyOptional({
+    description: 'List of crew groups',
+    type: [CrewTemplateGroupDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CrewTemplateGroupDto)
+  groups?: CrewTemplateGroupDto[];
+
+  @ApiPropertyOptional({
     description: 'List of crew/talent members',
     type: [CrewTemplateMemberDto],
   })
@@ -83,6 +119,26 @@ export class ApplyTemplateToEventDto {
   templateId: string;
 }
 
+export class CrewTemplateGroupResponse {
+  id: string;
+  templateId: string;
+  name: string;
+  description: string | null;
+  displayOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+  members: Array<{
+    id: string;
+    orgUserId: string;
+    notes: string | null;
+    user?: {
+      id: string;
+      displayName: string;
+      email: string;
+    };
+  }>;
+}
+
 export class CrewTemplateResponse {
   id: string;
   organizationId: string;
@@ -92,15 +148,5 @@ export class CrewTemplateResponse {
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
-  members: Array<{
-    id: string;
-    orgUserId: string;
-    role: string;
-    notes: string | null;
-    user?: {
-      id: string;
-      displayName: string;
-      email: string;
-    };
-  }>;
+  groups: CrewTemplateGroupResponse[];
 }
