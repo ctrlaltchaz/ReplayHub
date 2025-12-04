@@ -1,6 +1,6 @@
 -- CreateTable
 CREATE TABLE IF NOT EXISTS "event_crew_templates" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
     "tenant_id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS "event_crew_templates" (
 
 -- CreateTable
 CREATE TABLE IF NOT EXISTS "event_crew_template_members" (
-    "id" TEXT NOT NULL,
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid()::text,
     "template_id" TEXT NOT NULL,
     "org_user_id" TEXT NOT NULL,
     "role" TEXT NOT NULL,
