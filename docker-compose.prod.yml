@@ -81,6 +81,8 @@ services:
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    volumes:
+      - api_data:/app/data:ro
     networks:
       - replayhub-network
     expose:
