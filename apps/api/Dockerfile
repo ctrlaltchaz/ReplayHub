@@ -76,15 +76,20 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/apps/api/scripts ./apps/api/scripts
+COPY --from=builder /app/apps/api/docker-entrypoint.sh /app/apps/api/docker-entrypoint.sh
 
 RUN mkdir -p ${ASSET_UPLOAD_DIR} /app/apps/api/logs \
-  && chown -R nestjs:nodejs ${ASSET_UPLOAD_DIR} /app/apps/api/logs \
-  && chmod +x /app/apps/api/scripts/*.sh 2>/dev/null || true
+  && chown -R nestjs:nodejs ${ASSET_UPLOAD_DIR} /app/apps/api/logs /app/apps/api/docker-entrypoint.sh \
+  && chmod +x /app/apps/api/scripts/*.sh 2>/dev/null || true \
+  && chmod +x /app/apps/api/docker-entrypoint.sh
 
 USER nestjs
 WORKDIR /app/apps/api
 
 EXPOSE 3001
+
+# Use entrypoint script to set up permissions
+ENTRYPOINT ["/app/apps/api/docker-entrypoint.sh"]
 
 # Start the application (migrations handled separately via Coolify post-deploy or database client)
 CMD ["node", "dist/src/main.js"]
