@@ -250,20 +250,34 @@ export class CrewTemplatesService {
       );
     }
 
-    // Update members if provided
-    if (data.members) {
-      // Delete existing members
+    // Update groups if provided
+    if (data.groups) {
+      // Delete existing groups (members will cascade)
       await this.prisma.$executeRaw`
-        DELETE FROM event_crew_template_members 
+        DELETE FROM event_crew_template_groups 
         WHERE template_id = ${id}
       `;
 
-      // Add new members
-      for (const member of data.members) {
-        await this.prisma.$executeRaw`
-          INSERT INTO event_crew_template_members (template_id, org_user_id, role, notes)
-          VALUES (${id}, ${member.orgUserId}, ${member.role}, ${member.notes || null})
+      // Create new groups and track their IDs
+      const groupIdMap = new Map<number, string>();
+      for (let i = 0; i < data.groups.length; i++) {
+        const group = data.groups[i];
+        const groupResult = await this.prisma.$queryRaw<any[]>`
+          INSERT INTO event_crew_template_groups (template_id, name, description, display_order)
+          VALUES (${id}, ${group.name}, ${group.description || null}, ${group.displayOrder || i})
+          RETURNING id
         `;
+        groupIdMap.set(i, groupResult[0].id);
+      }
+
+      // Add new members
+      if (data.members) {
+        for (const member of data.members) {
+          await this.prisma.$executeRaw`
+            INSERT INTO event_crew_template_members (template_id, org_user_id, group_id, notes)
+            VALUES (${id}, ${member.orgUserId}, ${member.groupId || null}, ${member.notes || null})
+          `;
+        }
       }
     }
 
@@ -306,19 +320,21 @@ export class CrewTemplatesService {
       WHERE event_id = ${eventId}
     `;
 
-    // Add template members as event assignments
-    for (const member of template.members) {
-      await this.prisma.$executeRaw`
-        INSERT INTO event_staff_assignments (tenant_id, event_id, org_user_id, role_type, role_label, template_id)
-        VALUES (
-          ${organizationId}, 
-          ${eventId}, 
-          ${member.orgUserId}, 
-          'crew',
-          ${member.role}, 
-          ${templateId}
-        )
-      `;
+    // Add template members as event assignments (organized by groups)
+    for (const group of template.groups) {
+      for (const member of group.members) {
+        await this.prisma.$executeRaw`
+          INSERT INTO event_staff_assignments (tenant_id, event_id, org_user_id, role_type, role_label, template_id)
+          VALUES (
+            ${organizationId}, 
+            ${eventId}, 
+            ${member.orgUserId}, 
+            'crew',
+            ${group.name}, 
+            ${templateId}
+          )
+        `;
+      }
     }
   }
 }

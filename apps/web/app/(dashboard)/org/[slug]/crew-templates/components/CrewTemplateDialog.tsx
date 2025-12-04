@@ -31,25 +31,25 @@ import { Plus, Trash2, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useOrgUsers } from "../hooks/useOrgUsers";
 
-// Predefined crew/talent roles
-const PREDEFINED_ROLES = [
-  "Player",
-  "Shoutcaster",
-  "Broadcaster",
-  "Director",
-  "Producer",
-  "Observer",
-  "Technician",
-  "Social Media Runner",
-  "Editor",
-  "Filmer",
-  "Photographer",
-  "Tutor",
+// Predefined group names
+const PREDEFINED_GROUPS = [
+  "Production Team",
+  "Commentary",
+  "Technical",
+  "Broadcast",
+  "Social Media",
+  "Content",
 ];
+
+interface CrewTemplateGroup {
+  name: string;
+  description?: string;
+  displayOrder: number;
+}
 
 interface CrewTemplateMember {
   orgUserId: string;
-  role: string;
+  groupId?: string;
   notes?: string;
 }
 
@@ -78,6 +78,7 @@ export function CrewTemplateDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isDefault, setIsDefault] = useState(false);
+  const [groups, setGroups] = useState<CrewTemplateGroup[]>([]);
   const [members, setMembers] = useState<CrewTemplateMember[]>([]);
 
   // Populate form when editing
@@ -86,23 +87,57 @@ export function CrewTemplateDialog({
       setName(fullTemplate.name);
       setDescription(fullTemplate.description || "");
       setIsDefault(fullTemplate.isDefault);
-      setMembers(
-        fullTemplate.members.map((m: any) => ({
-          orgUserId: m.orgUserId,
-          role: m.role,
-          notes: m.notes || "",
+      
+      // Extract groups
+      const templateGroups = fullTemplate.groups || [];
+      setGroups(
+        templateGroups.map((g: any) => ({
+          name: g.name,
+          description: g.description || "",
+          displayOrder: g.displayOrder || 0,
         }))
       );
+      
+      // Extract members with group references
+      const allMembers: CrewTemplateMember[] = [];
+      templateGroups.forEach((group: any) => {
+        group.members?.forEach((m: any) => {
+          allMembers.push({
+            orgUserId: m.orgUserId,
+            groupId: group.id,
+            notes: m.notes || "",
+          });
+        });
+      });
+      setMembers(allMembers);
     } else {
       setName("");
       setDescription("");
       setIsDefault(false);
+      setGroups([]);
       setMembers([]);
     }
   }, [isEdit, fullTemplate]);
 
-  const handleAddMember = () => {
-    setMembers([...members, { orgUserId: "", role: "", notes: "" }]);
+  const handleAddGroup = () => {
+    setGroups([...groups, { name: "", description: "", displayOrder: groups.length }]);
+  };
+
+  const handleRemoveGroup = (index: number) => {
+    setGroups(groups.filter((_, i) => i !== index));
+  };
+
+  const handleGroupChange = (index: number, field: keyof CrewTemplateGroup, value: string | number) => {
+    const updated = [...groups];
+    updated[index] = { ...updated[index], [field]: value };
+    setGroups(updated);
+  };
+
+  const handleAddMember = (groupIndex: number) => {
+    const groupName = groups[groupIndex]?.name;
+    if (!groupName) return;
+    
+    setMembers([...members, { orgUserId: "", groupId: `group-${groupIndex}`, notes: "" }]);
   };
 
   const handleRemoveMember = (index: number) => {
@@ -125,20 +160,30 @@ export function CrewTemplateDialog({
       return;
     }
 
-    if (members.length === 0) {
+    if (groups.length === 0) {
       toast({
         title: "Validation error",
-        description: "Add at least one member to the template",
+        description: "Add at least one group to the template",
         variant: "destructive",
       });
       return;
     }
 
-    const invalidMembers = members.filter((m) => !m.orgUserId || !m.role);
+    const invalidGroups = groups.filter((g) => !g.name.trim());
+    if (invalidGroups.length > 0) {
+      toast({
+        title: "Validation error",
+        description: "All groups must have a name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const invalidMembers = members.filter((m) => !m.orgUserId);
     if (invalidMembers.length > 0) {
       toast({
         title: "Validation error",
-        description: "All members must have a user and role selected",
+        description: "All members must have a user selected",
         variant: "destructive",
       });
       return;
@@ -148,6 +193,7 @@ export function CrewTemplateDialog({
       name,
       description: description || undefined,
       isDefault,
+      groups,
       members,
     };
 
@@ -223,106 +269,127 @@ export function CrewTemplateDialog({
             </Label>
           </div>
 
-          {/* Members Section */}
+          {/* Groups Section */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>Template Members *</Label>
-              <Button type="button" variant="outline" size="sm" onClick={handleAddMember}>
+              <Label>Crew Groups *</Label>
+              <Button type="button" variant="outline" size="sm" onClick={handleAddGroup}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Member
+                Add Group
               </Button>
             </div>
 
-            {members.length === 0 ? (
+            {groups.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center text-muted-foreground">
                   <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No members added yet. Click "Add Member" to get started.</p>
+                  <p>No groups added yet. Click "Add Group" to get started.</p>
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-3">
-                {members.map((member, index) => (
-                  <Card key={index}>
-                    <CardContent className="pt-6">
-                      <div className="grid grid-cols-12 gap-3">
-                        {/* User Select */}
-                        <div className="col-span-5 space-y-1">
-                          <Label className="text-xs">User *</Label>
-                          <Select
-                            value={member.orgUserId}
-                            onValueChange={(value) => handleMemberChange(index, "orgUserId", value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select user" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {orgUsers.map((user: any) => (
-                                <SelectItem key={user.id} value={user.id}>
-                                  {user.displayName}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* Role Select/Input */}
-                        <div className="col-span-4 space-y-1">
-                          <Label className="text-xs">Role *</Label>
-                          <Select
-                            value={PREDEFINED_ROLES.includes(member.role) ? member.role : "custom"}
-                            onValueChange={(value) => {
-                              if (value !== "custom") {
-                                handleMemberChange(index, "role", value);
-                              }
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select role" />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-[300px]">
-                              <SelectItem value="custom">
-                                <span className="font-medium">Custom Role...</span>
-                              </SelectItem>
-                              <div className="my-1 border-t" />
-                              {PREDEFINED_ROLES.map((role) => (
-                                <SelectItem key={role} value={role}>
-                                  {role}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {(!PREDEFINED_ROLES.includes(member.role) || !member.role) && (
+              <div className="space-y-4">
+                {groups.map((group, groupIndex) => (
+                  <Card key={groupIndex} className="border-2">
+                    <CardContent className="pt-6 space-y-4">
+                      {/* Group Header */}
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1 grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Group Name *</Label>
                             <Input
-                              value={member.role}
-                              onChange={(e) => handleMemberChange(index, "role", e.target.value)}
-                              placeholder="Enter custom role"
-                              className="mt-2"
+                              value={group.name}
+                              onChange={(e) => handleGroupChange(groupIndex, "name", e.target.value)}
+                              placeholder="e.g., Production Team"
                             />
-                          )}
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Description</Label>
+                            <Input
+                              value={group.description}
+                              onChange={(e) => handleGroupChange(groupIndex, "description", e.target.value)}
+                              placeholder="Optional description"
+                            />
+                          </div>
                         </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveGroup(groupIndex)}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
 
-                        {/* Notes Input */}
-                        <div className="col-span-2 space-y-1">
-                          <Label className="text-xs">Notes</Label>
-                          <Input
-                            value={member.notes || ""}
-                            onChange={(e) => handleMemberChange(index, "notes", e.target.value)}
-                            placeholder="Optional"
-                          />
-                        </div>
-
-                        {/* Delete Button */}
-                        <div className="col-span-1 flex items-end">
+                      {/* Members in this group */}
+                      <div className="space-y-2 pl-4 border-l-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs text-muted-foreground">Members</Label>
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleRemoveMember(index)}
+                            onClick={() => handleAddMember(groupIndex)}
                           >
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add Member
                           </Button>
                         </div>
+
+                        {members
+                          .map((m, idx) => ({ ...m, originalIndex: idx }))
+                          .filter((m) => m.groupId === `group-${groupIndex}`)
+                          .map((member) => (
+                            <div key={member.originalIndex} className="grid grid-cols-12 gap-2">
+                              <div className="col-span-6 space-y-1">
+                                <Select
+                                  value={member.orgUserId}
+                                  onValueChange={(value) =>
+                                    handleMemberChange(member.originalIndex, "orgUserId", value)
+                                  }
+                                >
+                                  <SelectTrigger className="h-8">
+                                    <SelectValue placeholder="Select user" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {orgUsers.map((user: any) => (
+                                      <SelectItem key={user.id} value={user.id}>
+                                        {user.displayName}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="col-span-5 space-y-1">
+                                <Input
+                                  value={member.notes || ""}
+                                  onChange={(e) =>
+                                    handleMemberChange(member.originalIndex, "notes", e.target.value)
+                                  }
+                                  placeholder="Notes"
+                                  className="h-8"
+                                />
+                              </div>
+                              <div className="col-span-1 flex items-center">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRemoveMember(member.originalIndex)}
+                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+
+                        {members.filter((m) => m.groupId === `group-${groupIndex}`).length === 0 && (
+                          <p className="text-xs text-muted-foreground italic py-2">
+                            No members in this group yet
+                          </p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -343,8 +410,8 @@ export function CrewTemplateDialog({
             {createMutation.isPending || updateMutation.isPending
               ? "Saving..."
               : isEdit
-                ? "Update Template"
-                : "Create Template"}
+              ? "Update Template"
+              : "Create Template"}
           </Button>
         </DialogFooter>
       </DialogContent>
