@@ -86,4 +86,5 @@ WORKDIR /app/apps/api
 
 EXPOSE 3001
 
-CMD ["node", "dist/src/main.js"]
+# Run migrations and start the application
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main.js"]
