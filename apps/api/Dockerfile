@@ -44,11 +44,8 @@ COPY . .
 WORKDIR /app/apps/api
 RUN nest --version
 
-# Install @prisma/client directly in the API workspace using npm workspace command
-# This ensures it's in the right place for Prisma generate
-RUN cd /app && npm install @prisma/client --workspace=apps/api --legacy-peer-deps
-
-# Now generate the client (it will find @prisma/client in node_modules)
+# @prisma/client is already installed by npm ci in deps stage
+# Just generate the client from the schema
 RUN prisma generate --schema=${PRISMA_SCHEMA}
 
 RUN npm run build
