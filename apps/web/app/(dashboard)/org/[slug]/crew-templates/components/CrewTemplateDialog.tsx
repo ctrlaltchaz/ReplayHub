@@ -170,28 +170,21 @@ export function CrewTemplateDialog({
       }
     }
 
-    // Build groups array (without members nested inside)
+    // Build groups array with members nested inside
     const groups = selectedGroupIds.map(groupId => {
       const group = crewGroups.find(g => g.id === groupId)!;
+      const groupMembers_local = groupMembers[groupId] || [];
+      
       return {
         name: group.name,
         description: group.description,
         displayOrder: group.displayOrder,
         icon: group.icon,
-      };
-    });
-
-    // Flatten members into a single array with groupId references
-    const members: Array<{ orgUserId: string; groupId?: string; notes?: string }> = [];
-    selectedGroupIds.forEach((groupId, index) => {
-      const groupMembers_local = groupMembers[groupId] || [];
-      groupMembers_local.forEach(member => {
-        members.push({
+        members: groupMembers_local.map(member => ({
           orgUserId: member.orgUserId,
-          groupId: `group-${index}`, // Temporary ID for group reference
           notes: member.notes,
-        });
-      });
+        })),
+      };
     });
 
     const data = {
@@ -199,7 +192,6 @@ export function CrewTemplateDialog({
       description: description || undefined,
       isDefault,
       groups,
-      members,
     };
 
     try {
