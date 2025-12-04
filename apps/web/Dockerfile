@@ -47,9 +47,8 @@ COPY --from=builder /app/apps/web/public ./apps/web/public
 COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 
-# Copy sharp binaries from builder
+# Copy sharp binaries from builder (standalone mode puts dependencies in root node_modules)
 COPY --from=builder /app/node_modules/sharp ./node_modules/sharp
-COPY --from=builder /app/apps/web/node_modules/sharp ./apps/web/node_modules/sharp
 
 # Create cache directory with proper permissions for nextjs user
 RUN mkdir -p /app/apps/web/.next/cache /app/data/avatars \
