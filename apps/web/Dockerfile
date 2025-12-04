@@ -51,8 +51,8 @@ COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/node_modules/sharp ./node_modules/sharp
 
 # Create cache directory with proper permissions for nextjs user
-RUN mkdir -p /app/apps/web/.next/cache /app/data/avatars \
-  && chown -R nextjs:nodejs /app/apps/web/.next/cache /app/data
+RUN mkdir -p /app/apps/web/.next/cache \
+  && chown -R nextjs:nodejs /app/apps/web/.next/cache
 
 WORKDIR /app/apps/web
 USER nextjs
