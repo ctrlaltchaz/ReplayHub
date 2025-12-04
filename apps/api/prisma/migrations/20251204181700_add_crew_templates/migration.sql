@@ -34,7 +34,7 @@ CREATE INDEX IF NOT EXISTS "event_crew_template_members_template_id_idx" ON "eve
 CREATE INDEX IF NOT EXISTS "event_crew_template_members_org_user_id_idx" ON "event_crew_template_members"("org_user_id");
 
 -- AddForeignKey
-ALTER TABLE "event_crew_templates" ADD CONSTRAINT "event_crew_templates_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "event_crew_templates" ADD CONSTRAINT "event_crew_templates_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "organisations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "event_crew_templates" ADD CONSTRAINT "event_crew_templates_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "org_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
