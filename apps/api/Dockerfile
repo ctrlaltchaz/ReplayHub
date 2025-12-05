@@ -78,7 +78,7 @@ COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/apps/api/scripts ./apps/api/scripts
 
 # Copy entrypoint script directly (not from builder, to avoid cache issues)
-COPY apps/api/docker-entrypoint.sh /app/apps/api/docker-entrypoint.sh
+COPY ./apps/api/docker-entrypoint.sh ./apps/api/docker-entrypoint.sh
 
 RUN mkdir -p ${ASSET_UPLOAD_DIR} /app/apps/api/logs \
   && chown -R nestjs:nodejs ${ASSET_UPLOAD_DIR} /app/apps/api/logs /app/apps/api/docker-entrypoint.sh \
