@@ -170,21 +170,28 @@ export function CrewTemplateDialog({
       }
     }
 
-    // Build groups array with members nested inside
-    const groups = selectedGroupIds.map(groupId => {
+    // Build groups array (without members nested inside)
+    const groups = selectedGroupIds.map((groupId, index) => {
       const group = crewGroups.find(g => g.id === groupId)!;
-      const groupMembers_local = groupMembers[groupId] || [];
-      
       return {
         name: group.name,
         description: group.description,
         displayOrder: group.displayOrder,
         icon: group.icon,
-        members: groupMembers_local.map(member => ({
-          orgUserId: member.orgUserId,
-          notes: member.notes,
-        })),
       };
+    });
+
+    // Flatten members into a single array with groupId references
+    const members: Array<{ orgUserId: string; groupId?: string; notes?: string }> = [];
+    selectedGroupIds.forEach((groupId, index) => {
+      const groupMembers_local = groupMembers[groupId] || [];
+      groupMembers_local.forEach(member => {
+        members.push({
+          orgUserId: member.orgUserId,
+          groupId: `group-${index}`, // Temporary ID for group reference
+          notes: member.notes,
+        });
+      });
     });
 
     const data = {
@@ -192,6 +199,7 @@ export function CrewTemplateDialog({
       description: description || undefined,
       isDefault,
       groups,
+      members,
     };
 
     try {
@@ -344,20 +352,19 @@ export function CrewTemplateDialog({
                         ) : (
                           <div className="space-y-2">
                             {members.map((member, idx) => {
-                              // Get list of ALL already selected user IDs across ALL groups (excluding current member)
-                              const allSelectedUserIds: string[] = [];
-                              Object.entries(groupMembers).forEach(([gId, gMembers]) => {
-                                gMembers.forEach((m, i) => {
-                                  // Exclude current member being edited
-                                  if (!(gId === groupId && i === idx) && m.orgUserId) {
-                                    allSelectedUserIds.push(m.orgUserId);
-                                  }
-                                });
+                              // Get list of already selected user IDs in THIS group only (excluding current member)
+                              const groupSelectedUserIds: string[] = [];
+                              const currentGroupMembers = groupMembers[groupId] || [];
+                              currentGroupMembers.forEach((m, i) => {
+                                // Exclude current member being edited
+                                if (i !== idx && m.orgUserId) {
+                                  groupSelectedUserIds.push(m.orgUserId);
+                                }
                               });
 
-                              // Filter out already selected users from other groups
+                              // Filter out users already selected in THIS group (but allow same user in different groups)
                               const availableUsers = orgUsers.filter(
-                                (user: any) => !allSelectedUserIds.includes(user.id) || user.id === member.orgUserId
+                                (user: any) => !groupSelectedUserIds.includes(user.id) || user.id === member.orgUserId
                               );
 
                               return (

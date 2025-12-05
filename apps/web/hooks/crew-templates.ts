@@ -39,7 +39,12 @@ export interface CreateCrewTemplateGroupData {
   description?: string;
   displayOrder: number;
   icon?: string;
-  members: Omit<CrewTemplateMember, "id" | "user">[];
+}
+
+export interface CreateCrewTemplateMemberData {
+  orgUserId: string;
+  groupId?: string;
+  notes?: string;
 }
 
 export interface CreateCrewTemplateData {
@@ -47,6 +52,7 @@ export interface CreateCrewTemplateData {
   description?: string;
   isDefault?: boolean;
   groups: CreateCrewTemplateGroupData[];
+  members: CreateCrewTemplateMemberData[];
 }
 
 export interface UpdateCrewTemplateData {
@@ -54,6 +60,7 @@ export interface UpdateCrewTemplateData {
   description?: string;
   isDefault?: boolean;
   groups?: CreateCrewTemplateGroupData[];
+  members?: CreateCrewTemplateMemberData[];
 }
 
 // Get all crew templates

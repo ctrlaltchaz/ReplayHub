@@ -350,7 +350,7 @@ export default function OverviewPage() {
           }
         }
 
-        const matchingRole = assignmentEvent?.staffAssignments?.find(
+        const matchingRoles = assignmentEvent?.staffAssignments?.filter(
           (s) =>
             (s.orgUserId && candidateOrgIds.has(s.orgUserId)) ||
             (s.email &&
@@ -358,25 +358,31 @@ export default function OverviewPage() {
               s.email.toLowerCase() === sessionUser.email.toLowerCase())
         );
         if (assignmentEvent) {
-          console.log("[Overview] Matching role for role card", {
+          console.log("[Overview] Matching roles for role card", {
             eventId: assignmentEvent.id,
-            roleType: matchingRole?.roleType,
-            roleLabel: matchingRole?.roleLabel,
+            rolesCount: matchingRoles?.length || 0,
+            roles: matchingRoles?.map(r => ({ roleType: r.roleType, roleLabel: r.roleLabel })),
             staffCount: assignmentEvent.staffAssignments?.length || 0,
-            matchedOrgId: matchingRole?.orgUserId,
-            matchedEmail: matchingRole?.email,
           });
         }
 
-        if (assignmentEvent) {
-          const computedRoleDisplay =
-            matchingRole?.roleLabel ||
-            (matchingRole?.roleType
-              ? matchingRole.roleType
-                .split("_")
-                .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-                .join(" ")
-              : undefined);
+        if (assignmentEvent && matchingRoles && matchingRoles.length > 0) {
+          // Compute role display for all matching roles
+          const roleDisplays = matchingRoles
+            .map(role => 
+              role.roleLabel ||
+              (role.roleType
+                ? role.roleType
+                  .split("_")
+                  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                  .join(" ")
+                : null)
+            )
+            .filter(Boolean);
+
+          const computedRoleDisplay = roleDisplays.length > 0 
+            ? roleDisplays.join(", ") 
+            : undefined;
 
           const eventStart = new Date(assignmentEvent.startAt);
           const eventDateStr = format(eventStart, "yyyy-MM-dd");
@@ -390,21 +396,6 @@ export default function OverviewPage() {
           });
         } else {
           setRoleCard(null);
-        }
-        if (assignmentEvent) {
-          const logRoleDisplay =
-            matchingRole?.roleLabel ||
-            (matchingRole?.roleType
-              ? matchingRole.roleType
-                .split("_")
-                .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-                .join(" ")
-              : undefined);
-          console.log("[Overview] Role card set", {
-            eventTitle: assignmentEvent.title,
-            eventDate: format(new Date(assignmentEvent.startAt), "EEE, MMM d"),
-            roleDisplay: logRoleDisplay,
-          });
         }
       } catch (err) {
         console.error("[Overview] Failed to fetch role card", err);
@@ -522,14 +513,28 @@ export default function OverviewPage() {
                       <p className="font-semibold leading-tight text-primary">
                         {roleCard.eventTitle}
                       </p>
-                      <div className="flex items-center gap-3 flex-wrap text-lg font-bold font-montserrat">
-                        <span>You are:</span>
-                        <Badge
-                          variant="default"
-                          className="bg-primary text-primary-foreground text-xs px-2 py-1 capitalize"
-                        >
-                          {roleCard.roleDisplay || "Unassigned"}
-                        </Badge>
+                      <div className="flex items-start gap-2 flex-wrap">
+                        <span className="text-lg font-bold font-montserrat mt-0.5">You are:</span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {roleCard.roleDisplay ? (
+                            roleCard.roleDisplay.split(", ").map((role, idx) => (
+                              <Badge
+                                key={idx}
+                                variant="default"
+                                className="bg-primary text-primary-foreground text-xs px-2 py-1 capitalize"
+                              >
+                                {role}
+                              </Badge>
+                            ))
+                          ) : (
+                            <Badge
+                              variant="default"
+                              className="bg-primary text-primary-foreground text-xs px-2 py-1 capitalize"
+                            >
+                              Unassigned
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Calendar className="h-4 w-4 text-primary" />
