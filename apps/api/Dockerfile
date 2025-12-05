@@ -77,8 +77,43 @@ COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/apps/api/scripts ./apps/api/scripts
 
-# Copy entrypoint script directly (not from builder, to avoid cache issues)
-COPY ./apps/api/docker-entrypoint.sh ./apps/api/docker-entrypoint.sh
+# Create entrypoint script inline
+RUN cat > /app/apps/api/docker-entrypoint.sh <<'EOF'
+#!/bin/sh
+set -e
+
+echo "Starting API container..."
+echo "Running as user: $(whoami)"
+echo "UID: $(id -u)"
+
+# Ensure data directories exist
+if [ -d "/app/data" ]; then
+  echo "Checking data directory..."
+  
+  # Try to create subdirectories
+  if mkdir -p /app/data/avatars /app/data/attendance-test 2>/dev/null; then
+    echo "✓ Data directories created/verified"
+  else
+    echo "⚠ Warning: Could not create directories in /app/data"
+    echo "  Volume may need proper permissions for UID $(id -u)"
+    echo "  Run on host: sudo chown -R 1001:1001 /replayhub/data"
+  fi
+  
+  # Check if we can write to the directory
+  if touch /app/data/.write-test 2>/dev/null; then
+    rm /app/data/.write-test
+    echo "✓ Data directory is writable"
+  else
+    echo "✗ ERROR: Data directory is not writable!"
+    echo "  Please run on host: sudo chown -R 1001:1001 /replayhub/data"
+  fi
+else
+  echo "⚠ Warning: /app/data directory does not exist"
+fi
+
+# Execute the main command
+exec "$@"
+EOF
 
 RUN mkdir -p ${ASSET_UPLOAD_DIR} /app/apps/api/logs \
   && chown -R nestjs:nodejs ${ASSET_UPLOAD_DIR} /app/apps/api/logs /app/apps/api/docker-entrypoint.sh \
