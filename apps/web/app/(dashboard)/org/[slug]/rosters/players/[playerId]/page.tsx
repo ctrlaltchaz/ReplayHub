@@ -140,7 +140,7 @@ export default function PlayerDetailPage() {
                 </div>
                 <PermissionGuard required={PERMISSIONS.ROSTERS_MANAGE}>
                     <div className="flex items-center gap-2">
-                        {player.orgUserId ? (
+                        {player.globalUserId ? (
                             <Button
                                 variant="outline"
                                 onClick={handleUnlinkUser}
@@ -178,10 +178,10 @@ export default function PlayerDetailPage() {
                     </CardHeader>
                     <CardContent>
                         <p className="text-sm font-medium">
-                            {player.orgUser?.displayName || player.orgUserId ? "Linked" : "Not Linked"}
+                            {player.globalUser?.name || player.globalUserId ? "Linked" : "Not Linked"}
                         </p>
-                        {player.orgUser && (
-                            <p className="text-xs text-muted-foreground">{player.orgUser.email}</p>
+                        {player.globalUser && (
+                            <p className="text-xs text-muted-foreground">{player.globalUser.email}</p>
                         )}
                     </CardContent>
                 </Card>
@@ -284,11 +284,11 @@ export default function PlayerDetailPage() {
                             </div>
                         )}
 
-                        {player.orgUser && (
+                        {player.globalUser && (
                             <div>
                                 <label className="text-sm font-medium text-muted-foreground">Linked User</label>
-                                <p className="text-lg">{player.orgUser.displayName}</p>
-                                <p className="text-sm text-muted-foreground">{player.orgUser.email}</p>
+                                <p className="text-lg">{player.globalUser.name}</p>
+                                <p className="text-sm text-muted-foreground">{player.globalUser.email}</p>
                             </div>
                         )}
                     </CardContent>

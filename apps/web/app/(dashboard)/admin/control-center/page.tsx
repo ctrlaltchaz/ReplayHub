@@ -5,6 +5,7 @@ import { AdminFeedback } from '@/components/admin/AdminFeedback';
 import { AdminGlobalUsers } from '@/components/admin/AdminGlobalUsers';
 import { AdminOrganisations } from '@/components/admin/AdminOrganisations';
 import { AdminOverviewStats } from '@/components/admin/AdminOverviewStats';
+import { MobileTabNavigation } from '@/components/ui/mobile-tab-navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Activity,
@@ -43,7 +44,25 @@ export default function ControlCenterPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                <TabsList className="grid w-full grid-cols-5">
+                {/* Mobile Tab Navigation */}
+                <div className="lg:hidden">
+                    <MobileTabNavigation
+                        tabs={[
+                            { value: "overview", label: "Overview", icon: <Activity className="h-4 w-4" /> },
+                            { value: "organisations", label: "Organizations", icon: <Building className="h-4 w-4" /> },
+                            { value: "users", label: "Global Users", icon: <Users className="h-4 w-4" /> },
+                            { value: "feedback", label: "Feedback", icon: <MessageSquare className="h-4 w-4" /> },
+                            { value: "audit", label: "Audit Log", icon: <FileText className="h-4 w-4" /> },
+                        ]}
+                        activeTab={activeTab}
+                        onTabChange={setActiveTab}
+                        title="Control Center"
+                        description="Switch between tabs"
+                    />
+                </div>
+
+                {/* Desktop Tab List */}
+                <TabsList className="hidden lg:inline-flex flex-wrap">
                     <TabsTrigger value="overview" className="flex items-center gap-2">
                         <Activity className="h-4 w-4" />
                         Overview

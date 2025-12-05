@@ -1,5 +1,6 @@
 "use client";
 
+import { useUsers } from "@/app/(dashboard)/org/[slug]/settings/hooks/useUsers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,9 +24,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuditLogs } from "@/hooks/audit/useAuditLogs";
-import { useUsers } from "@/app/(dashboard)/org/[slug]/settings/hooks/useUsers";
-import type { AuditLogEntry, AuditLogFilters } from "@/types/audit";
 import { getApiUrl } from "@/lib/api/config";
+import type { AuditLogEntry, AuditLogFilters } from "@/types/audit";
 import { formatDistanceToNow } from "date-fns";
 import {
   AlertTriangle,
@@ -38,8 +38,8 @@ import {
   Search,
   UserCircle,
 } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
 import { useParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 const ACTION_OPTIONS = [
   "auth.login",
@@ -145,13 +145,12 @@ export default function AuditLogsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight font-montserrat">Audit Logs</h1>
-          <p className="text-muted-foreground mt-2">
-            Track sensitive actions across your organization with filters for actors, status, and
-            time.
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start justify-between gap-4 px-1">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Audit Logs</h2>
+          <p className="text-muted-foreground">
+            Track all actions and changes across your organization
           </p>
         </div>
         <div className="flex items-center gap-2">

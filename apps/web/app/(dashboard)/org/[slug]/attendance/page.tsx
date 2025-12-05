@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
+import { MobileTabNavigation } from "@/components/ui/mobile-tab-navigation";
+import { format } from "date-fns";
 import {
   AlertTriangle,
   Calendar as CalendarIcon,
@@ -13,32 +12,14 @@ import {
   PlusCircle,
   XCircle,
 } from "lucide-react";
-import { format } from "date-fns";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -47,19 +28,39 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
-import { usePageTitle } from "@/lib/hooks/usePageTitle";
-import { usePermissions } from "@/hooks/usePermissions";
-import { PERMISSIONS } from "@/lib/permissions/utils";
 import { useToast } from "@/components/ui/use-toast";
+import { usePermissions } from "@/hooks/usePermissions";
+import { usePageTitle } from "@/lib/hooks/usePageTitle";
+import { PERMISSIONS } from "@/lib/permissions/utils";
 
 import { useAttendanceEntries, useMyAttendance } from "@/hooks/attendance";
-import type { AttendanceDepartment, AttendanceStatus } from "@/types/attendance";
 import type { AttendanceFilters } from "@/hooks/attendance/useAttendanceEntries";
-import { useEventsList } from "@/hooks/events";
-import { useProductionSessions } from "@/hooks/attendance/useProductionSessions";
 import type { ProductionSession } from "@/hooks/attendance/useProductionSessions";
+import { useProductionSessions } from "@/hooks/attendance/useProductionSessions";
+import { useEventsList } from "@/hooks/events";
 import { apiPatch, apiPost } from "@/lib/api/client";
+import type { AttendanceDepartment, AttendanceStatus } from "@/types/attendance";
 
 const DEPARTMENTS: { label: string; value: AttendanceDepartment }[] = [
   { label: "Broadcasting", value: "broadcasting" },
@@ -453,12 +454,27 @@ export default function AttendancePage() {
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabValue)}>
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <TabsList className="w-full max-w-md">
-            <TabsTrigger value="student" className="flex-1">
+          {/* Mobile Tab Navigation */}
+          <div className="md:hidden">
+            <MobileTabNavigation
+              tabs={[
+                { value: "student", label: "My Attendance", icon: <Clock className="h-4 w-4" /> },
+                ...(canManage ? [{ value: "sessions", label: "Production Sessions", icon: <CalendarIcon className="h-4 w-4" /> }] : []),
+              ]}
+              activeTab={activeTab}
+              onTabChange={(value) => setActiveTab(value as TabValue)}
+              title="Attendance"
+              description="Switch between tabs"
+            />
+          </div>
+
+          {/* Desktop Tab List */}
+          <TabsList className="hidden md:inline-flex">
+            <TabsTrigger value="student">
               My Attendance
             </TabsTrigger>
             {canManage && (
-              <TabsTrigger value="sessions" className="flex-1">
+              <TabsTrigger value="sessions">
                 Production Sessions
               </TabsTrigger>
             )}

@@ -280,7 +280,14 @@ export default function InvitesPage() {
     const expiredInvites = invites.filter(inv => isExpired(inv.expiresAt));
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
+            <div className="px-1">
+                <h2 className="text-2xl font-bold tracking-tight">Invitations</h2>
+                <p className="text-muted-foreground">
+                    Send and manage invitations to join your organization
+                </p>
+            </div>
+
             {/* Stats Cards */}
             <div className="grid gap-4 md:grid-cols-4">
                 <Card>

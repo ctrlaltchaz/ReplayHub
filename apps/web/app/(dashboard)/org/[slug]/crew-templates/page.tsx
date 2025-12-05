@@ -4,6 +4,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { MobileTabNavigation } from "@/components/ui/mobile-tab-navigation";
 import {
   Table,
   TableBody,
@@ -159,7 +160,26 @@ export default function CrewManagementPage() {
 
         {/* Tabs for Groups and Templates */}
         <Tabs defaultValue="groups" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          {/* Mobile Tab Navigation */}
+          <div className="md:hidden">
+            <MobileTabNavigation
+              tabs={[
+                { value: "groups", label: "Crew Groups", icon: <Tags className="h-4 w-4" /> },
+                { value: "templates", label: "Templates", icon: <FolderTree className="h-4 w-4" /> },
+              ]}
+              activeTab="groups"
+              onTabChange={(value) => {
+                // Trigger tab change via DOM
+                const tabTrigger = document.querySelector(`[value="${value}"]`) as HTMLButtonElement;
+                tabTrigger?.click();
+              }}
+              title="Crew Management"
+              description="Switch between tabs"
+            />
+          </div>
+
+          {/* Desktop Tab List */}
+          <TabsList className="hidden md:inline-flex">
             <TabsTrigger value="groups" className="gap-2">
               <Tags className="h-4 w-4" />
               Crew Groups

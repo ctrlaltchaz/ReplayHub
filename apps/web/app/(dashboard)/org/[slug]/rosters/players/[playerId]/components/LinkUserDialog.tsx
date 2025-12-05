@@ -20,6 +20,7 @@ import { useState } from "react";
 
 interface OrgUser {
     id: string;
+    globalUserId?: string | null;
     email: string;
     displayName: string;
     isActive: boolean;
@@ -69,9 +70,9 @@ export function LinkUserDialog({
                                 </SelectTrigger>
                                 <SelectContent>
                                     {orgUsers
-                                        .filter(u => u.isActive)
+                                        .filter(u => u.isActive && u.globalUserId)
                                         .map((user) => (
-                                            <SelectItem key={user.id} value={user.id}>
+                                            <SelectItem key={user.id} value={user.globalUserId!}>
                                                 {user.displayName} ({user.email})
                                             </SelectItem>
                                         ))}

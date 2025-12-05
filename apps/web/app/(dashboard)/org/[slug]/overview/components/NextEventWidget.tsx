@@ -1,17 +1,17 @@
 "use client";
 
 import { GameLogo } from "@/components/events/GameLogo";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/context/AuthContext";
 import type { Event } from "@/hooks/events";
-import { PERMISSIONS } from "@/lib/permissions/utils";
 import { apiGet } from "@/lib/api/client";
+import { PERMISSIONS } from "@/lib/permissions/utils";
 import type { Player } from "@/types/roster";
 import { format, formatDistanceToNow, isFuture } from "date-fns";
 import { Calendar, Clock, MapPin, Radio, Trophy, Users, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface NextEventWidgetProps {
   slug: string;
@@ -34,14 +34,14 @@ const eventTypeColors = {
 } as const;
 
 export function NextEventWidget({ slug }: NextEventWidgetProps) {
-  const { orgUser, hasPermission } = useAuth();
+  const { orgUser, globalUser, hasPermission } = useAuth();
   const [loading, setLoading] = useState(true);
   const [nextEvent, setNextEvent] = useState<Event | null>(null);
   const [playerInfo, setPlayerInfo] = useState<Player | null>(null);
 
   useEffect(() => {
     const fetchNextEvent = async () => {
-      if (!orgUser) {
+      if (!orgUser || !globalUser) {
         setLoading(false);
         return;
       }
@@ -61,7 +61,7 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
 
         // 1. Find player associated with this user
         const players = await apiGet<Player[]>(`/org/${slug}/players?active=true`);
-        const currentPlayer = players.find((p) => p.orgUserId === orgUser.id);
+        const currentPlayer = players.find((p) => p.globalUserId === globalUser.id);
 
         if (!currentPlayer || !currentPlayer.teams?.length) {
           setLoading(false);
@@ -117,7 +117,7 @@ export function NextEventWidget({ slug }: NextEventWidgetProps) {
     };
 
     fetchNextEvent();
-  }, [orgUser, slug, hasPermission]);
+  }, [orgUser, globalUser, slug, hasPermission]);
 
   if (loading) {
     return (

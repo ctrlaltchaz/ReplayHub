@@ -344,7 +344,14 @@ export default function UsersPage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
+            <div className="px-1">
+                <h2 className="text-2xl font-bold tracking-tight">Users</h2>
+                <p className="text-muted-foreground">
+                    Manage organization members and their access
+                </p>
+            </div>
+
             {/* Stats Cards */}
             <div className="grid gap-4 md:grid-cols-4">
                 <Card>

@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 
 interface OrgUserListItem {
     id: string;
+    globalUserId?: string | null;
     email: string;
     displayName: string;
     isActive: boolean;

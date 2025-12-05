@@ -19,9 +19,9 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { AlertTriangle, Loader2 } from 'lucide-react';
+import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { useAssetFolders } from '../hooks/useAssetFolders';
-import { useParams } from 'next/navigation';
 
 interface DeleteFolderDialogProps {
     open: boolean;
@@ -43,7 +43,7 @@ export function DeleteFolderDialog({
     isProcessing,
 }: DeleteFolderDialogProps) {
     const params = useParams();
-    const slug = params.slug as string;
+    const slug = (params?.slug as string) || '';
     const { data: foldersResponse } = useAssetFolders(slug, { limit: 1000 });
 
     const [action, setAction] = useState<'delete-all' | 'move-assets'>('move-assets');

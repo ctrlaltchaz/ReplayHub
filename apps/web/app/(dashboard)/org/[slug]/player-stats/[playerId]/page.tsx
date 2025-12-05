@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePlayer } from "@/hooks/rosters/usePlayers";
 import { getServerUrl } from "@/lib/api/config";
-import { ArrowLeft, BarChart3, Lock, Target, Trophy, User, Zap, Award } from "lucide-react";
+import { ArrowLeft, Award, BarChart3, Lock, Target, Trophy, User, Zap } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -172,6 +172,13 @@ export default function PlayerStatsDetailPage() {
                 src={`${getServerUrl()}${player.avatar}`}
                 alt={player.gamerTag}
                 className="h-full w-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const parent = e.currentTarget.parentElement;
+                  if (parent) {
+                    parent.innerHTML = '<svg class="h-8 w-8 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+                  }
+                }}
               />
             ) : (
               <User className="h-8 w-8 text-muted-foreground" />

@@ -61,14 +61,14 @@ export function PlayerCard({
                 <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                         <Avatar className="h-12 w-12">
-                            <AvatarImage src={player.orgUser?.displayName} alt={player.orgUser?.displayName || player.gamerTag} />
+                            <AvatarImage src={player.globalUser?.name} alt={player.globalUser?.name || player.gamerTag} />
                             <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
-                                {getInitials(player.orgUser?.displayName || player.gamerTag)}
+                                {getInitials(player.globalUser?.name || player.gamerTag)}
                             </AvatarFallback>
                         </Avatar>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h3 className="font-semibold text-lg">{player.orgUser?.displayName || player.gamerTag}</h3>
+                                <h3 className="font-semibold text-lg">{player.globalUser?.name || player.gamerTag}</h3>
                                 {teamMember?.isStarter && (
                                     <Crown className="h-4 w-4 text-yellow-500" />
                                 )}
@@ -162,10 +162,10 @@ export function PlayerCard({
                 </div>
 
                 {/* Contact Info */}
-                {(player.orgUser?.email || player.socialsJson?.discord) && (
+                {(player.globalUser?.email || player.socialsJson?.discord) && (
                     <div className="text-sm text-muted-foreground">
-                        {player.orgUser?.email && (
-                            <div>Email: {player.orgUser.email}</div>
+                        {player.globalUser?.email && (
+                            <div>Email: {player.globalUser.email}</div>
                         )}
                         {player.socialsJson?.discord && (
                             <div>Discord: {player.socialsJson.discord}</div>

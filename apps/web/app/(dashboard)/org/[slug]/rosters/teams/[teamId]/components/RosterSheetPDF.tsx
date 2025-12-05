@@ -195,7 +195,7 @@ export const RosterSheetPDF = ({ team, organizationName }: RosterSheetPDFProps) 
                                     <Text style={styles.tableCol1}>{index + 1}</Text>
                                     <Text style={styles.tableCol2}>{member.player.gamerTag}</Text>
                                     <Text style={styles.tableCol3}>
-                                        {member.player.orgUser?.displayName || '-'}
+                                        {member.player.globalUser?.name || '-'}
                                     </Text>
                                     <Text style={styles.tableCol4}>{member.position || '-'}</Text>
                                     <Text style={styles.tableCol5}>
@@ -230,7 +230,7 @@ export const RosterSheetPDF = ({ team, organizationName }: RosterSheetPDFProps) 
                                     <Text style={styles.tableCol1}>{index + 1}</Text>
                                     <Text style={styles.tableCol2}>{member.player.gamerTag}</Text>
                                     <Text style={styles.tableCol3}>
-                                        {member.player.orgUser?.displayName || '-'}
+                                        {member.player.globalUser?.name || '-'}
                                     </Text>
                                     <Text style={styles.tableCol4}>{member.position || '-'}</Text>
                                     <Text style={styles.tableCol5}>

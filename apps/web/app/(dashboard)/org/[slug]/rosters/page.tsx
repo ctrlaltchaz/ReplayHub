@@ -4,10 +4,12 @@ import { PermissionGuard } from "@/components/permissions/PermissionGuard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { MobileTabNavigation } from "@/components/ui/mobile-tab-navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { apiDelete } from "@/lib/api/client";
+import { getServerUrl } from "@/lib/api/config";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { PERMISSIONS } from "@/lib/permissions/utils";
 import type {
@@ -64,7 +66,7 @@ export default function RostersPage() {
   const slug = params?.slug as string;
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { orgUser } = useAuth();
+  const { orgUser, globalUser } = useAuth();
 
   const [showTeamDialog, setShowTeamDialog] = useState(false);
   const [showTeamEditDialog, setShowTeamEditDialog] = useState(false);
@@ -253,7 +255,24 @@ export default function RostersPage() {
           onValueChange={(v) => setActiveTab(v as "teams" | "players" | "achievements" | "lineups")}
         >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
-            <TabsList className="w-full sm:w-auto overflow-x-auto">
+            {/* Mobile Tab Navigation */}
+            <div className="md:hidden">
+              <MobileTabNavigation
+                tabs={[
+                  { value: "teams", label: "Teams", icon: <Users className="h-4 w-4" /> },
+                  { value: "players", label: "Players", icon: <UserPlus className="h-4 w-4" /> },
+                  { value: "lineups", label: "Lineups", icon: <ListOrdered className="h-4 w-4" /> },
+                  { value: "achievements", label: "Achievements", icon: <Trophy className="h-4 w-4" /> },
+                ]}
+                activeTab={activeTab}
+                onTabChange={(v) => setActiveTab(v as "teams" | "players" | "achievements" | "lineups")}
+                title="Roster Management"
+                description="Switch between tabs"
+              />
+            </div>
+
+            {/* Desktop Tab List */}
+            <TabsList className="hidden md:inline-flex">
               <TabsTrigger value="teams" className="gap-2">
                 <Users className="h-4 w-4" />
                 Teams
@@ -491,9 +510,13 @@ export default function RostersPage() {
                             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
                               {player.avatar ? (
                                 <img
-                                  src={`${process.env.NEXT_PUBLIC_API_URL?.replace(/\/api$/, "") || "http://localhost:3001"}${player.avatar}`}
+                                  src={`${getServerUrl()}${player.avatar}`}
                                   alt={player.gamerTag}
                                   className="h-full w-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.parentElement!.innerHTML = `<span class="text-sm font-semibold">${player.gamerTag.charAt(0).toUpperCase()}</span>`;
+                                  }}
                                 />
                               ) : (
                                 <span className="text-sm font-semibold">
@@ -523,7 +546,7 @@ export default function RostersPage() {
                             <PermissionGuard
                               required={PERMISSIONS.PLAYER_UPDATE}
                               fallback={
-                                player.orgUserId === orgUser?.id ? (
+                                player.globalUserId === globalUser?.id ? (
                                   <Button
                                     variant="ghost"
                                     size="sm"

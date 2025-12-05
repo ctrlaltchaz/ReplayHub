@@ -1,6 +1,6 @@
 {
   "name": "@esports-ops/web",
-  "version": "0.3.0 (beta) Last update: 02-12-2025",
+  "version": "0.3.2 (beta) Last update: 05-12-2025",
   "description": "Multi-tenant esports operations platform frontend web app",
   "private": true,
   "scripts": {

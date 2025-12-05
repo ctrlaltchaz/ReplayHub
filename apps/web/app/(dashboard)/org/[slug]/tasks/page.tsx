@@ -1,25 +1,25 @@
 'use client';
 
-import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { MobileTabNavigation } from '@/components/ui/mobile-tab-navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/context/AuthContext';
+import { getApiUrl } from '@/lib/api/config';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
 import { cn } from '@/lib/utils';
-import { useMyChecklistTasks } from '../checklists/hooks/useMyChecklistTasks';
-import type { ChecklistTask } from '@/types/checklist';
-import { Loader2, RefreshCcw, Search, ClipboardList, AlertCircle, ExternalLink, ChevronDown } from 'lucide-react';
+import type { Checklist, ChecklistTask } from '@/types/checklist';
+import { useQueryClient } from '@tanstack/react-query';
+import { format, formatDistanceToNow } from 'date-fns';
+import { AlertCircle, ChevronDown, ClipboardList, ExternalLink, Loader2, RefreshCcw, Search } from 'lucide-react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import { useMyChecklistTasks } from '../checklists/hooks/useMyChecklistTasks';
 import { TaskCard } from './components/TaskCard';
-import { getApiUrl } from '@/lib/api/config';
-import type { Checklist } from '@/types/checklist';
-import { useQueryClient } from '@tanstack/react-query';
-import { useToast } from '@/components/ui/use-toast';
-import { format, formatDistanceToNow } from 'date-fns';
 
 type TaskStatusFilter = 'open' | 'completed';
 type PriorityFilter = 'all' | 'low' | 'medium' | 'high';
@@ -201,7 +201,22 @@ export default function TasksPage() {
                 <CardContent className="space-y-4 pt-6">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as TaskStatusFilter)}>
-                            <TabsList>
+                            {/* Mobile Tab Navigation */}
+                            <div className="md:hidden">
+                                <MobileTabNavigation
+                                    tabs={[
+                                        { value: "open", label: "Open" },
+                                        { value: "completed", label: "Completed" },
+                                    ]}
+                                    activeTab={statusFilter}
+                                    onTabChange={(value) => setStatusFilter(value as TaskStatusFilter)}
+                                    title="Task Status"
+                                    description="Filter by status"
+                                />
+                            </div>
+
+                            {/* Desktop Tab List */}
+                            <TabsList className="hidden md:inline-flex">
                                 <TabsTrigger value="open">Open</TabsTrigger>
                                 <TabsTrigger value="completed">Completed</TabsTrigger>
                             </TabsList>

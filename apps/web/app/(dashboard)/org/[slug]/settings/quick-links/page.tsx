@@ -206,19 +206,19 @@ export default function QuickLinksPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight font-montserrat">Quick Links</h1>
-          <p className="text-muted-foreground mt-2">Loading...</p>
+          <h2 className="text-2xl font-bold tracking-tight">Quick Links</h2>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight font-montserrat">Quick Links</h1>
-        <p className="text-muted-foreground mt-2">
-          Manage custom links that appear in the sidebar for all organization members.
+    <div className="space-y-4 md:space-y-6">
+      <div className="px-1">
+        <h2 className="text-2xl font-bold tracking-tight">Quick Links</h2>
+        <p className="text-muted-foreground">
+          Manage custom links that appear in the sidebar for all organization members
         </p>
       </div>
 

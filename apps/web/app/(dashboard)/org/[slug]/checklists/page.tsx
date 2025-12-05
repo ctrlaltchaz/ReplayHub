@@ -4,6 +4,7 @@ import { PermissionGuard } from '@/components/permissions/PermissionGuard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { MobileTabNavigation } from '@/components/ui/mobile-tab-navigation';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
@@ -12,7 +13,7 @@ import { usePageTitle } from '@/lib/hooks/usePageTitle';
 import { PERMISSIONS } from '@/lib/permissions/utils';
 import type { ChecklistTemplate } from '@/types/checklist';
 import { useQueryClient } from '@tanstack/react-query';
-import { ClipboardCheck, ClipboardList, Clock, Loader2, Pencil, Plus, Trash2, ArrowRight } from 'lucide-react';
+import { ArrowRight, ClipboardCheck, ClipboardList, Clock, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
@@ -175,10 +176,29 @@ export default function ChecklistsPage() {
                 </Card>
 
                 <Tabs defaultValue="active" className="space-y-4">
-                    <TabsList className="w-full sm:w-auto">
-                        <TabsTrigger value="active" className="flex-1 sm:flex-initial">Active</TabsTrigger>
-                        <TabsTrigger value="completed" className="flex-1 sm:flex-initial">Completed</TabsTrigger>
-                        <TabsTrigger value="templates" className="flex-1 sm:flex-initial">Templates</TabsTrigger>
+                    {/* Mobile Tab Navigation */}
+                    <div className="md:hidden">
+                        <MobileTabNavigation
+                            tabs={[
+                                { value: "active", label: "Active", icon: <ClipboardList className="h-4 w-4" /> },
+                                { value: "completed", label: "Completed", icon: <ClipboardCheck className="h-4 w-4" /> },
+                                { value: "templates", label: "Templates", icon: <Clock className="h-4 w-4" /> },
+                            ]}
+                            activeTab="active"
+                            onTabChange={(value) => {
+                                const tabTrigger = document.querySelector(`[value="${value}"]`) as HTMLButtonElement;
+                                tabTrigger?.click();
+                            }}
+                            title="Checklists"
+                            description="Switch between tabs"
+                        />
+                    </div>
+
+                    {/* Desktop Tab List */}
+                    <TabsList className="hidden md:inline-flex">
+                        <TabsTrigger value="active">Active</TabsTrigger>
+                        <TabsTrigger value="completed">Completed</TabsTrigger>
+                        <TabsTrigger value="templates">Templates</TabsTrigger>
                     </TabsList>
                     <TabsContent value="active" className="space-y-4">
                         <div className="flex justify-end">
@@ -262,7 +282,7 @@ export default function ChecklistsPage() {
                                                                     <span className="text-muted-foreground">Progress</span>
                                                                     <span className="font-medium">{Math.round(progress)}%</span>
                                                                 </div>
-            <Progress value={progress} className="h-2" />
+                                                                <Progress value={progress} className="h-2" />
                                                                 <div className="text-xs text-muted-foreground">
                                                                     {checklist.dueAt
                                                                         ? `Due ${new Date(checklist.dueAt).toLocaleDateString()}`

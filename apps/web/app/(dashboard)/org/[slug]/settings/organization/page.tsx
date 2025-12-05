@@ -288,8 +288,8 @@ export default function OrganizationSettingsPage() {
     }
 
     return (
-        <div className="space-y-6">
-            <div>
+        <div className="space-y-4 md:space-y-6">
+            <div className="px-1">
                 <h2 className="text-2xl font-bold tracking-tight">Organization Settings</h2>
                 <p className="text-muted-foreground">
                     Manage your organization's profile and branding

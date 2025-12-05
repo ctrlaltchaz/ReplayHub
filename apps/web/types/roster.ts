@@ -25,7 +25,7 @@ export interface Player {
     gamerTag: string;
     realName?: string;
     avatar?: string;
-    orgUserId?: string;
+    globalUserId?: string;
     role?: string;
     rank?: string;
     mainsJson?: string[];
@@ -38,10 +38,10 @@ export interface Player {
     updatedAt: string;
     teams?: TeamMember[];
     achievements?: Achievement[];
-    orgUser?: {
+    globalUser?: {
         id: string;
+        name: string;
         email: string;
-        displayName: string;
     };
 }
 

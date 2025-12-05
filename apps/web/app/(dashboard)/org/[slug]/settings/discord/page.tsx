@@ -1,6 +1,7 @@
 "use client";
 
 import { ChannelSelector } from "@/components/discord/ChannelSelector";
+import { ScheduledNotificationsPanel } from "@/components/discord/ScheduledNotificationsPanel";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AppButton } from "@/components/ui/AppButton";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api/client";
-import { ScheduledNotificationsPanel } from "@/components/discord/ScheduledNotificationsPanel";
 import {
   AlertCircle,
   Bot,
@@ -221,7 +221,14 @@ export default function DiscordSettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
+      <div className="px-1">
+        <h2 className="text-2xl font-bold tracking-tight">Discord Integration</h2>
+        <p className="text-muted-foreground">
+          Connect your Discord server for notifications and community features
+        </p>
+      </div>
+
       {/* Setup Guide for New Users */}
       {!config?.guildName && (
         <Alert>

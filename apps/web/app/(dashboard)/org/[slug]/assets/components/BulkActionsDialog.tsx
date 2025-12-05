@@ -19,10 +19,10 @@ import {
 } from '@/components/ui/select';
 import type { AssetStatus } from '@/types/asset';
 import { Loader2 } from 'lucide-react';
-import { useState } from 'react';
-import { TagInput } from './TagInput';
-import { useAssetFolders } from '../hooks/useAssetFolders';
 import { useParams } from 'next/navigation';
+import { useState } from 'react';
+import { useAssetFolders } from '../hooks/useAssetFolders';
+import { TagInput } from './TagInput';
 
 interface BulkActionsDialogProps {
     open: boolean;
@@ -44,10 +44,10 @@ export function BulkActionsDialog({
     existingTags = [],
 }: BulkActionsDialogProps) {
     const params = useParams();
-    const slug = params.slug as string;
+    const slug = (params?.slug as string) || '';
     // Fetch all folders by not specifying parentId and using a high limit
     const { data: foldersResponse } = useAssetFolders(slug, { limit: 1000 });
-    
+
     const [tags, setTags] = useState<string[]>([]);
     const [status, setStatus] = useState<AssetStatus>('active');
     const [folderId, setFolderId] = useState<string | null>(null);
@@ -55,30 +55,30 @@ export function BulkActionsDialog({
     // Build a hierarchical folder list for the dropdown
     const buildFolderHierarchy = () => {
         if (!foldersResponse?.data) return [];
-        
+
         const folders = foldersResponse.data;
         const folderMap = new Map(folders.map(f => [f.id, f]));
         const result: Array<{ id: string; name: string; level: number }> = [];
-        
+
         const addFolder = (folder: typeof folders[0], level: number) => {
             result.push({
                 id: folder.id,
                 name: folder.name,
                 level,
             });
-            
+
             // Find and add children
             const children = folders.filter(f => f.parentId === folder.id);
             children.forEach(child => addFolder(child, level + 1));
         };
-        
+
         // Start with root folders (no parent)
         const rootFolders = folders.filter(f => !f.parentId);
         rootFolders.forEach(folder => addFolder(folder, 0));
-        
+
         return result;
     };
-    
+
     const folderHierarchy = buildFolderHierarchy();
 
     const handleApply = () => {
