@@ -13,8 +13,6 @@ export class LiveGraphicsPublicController {
   @Header('Content-Type', 'application/javascript')
   async clientScript(@Res() res: Response) {
     const script = `
-(function() {
-const script = `
       (function () {
         const scriptEl = document.currentScript;
         const code = scriptEl?.getAttribute('data-replayhub-code') || '';
@@ -24,7 +22,7 @@ const script = `
           : '';
         const stateUrl = origin + '/api/public/live-graphics/' + slug + '/' + code + '/state';
 
-        // ✅ NEW: store previous values for diffing
+        // Store previous values for diffing
         const lastValues = {};
 
         const applyValue = (el, key, value) => {
@@ -40,7 +38,7 @@ const script = `
             el.textContent = newValue;
           }
 
-          // ✅ NEW: emit event ONLY when value actually changes
+          // Emit event ONLY when value actually changes
           if (changed) {
             window.dispatchEvent(
               new CustomEvent('replayhub:field-change', {
