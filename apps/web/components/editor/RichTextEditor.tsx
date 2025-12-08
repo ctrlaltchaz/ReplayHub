@@ -132,7 +132,7 @@ export function RichTextEditor({ content, onChange, placeholder = 'Start writing
                     {isCodeMode ? '👁 Visual' : '< > Code'}
                 </Button>
             </div>
-            
+
             {isCodeMode ? (
                 <Textarea
                     value={rawHtml}
