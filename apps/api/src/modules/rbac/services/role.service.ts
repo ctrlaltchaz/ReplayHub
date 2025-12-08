@@ -60,7 +60,7 @@ export class RoleService {
   ): Promise<RoleWithPermissionsDto> {
     const role = await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Check if role name already exists
       const existingRole = await tx.role.findUnique({
@@ -148,7 +148,7 @@ export class RoleService {
   async getRoles(tenantId: string): Promise<RoleWithPermissionsDto[]> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const roles = await tx.role.findMany({
         where: { tenantId },
@@ -169,7 +169,7 @@ export class RoleService {
   async getRoleById(tenantId: string, roleId: string): Promise<RoleWithPermissionsDto | null> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const role = await tx.role.findFirst({
         where: {
@@ -223,7 +223,7 @@ export class RoleService {
 
     const role = await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Check role exists
       const existingRole = await tx.role.findFirst({
@@ -377,7 +377,7 @@ export class RoleService {
 
     const result = await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Check role exists
       const role = await tx.role.findFirst({
@@ -443,7 +443,7 @@ export class RoleService {
   async seedDefaultRoles(tenantId: string): Promise<{ created: string[] }> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const created: string[] = [];
 
@@ -685,7 +685,7 @@ export class RoleService {
 
     const result = await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Verify membership exists and belongs to tenant
       const membership = await tx.userOrganisationMembership.findFirst({
@@ -791,7 +791,7 @@ export class RoleService {
 
     const result = await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Verify membership exists and belongs to tenant
       const membership = await tx.userOrganisationMembership.findFirst({
@@ -858,7 +858,7 @@ export class RoleService {
   async getUserRoles(tenantId: string, membershipId: string) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const userRoles = await tx.membershipRole.findMany({
         where: {
@@ -929,3 +929,4 @@ export class RoleService {
     return null;
   }
 }
+

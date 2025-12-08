@@ -188,6 +188,14 @@ export const PERMISSIONS = {
   RESOURCES_VIEW: "resources.view" as const,
   RESOURCES_MANAGE: "resources.manage" as const,
 
+  // Documentation
+  DOCS_VIEW: "docs.view" as const,
+  DOCS_CREATE: "docs.create" as const,
+  DOCS_EDIT: "docs.edit" as const,
+  DOCS_DELETE: "docs.delete" as const,
+  DOCS_MANAGE: "docs.manage" as const,
+  DOCS_COMPLETIONS_TRACK: "docs.completions.track" as const,
+
   // Users and invites
   USERS_VIEW: "users.view" as const,
   USERS_READ: "users.read" as const,

@@ -9,6 +9,7 @@ import { MobileTabNavigation } from '@/components/ui/mobile-tab-navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Activity,
+    BookOpen,
     Building,
     FileText,
     MessageSquare,
@@ -51,6 +52,7 @@ export default function ControlCenterPage() {
                             { value: "overview", label: "Overview", icon: <Activity className="h-4 w-4" /> },
                             { value: "organisations", label: "Organizations", icon: <Building className="h-4 w-4" /> },
                             { value: "users", label: "Global Users", icon: <Users className="h-4 w-4" /> },
+                            { value: "docs", label: "Documentation", icon: <BookOpen className="h-4 w-4" /> },
                             { value: "feedback", label: "Feedback", icon: <MessageSquare className="h-4 w-4" /> },
                             { value: "audit", label: "Audit Log", icon: <FileText className="h-4 w-4" /> },
                         ]}
@@ -75,6 +77,10 @@ export default function ControlCenterPage() {
                         <Users className="h-4 w-4" />
                         Global Users
                     </TabsTrigger>
+                    <TabsTrigger value="docs" className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4" />
+                        Documentation
+                    </TabsTrigger>
                     <TabsTrigger value="feedback" className="flex items-center gap-2">
                         <MessageSquare className="h-4 w-4" />
                         Feedback
@@ -95,6 +101,22 @@ export default function ControlCenterPage() {
 
                 <TabsContent value="users" className="space-y-6">
                     <AdminGlobalUsers />
+                </TabsContent>
+
+                <TabsContent value="docs" className="space-y-6">
+                    <div className="text-center py-12">
+                        <BookOpen className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">Platform Documentation</h3>
+                        <p className="text-muted-foreground mb-4">
+                            Manage global documentation visible to all organizations
+                        </p>
+                        <a
+                            href="/admin/docs"
+                            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+                        >
+                            Go to Documentation Manager
+                        </a>
+                    </div>
                 </TabsContent>
 
                 <TabsContent value="feedback" className="space-y-6">

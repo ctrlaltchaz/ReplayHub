@@ -31,7 +31,7 @@ export class PlayerStatService {
   ): Promise<PlayerStatResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       // Verify match exists and is editable
       const match = await tx.match.findFirst({
@@ -165,7 +165,7 @@ export class PlayerStatService {
   ): Promise<PlayerStatResponse[]> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       // Verify match exists and is editable
       const match = await tx.match.findFirst({
@@ -348,7 +348,7 @@ export class PlayerStatService {
   async findStatsByMatch(tenantId: string, matchId: string): Promise<PlayerStatResponse[]> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       await this.migrateLegacyStatsToRound(tx, tenantId, matchId);
 
@@ -369,7 +369,7 @@ export class PlayerStatService {
   async findStatById(tenantId: string, statId: string): Promise<PlayerStatResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const stat = await tx.playerStat.findFirst({
         where: { id: statId, tenantId },
@@ -412,7 +412,7 @@ export class PlayerStatService {
   ): Promise<PlayerStatResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const stat = await tx.playerStat.findFirst({
         where: { id: statId, tenantId },
@@ -507,7 +507,7 @@ export class PlayerStatService {
   ): Promise<void> {
     await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const stat = await tx.playerStat.findFirst({
         where: { id: statId, tenantId },
@@ -551,7 +551,7 @@ export class PlayerStatService {
   ): Promise<{ updated: number; mvpUpdated: boolean }> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       // Get match and all stats
       const match = await tx.match.findFirst({
@@ -843,7 +843,7 @@ export class PlayerStatService {
   async getPlayerAggregatedStats(tenantId: string, playerId: string) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       // Get all player stats for this player
       const stats = await tx.playerStat.findMany({
@@ -994,3 +994,4 @@ export class PlayerStatService {
     };
   }
 }
+

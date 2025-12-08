@@ -12,7 +12,7 @@ export class OrgAuthService {
     async register(tenantId: string, registerDto: OrgAuthRegisterDto, createdById: string): Promise<{ orgUser: Partial<OrgUserProfileDto> }> {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             // Check if user already exists in this org
             const existingUser = await tx.orgUser.findUnique({
@@ -71,7 +71,7 @@ export class OrgAuthService {
 
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             // Find user for password verification (still using OrgUser for auth)
             const orgUser = await tx.orgUser.findUnique({
@@ -198,7 +198,7 @@ export class OrgAuthService {
     async getProfile(tenantId: string, orgUserId: string): Promise<OrgUserProfileDto> {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             const orgUser = await tx.orgUser.findUnique({
                 where: { id: orgUserId },
@@ -247,7 +247,7 @@ export class OrgAuthService {
     async setupTotp(tenantId: string, orgUserId: string, organisationName: string): Promise<TotpSetupDto> {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             const orgUser = await tx.orgUser.findUnique({
                 where: { id: orgUserId },
@@ -286,7 +286,7 @@ export class OrgAuthService {
     async verifyAndEnableTotp(tenantId: string, orgUserId: string, token: string): Promise<{ success: boolean }> {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             const orgUser = await tx.orgUser.findUnique({
                 where: { id: orgUserId },
@@ -336,7 +336,7 @@ export class OrgAuthService {
         console.log('🔍 [getProfileFromMembership] Called with:', { tenantId, membershipId });
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             const membership = await tx.userOrganisationMembership.findUnique({
                 where: { id: membershipId },
@@ -411,3 +411,4 @@ export class OrgAuthService {
         }
     }
 }
+

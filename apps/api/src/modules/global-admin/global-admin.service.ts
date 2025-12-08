@@ -546,7 +546,7 @@ export class GlobalAdminService {
     async getOrganisationUsers(orgId: string) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
 
             const users = await tx.orgUser.findMany({
                 where: { tenantId: orgId },
@@ -591,7 +591,7 @@ export class GlobalAdminService {
     async createOrganisationUser(orgId: string, dto: CreateOrganisationUserDto) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
 
             // Check if user already exists
             const existingUser = await tx.orgUser.findFirst({
@@ -703,7 +703,7 @@ export class GlobalAdminService {
     async updateOrganisationUser(orgId: string, userId: string, dto: UpdateOrganisationUserDto) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
 
             // Update user
             const displayName = dto.firstName && dto.lastName
@@ -769,7 +769,7 @@ export class GlobalAdminService {
     async deleteOrganisationUser(orgId: string, userId: string) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
 
             // Remove user roles first
             await tx.orgUserRole.deleteMany({
@@ -811,7 +811,7 @@ export class GlobalAdminService {
     async getOrganisationRoles(orgId: string) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
 
             const roles = await tx.role.findMany({
                 where: { tenantId: orgId },
@@ -853,7 +853,7 @@ export class GlobalAdminService {
                 console.log(`[DEBUG] Creating role for org: ${orgId}`, dto);
 
                 // Set tenant context for RLS
-                await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+                await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
 
                 // Create role
                 const role = await tx.role.create({
@@ -906,7 +906,7 @@ export class GlobalAdminService {
     async updateOrganisationRole(orgId: string, roleId: string, dto: UpdateOrganisationRoleDto) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
 
             // Check if role is system role
             const existingRole = await tx.role.findFirst({
@@ -988,7 +988,7 @@ export class GlobalAdminService {
     async deleteOrganisationRole(orgId: string, roleId: string) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
 
             // Check if role is system role
             const existingRole = await tx.role.findFirst({
@@ -1054,7 +1054,7 @@ export class GlobalAdminService {
                 console.log(`[DEBUG] Getting permissions for org: ${orgId}`);
 
                 // Set tenant context for RLS
-                await tx.$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
+                await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${orgId}, true)`;
 
                 let permissions = await tx.permission.findMany({
                     where: { tenantId: orgId },
@@ -1141,3 +1141,4 @@ export class GlobalAdminService {
         });
     }
 }
+

@@ -13,7 +13,7 @@ export class PermissionService {
     async getPermissionRegistry(tenantId: string): Promise<PermissionDefinition[]> {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             const permissions = await tx.permission.findMany({
                 where: { tenantId },
@@ -35,7 +35,7 @@ export class PermissionService {
     async seedDefaultPermissions(tenantId: string): Promise<{ created: number }> {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             let created = 0;
 
@@ -84,7 +84,7 @@ export class PermissionService {
     async getUserPermissions(tenantId: string, membershipId: string): Promise<string[]> {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             const membershipRoles = await tx.membershipRole.findMany({
                 where: {
@@ -125,3 +125,4 @@ export class PermissionService {
         return userPermissions.includes(requiredPermission);
     }
 }
+

@@ -19,7 +19,7 @@ export class ReportsService {
         queryDto: QueryReportsDto
     ): Promise<IncidentReportResponse> {
         return await this.prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             const { from, to, eventId, category, severity } = queryDto;
 
@@ -111,7 +111,7 @@ export class ReportsService {
             ORDER BY COUNT(*) DESC 
             LIMIT 5`;
 
-            const topTags = (await tx.$queryRawUnsafe(
+            const topTags = (await (tx as any).$queryRawUnsafe(
                 topTagsQuery,
                 ...queryParams
             )) as { tag: string; count: bigint }[];
@@ -177,7 +177,7 @@ export class ReportsService {
         queryDto: QueryReportsDto
     ): Promise<AttendanceReportResponse> {
         return await this.prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             const { from, to, eventId } = queryDto;
 
@@ -271,7 +271,7 @@ export class ReportsService {
         queryDto: QueryReportsDto
     ): Promise<string> {
         return await this.prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             const { from, to, eventId } = queryDto;
 
@@ -348,7 +348,7 @@ export class ReportsService {
         queryDto: QueryReportsDto
     ): Promise<string> {
         return await this.prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             const { from, to, eventId } = queryDto;
 
@@ -418,3 +418,4 @@ export class ReportsService {
         return field;
     }
 }
+

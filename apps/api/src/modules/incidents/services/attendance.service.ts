@@ -19,7 +19,7 @@ export class AttendanceService {
         dto: CreateAttendanceDto
     ): Promise<AttendanceResponse> {
         return await this.prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             // Validate event exists
             const event = await tx.event.findFirst({
@@ -82,7 +82,7 @@ export class AttendanceService {
         dto: BulkCreateAttendanceDto
     ): Promise<{ created: AttendanceResponse[]; errors: string[] }> {
         return await this.prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             // Validate event exists
             const event = await tx.event.findFirst({
@@ -166,7 +166,7 @@ export class AttendanceService {
         queryDto: QueryAttendanceDto
     ): Promise<{ attendance: AttendanceResponse[]; total: number; page: number; totalPages: number }> {
         return await this.prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             const { page = 1, limit = 20, eventId, userId, status, from, to } = queryDto;
             const skip = (page - 1) * limit;
@@ -219,7 +219,7 @@ export class AttendanceService {
 
     async findAttendanceById(tenantId: string, id: string): Promise<AttendanceResponse> {
         return await this.prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             const attendance = await tx.attendance.findFirst({
                 where: { id, tenantId },
@@ -250,7 +250,7 @@ export class AttendanceService {
         dto: UpdateAttendanceDto
     ): Promise<AttendanceResponse> {
         return await this.prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             // Find existing attendance
             const existingAttendance = await tx.attendance.findFirst({
@@ -287,7 +287,7 @@ export class AttendanceService {
 
     async deleteAttendance(tenantId: string, id: string): Promise<void> {
         await this.prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             const attendance = await tx.attendance.findFirst({
                 where: { id, tenantId }
@@ -317,7 +317,7 @@ export class AttendanceService {
         responseRate: number;
     }> {
         return await this.prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             // Validate event exists
             const event = await tx.event.findFirst({
@@ -392,3 +392,4 @@ export class AttendanceService {
         };
     }
 }
+

@@ -54,6 +54,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   assets: require("lucide-react").Package2,
   incidents: require("lucide-react").AlertTriangle,
   reports: require("lucide-react").BarChart3,
+  docs: require("lucide-react").BookOpen,
   settings: require("lucide-react").Settings,
   utilities: require("lucide-react").Wrench,
   "live-graphics": require("lucide-react").MonitorPlay,
@@ -306,7 +307,7 @@ export function Sidebar({
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     "font-montserrat",
                     pathname?.startsWith("/feedback") &&
-                      "bg-primary text-primary-foreground shadow-modern font-semibold",
+                    "bg-primary text-primary-foreground shadow-modern font-semibold",
                     isCollapsed && "justify-center px-3"
                   )}
                   title={isCollapsed ? "Submit Feedback" : undefined}
@@ -342,7 +343,7 @@ export function Sidebar({
                             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                             "font-montserrat",
                             isActive &&
-                              "bg-primary text-primary-foreground shadow-modern font-semibold",
+                            "bg-primary text-primary-foreground shadow-modern font-semibold",
                             isCollapsed && "justify-center px-3"
                           )}
                           title={isCollapsed ? item.label : undefined}
@@ -366,7 +367,7 @@ export function Sidebar({
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         "font-montserrat",
                         pathname === "/admin/control-center" &&
-                          "bg-primary text-primary-foreground shadow-modern font-semibold",
+                        "bg-primary text-primary-foreground shadow-modern font-semibold",
                         isCollapsed && "justify-center px-3"
                       )}
                       title={isCollapsed ? "Review Feedback" : undefined}
@@ -422,7 +423,7 @@ export function Sidebar({
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     "font-montserrat",
                     pathname?.startsWith("/feedback") &&
-                      "bg-primary text-primary-foreground shadow-modern font-semibold",
+                    "bg-primary text-primary-foreground shadow-modern font-semibold",
                     isCollapsed && "justify-center px-3"
                   )}
                   title={isCollapsed ? "Bug Reports & Suggestions" : undefined}
@@ -734,7 +735,7 @@ export function Sidebar({
                     "hover:bg-accent hover:text-accent-foreground hover:shadow-sm",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     pathname?.startsWith("/feedback") &&
-                      "bg-primary text-primary-foreground shadow-modern",
+                    "bg-primary text-primary-foreground shadow-modern",
                     isCollapsed && "justify-center px-3"
                   )}
                   title={isCollapsed ? "Bug Reports & Suggestions" : undefined}
@@ -859,7 +860,7 @@ export function Sidebar({
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       "font-montserrat",
                       pathname?.startsWith("/feedback") &&
-                        "bg-primary text-primary-foreground shadow-modern font-semibold"
+                      "bg-primary text-primary-foreground shadow-modern font-semibold"
                     )}
                   >
                     <iconMap.MessageSquare className="h-5 w-5 shrink-0" />
@@ -890,7 +891,7 @@ export function Sidebar({
                               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                               "font-montserrat",
                               isActive &&
-                                "bg-primary text-primary-foreground shadow-modern font-semibold"
+                              "bg-primary text-primary-foreground shadow-modern font-semibold"
                             )}
                           >
                             <Icon className="h-5 w-5 shrink-0" />
@@ -911,7 +912,7 @@ export function Sidebar({
                           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           "font-montserrat",
                           pathname === "/admin/control-center" &&
-                            "bg-primary text-primary-foreground shadow-modern font-semibold"
+                          "bg-primary text-primary-foreground shadow-modern font-semibold"
                         )}
                       >
                         <iconMap.MessageSquare className="h-5 w-5 shrink-0" />
@@ -1079,7 +1080,7 @@ export function Sidebar({
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         "font-montserrat",
                         pathname?.startsWith("/feedback") &&
-                          "bg-primary text-primary-foreground shadow-modern font-semibold"
+                        "bg-primary text-primary-foreground shadow-modern font-semibold"
                       )}
                     >
                       <iconMap.MessageSquare className="h-5 w-5 shrink-0" />

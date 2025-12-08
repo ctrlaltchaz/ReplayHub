@@ -32,7 +32,7 @@ export class EventsService {
     }
 
     // Clear existing assignments for this event/tenant
-    await tx.$executeRaw`DELETE FROM event_staff_assignments WHERE tenant_id = ${tenantId} AND event_id = ${eventId}`;
+    await (tx as any).$executeRaw`DELETE FROM event_staff_assignments WHERE tenant_id = ${tenantId} AND event_id = ${eventId}`;
 
     const normalized = (assignments || [])
       .filter(a => a?.orgUserId && a?.roleType)
@@ -54,7 +54,7 @@ export class EventsService {
 
     // Validate org users belong to tenant
     const orgUserIds = uniqueByUser.map(a => a.orgUserId);
-    const validUsers = await tx.$queryRaw<{ id: string }[]>`
+    const validUsers = await (tx as any).$queryRaw<{ id: string }[]>`
             SELECT id FROM org_users WHERE tenant_id = ${tenantId} AND id = ANY(${orgUserIds})
         `;
     const validIds = new Set(validUsers.map(u => u.id));
@@ -85,7 +85,7 @@ export class EventsService {
       );
     });
 
-    await tx.$executeRawUnsafe(
+    await (tx as any).$executeRawUnsafe(
       `
             INSERT INTO event_staff_assignments (id, tenant_id, event_id, org_user_id, role_type, role_label, updated_at)
             VALUES ${valuesSql.join(', ')}
@@ -103,7 +103,7 @@ export class EventsService {
     return await this.prisma.$transaction(async tx => {
       try {
         // Set tenant context for RLS
-        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+        await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
         console.log('📝 Creating event with tenantId:', tenantId);
         console.log('📝 Event data:', data);
@@ -230,7 +230,7 @@ export class EventsService {
   async findEvents(tenantId: string, filters?: EventFiltersDto) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       let query = `
       SELECT 
@@ -346,7 +346,7 @@ export class EventsService {
       console.log('🔍 Params:', params);
       console.log('🔍 TenantId:', tenantId);
 
-      const results = await tx.$queryRawUnsafe(query, ...params);
+      const results = await (tx as any).$queryRawUnsafe(query, ...params);
       console.log('✅ Query results:', results);
       console.log('✅ Result count:', Array.isArray(results) ? results.length : 0);
 
@@ -357,9 +357,9 @@ export class EventsService {
   async findOneEvent(tenantId: string, id: string) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
-      const events = (await tx.$queryRawUnsafe(
+      const events = (await (tx as any).$queryRawUnsafe(
         `
       SELECT 
         e.id,
@@ -457,7 +457,7 @@ export class EventsService {
   ) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       try {
         const setClause: string[] = [];
@@ -607,7 +607,7 @@ export class EventsService {
         console.log('🔄 Update query:', query);
         console.log('🔄 Update params:', params);
 
-        await tx.$executeRawUnsafe(query, ...params);
+        await (tx as any).$executeRawUnsafe(query, ...params);
 
         await this.replaceEventStaffAssignments(tx, tenantId, id, data.staffAssignments);
 
@@ -680,11 +680,11 @@ export class EventsService {
   ) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       try {
         const before = await this.findOneEvent(tenantId, id);
-        await tx.$executeRawUnsafe(
+        await (tx as any).$executeRawUnsafe(
           `
         DELETE FROM events 
         WHERE tenant_id = $1 AND id = $2
@@ -720,12 +720,12 @@ export class EventsService {
   async getWeekEvents(tenantId: string, startOfWeek: Date) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(endOfWeek.getDate() + 7);
 
-      return await tx.$queryRawUnsafe(
+      return await (tx as any).$queryRawUnsafe(
         `
       SELECT e.*, 
              t.name as team_name,
@@ -785,7 +785,7 @@ export class EventsService {
     return await this.prisma.$transaction(async tx => {
       try {
         // Set tenant context for RLS
-        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+        await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
         // Resolve timezone from params or tenant settings
         const timezone = await this.calendarUtils.resolveTimezone(tenantId, queryDto.tz);
@@ -807,7 +807,7 @@ export class EventsService {
         // Query events with overlap detection
         // An event overlaps the date range if:
         // - Event starts before range ends AND event ends after range starts
-        const events = await tx.$queryRawUnsafe(
+        const events = await (tx as any).$queryRawUnsafe(
           `
                 SELECT 
                     e.id,
@@ -916,11 +916,11 @@ export class EventsService {
   ) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       try {
         // First verify the event exists
-        const event = await tx.$queryRaw`
+        const event = await (tx as any).$queryRaw`
         SELECT id FROM events WHERE id = ${eventId} AND tenant_id = ${tenantId}
       `;
 
@@ -929,7 +929,7 @@ export class EventsService {
         }
 
         // Update the event with the lineup
-        await tx.$executeRaw`
+        await (tx as any).$executeRaw`
         UPDATE events 
         SET lineup_id = ${lineupId}, updated_at = NOW()
         WHERE id = ${eventId} AND tenant_id = ${tenantId}
@@ -960,8 +960,8 @@ export class EventsService {
   async countEvents(tenantId: string): Promise<number> {
     return await this.prisma.$transaction(async tx => {
       try {
-        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
-        const result = await tx.$queryRaw<[{ count: bigint }]>`
+        await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+        const result = await (tx as any).$queryRaw<[{ count: bigint }]>`
                 SELECT COUNT(*) as count
                 FROM events
                 WHERE tenant_id = ${tenantId}
@@ -977,9 +977,9 @@ export class EventsService {
   async countUpcomingEvents(tenantId: string): Promise<number> {
     return await this.prisma.$transaction(async tx => {
       try {
-        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+        await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
         const now = new Date();
-        const result = await tx.$queryRaw<[{ count: bigint }]>`
+        const result = await (tx as any).$queryRaw<[{ count: bigint }]>`
                 SELECT COUNT(*) as count
                 FROM events
                 WHERE tenant_id = ${tenantId}
@@ -1054,3 +1054,4 @@ export class EventsService {
     return null;
   }
 }
+

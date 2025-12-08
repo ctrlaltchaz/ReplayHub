@@ -18,7 +18,7 @@ export class PdfExportService {
   async generateMatchReport(tenantId: string, matchId: string): Promise<MatchReportExport> {
     const result = await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       await this.playerStatService.migrateLegacyStatsToRound(tx, tenantId, matchId);
 
@@ -632,3 +632,4 @@ export class PdfExportService {
     return 'low';
   }
 }
+

@@ -30,7 +30,7 @@ export class GameLogService {
   ): Promise<MatchResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       // Validate team belongs to tenant
       const team = await tx.team.findFirst({
@@ -146,7 +146,7 @@ export class GameLogService {
   async findMatches(tenantId: string, query: QueryMatchesDto) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const where: any = { tenantId };
 
@@ -211,7 +211,7 @@ export class GameLogService {
   async findMatchById(tenantId: string, matchId: string): Promise<MatchResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       await this.playerStatService.migrateLegacyStatsToRound(tx, tenantId, matchId);
 
@@ -261,7 +261,7 @@ export class GameLogService {
   ): Promise<MatchResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       // Check if match exists and is editable
       const existingMatch = await tx.match.findFirst({
@@ -366,7 +366,7 @@ export class GameLogService {
   ): Promise<void> {
     await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const match = await tx.match.findFirst({
         where: { id: matchId, tenantId },
@@ -412,7 +412,7 @@ export class GameLogService {
   ): Promise<MatchResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const match = await tx.match.findFirst({
         where: { id: matchId, tenantId },
@@ -484,7 +484,7 @@ export class GameLogService {
   ): Promise<MatchResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const match = await tx.match.findFirst({
         where: { id: matchId, tenantId },
@@ -604,7 +604,7 @@ export class GameLogService {
   ): Promise<MatchResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const match = await tx.match.findFirst({
         where: { id: matchId, tenantId },
@@ -731,7 +731,7 @@ export class GameLogService {
     try {
       await this.prisma.$transaction(async tx => {
         // Set tenant context for RLS
-        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+        await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
         const description = `Victory against ${match.opponent}`;
         const details = {
@@ -787,3 +787,4 @@ export class GameLogService {
     return null;
   }
 }
+

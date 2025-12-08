@@ -30,7 +30,7 @@ export class RunsheetService {
     // Use transaction to ensure RLS context is set on the same connection
     return await this.prisma.$transaction(async tx => {
       // Set RLS context for tenant isolation
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // If a template is provided, fetch it and create items from template
       let initialItems: any[] = [];
@@ -114,7 +114,7 @@ export class RunsheetService {
     // Use transaction to ensure RLS context is set on the same connection
     return await this.prisma.$transaction(async tx => {
       // Set RLS context for tenant isolation
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const where: any = { tenantId };
 
@@ -202,7 +202,7 @@ export class RunsheetService {
     // Use transaction to ensure RLS context is set on the same connection
     return await this.prisma.$transaction(async tx => {
       // Set RLS context for tenant isolation
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const runsheet = await tx.runsheet.findFirst({
         where: { id, tenantId },
@@ -231,7 +231,7 @@ export class RunsheetService {
     // Use transaction to ensure RLS context is set on the same connection
     return await this.prisma.$transaction(async tx => {
       // Set RLS context for tenant isolation
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Check if runsheet exists and is not locked
       const existingRunsheet = await tx.runsheet.findFirst({
@@ -283,7 +283,7 @@ export class RunsheetService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const existingRunsheet = await tx.runsheet.findFirst({
         where: { id, tenantId },
@@ -340,7 +340,7 @@ export class RunsheetService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const existingRunsheet = await tx.runsheet.findFirst({
         where: { id, tenantId },
@@ -386,7 +386,7 @@ export class RunsheetService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const existingRunsheet = await tx.runsheet.findFirst({
         where: { id, tenantId },
@@ -442,7 +442,7 @@ export class RunsheetService {
     // Use transaction to ensure RLS context is set on the same connection
     return await this.prisma.$transaction(async tx => {
       // Set RLS context for tenant isolation
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const existingRunsheet = await tx.runsheet.findFirst({
         where: { id, tenantId },
@@ -487,7 +487,7 @@ export class RunsheetService {
 
   async duplicate(tenantId: string, id: string, createdBy: string, actorEmail?: string | null) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const existingRunsheet = await tx.runsheet.findFirst({
         where: { id, tenantId },
@@ -572,7 +572,7 @@ export class RunsheetService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Check if runsheet exists and is not locked
       const runsheet = await tx.runsheet.findFirst({
@@ -660,7 +660,7 @@ export class RunsheetService {
   ) {
     return await this.prisma.$transaction(async tx => {
       // Set RLS context for tenant isolation
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Check if runsheet exists and is not locked
       const runsheet = await tx.runsheet.findFirst({
@@ -736,7 +736,7 @@ export class RunsheetService {
   ) {
     return await this.prisma.$transaction(async tx => {
       // Set RLS context for tenant isolation
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Check if runsheet exists and is not locked
       const runsheet = await tx.runsheet.findFirst({
@@ -795,7 +795,7 @@ export class RunsheetService {
     console.log(`[${timestamp}] [REORDER SERVICE] Item IDs to reorder:`, itemIds);
 
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const runsheet = await tx.runsheet.findFirst({
         where: { id: runsheetId, tenantId },
@@ -908,3 +908,4 @@ export class RunsheetService {
     return changes;
   }
 }
+

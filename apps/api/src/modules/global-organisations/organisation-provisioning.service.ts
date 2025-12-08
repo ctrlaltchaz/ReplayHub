@@ -33,7 +33,7 @@ export class OrganisationProvisioningService {
         }
 
         await this.prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             // Create or find UserOrganisationMembership (NEW)
             let membership = await tx.userOrganisationMembership.findFirst({
@@ -146,3 +146,4 @@ export class OrganisationProvisioningService {
         return this.ensureTenantUserWithRole(tenantId, rootUserId, roleName);
     }
 }
+

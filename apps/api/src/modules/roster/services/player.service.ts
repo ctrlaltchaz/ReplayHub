@@ -997,7 +997,7 @@ export class PlayerService {
 
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       // Verify player exists and get statsVisible setting
       const player = await tx.player.findFirst({
@@ -1176,3 +1176,4 @@ export class PlayerService {
     });
   }
 }
+

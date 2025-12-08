@@ -32,7 +32,7 @@ export class InventoryService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       try {
         const created = await tx.inventoryItem.create({
@@ -70,7 +70,7 @@ export class InventoryService {
 
   async findItems(tenantId: string, query: QueryInventoryItemsDto) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const where: any = { tenantId };
 
@@ -129,7 +129,7 @@ export class InventoryService {
 
   async findItemById(tenantId: string, itemId: string) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const item = await tx.inventoryItem.findFirst({
         where: { tenantId, id: itemId },
@@ -162,7 +162,7 @@ export class InventoryService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const item = await tx.inventoryItem.findFirst({
         where: { tenantId, id: itemId },
@@ -204,7 +204,7 @@ export class InventoryService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const item = await tx.inventoryItem.findFirst({
         where: { tenantId, id: itemId },
@@ -245,7 +245,7 @@ export class InventoryService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const item = await tx.inventoryItem.findFirst({
         where: { tenantId, id: itemId },
@@ -302,7 +302,7 @@ export class InventoryService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const item = await tx.inventoryItem.findFirst({
         where: { tenantId, id: itemId },
@@ -359,7 +359,7 @@ export class InventoryService {
 
   async unbookItem(tenantId: string, itemId: string, byUserId: string, actorEmail?: string | null) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const item = await tx.inventoryItem.findFirst({
         where: { tenantId, id: itemId },
@@ -421,7 +421,7 @@ export class InventoryService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       try {
         const kit = await tx.inventoryKit.create({
@@ -455,7 +455,7 @@ export class InventoryService {
 
   async findKits(tenantId: string) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       return await tx.inventoryKit.findMany({
         where: { tenantId },
@@ -476,7 +476,7 @@ export class InventoryService {
 
   async findKitById(tenantId: string, kitId: string) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const kit = await tx.inventoryKit.findFirst({
         where: { tenantId, id: kitId },
@@ -505,7 +505,7 @@ export class InventoryService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Verify kit exists
       const kit = await tx.inventoryKit.findFirst({
@@ -565,7 +565,7 @@ export class InventoryService {
 
   async findMovements(tenantId: string, itemId?: string) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const where: any = { tenantId };
       if (itemId) {
@@ -597,7 +597,7 @@ export class InventoryService {
 
   async countInUseItems(tenantId: string): Promise<number> {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       try {
         const count = await tx.inventoryItem.count({
@@ -653,3 +653,4 @@ export class InventoryService {
     return changes;
   }
 }
+

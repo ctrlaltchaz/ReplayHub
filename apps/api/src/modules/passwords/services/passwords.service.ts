@@ -37,8 +37,8 @@ export class PasswordsService {
   }
 
   private async setTenantContext(tx: Prisma.TransactionClient, tenantId: string) {
-    await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
-    await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+    await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+    await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
   }
 
   private deriveKey(tenantId: string): Buffer {
@@ -344,3 +344,4 @@ export class PasswordsService {
     });
   }
 }
+

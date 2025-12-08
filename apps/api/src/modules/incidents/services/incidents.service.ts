@@ -23,7 +23,7 @@ export class IncidentsService {
     actorEmail?: string | null
   ): Promise<IncidentResponse> {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Validate event exists if eventId provided
       if (dto.eventId) {
@@ -100,7 +100,7 @@ export class IncidentsService {
     queryDto: QueryIncidentsDto
   ): Promise<{ incidents: IncidentResponse[]; total: number; page: number; totalPages: number }> {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const { page = 1, limit = 20, q, category, severity, status, from, to, eventId } = queryDto;
       const skip = (page - 1) * limit;
@@ -161,7 +161,7 @@ export class IncidentsService {
 
   async findIncidentById(tenantId: string, id: string): Promise<IncidentResponse> {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const incident = await tx.incident.findFirst({
         where: { id, tenantId },
@@ -195,7 +195,7 @@ export class IncidentsService {
     actorEmail?: string | null
   ): Promise<IncidentResponse> {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Find existing incident
       const existingIncident = await tx.incident.findFirst({
@@ -348,7 +348,7 @@ export class IncidentsService {
 
   async countOpenIncidents(tenantId: string): Promise<number> {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       try {
         const count = await tx.incident.count({
@@ -373,7 +373,7 @@ export class IncidentsService {
     critical: number;
   }> {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const [total, open, inProgress, resolved, critical] = await Promise.all([
         tx.incident.count({ where: { tenantId } }),
@@ -394,7 +394,7 @@ export class IncidentsService {
     actorEmail?: string | null
   ): Promise<void> {
     await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const incident = await tx.incident.findFirst({
         where: { id: incidentId, tenantId },
@@ -455,3 +455,4 @@ export class IncidentsService {
     return null;
   }
 }
+

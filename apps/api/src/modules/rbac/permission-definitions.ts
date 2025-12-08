@@ -156,4 +156,12 @@ export const DEFAULT_PERMISSION_DEFINITIONS: PermissionDefinition[] = [
 
   { key: 'feedback', group: 'feedback', description: 'Access feedback module' },
   { key: 'feedback.submit', group: 'feedback', description: 'Submit feedback and bug reports' },
+
+  { key: 'docs', group: 'docs', description: 'Access documentation module' },
+  { key: 'docs.view', group: 'docs', description: 'View documentation (global and org)' },
+  { key: 'docs.create', group: 'docs', description: 'Create organization documentation' },
+  { key: 'docs.edit', group: 'docs', description: 'Edit organization documentation' },
+  { key: 'docs.delete', group: 'docs', description: 'Delete organization documentation' },
+  { key: 'docs.manage', group: 'docs', description: 'Manage documentation categories' },
+  { key: 'docs.completions.track', group: 'docs', description: 'Mark tutorials as completed' },
 ];

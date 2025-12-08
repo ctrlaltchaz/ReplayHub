@@ -78,7 +78,7 @@ export class AssetService {
   ): Promise<AssetUploadResponseDto> {
     return await this.prisma.$transaction(async tx => {
       // Set RLS context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Validate file
       this.validateFile(file);
@@ -211,7 +211,7 @@ export class AssetService {
 
   async findAssets(tenantId: string, query: QueryAssetsDto) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const where: any = { tenantId };
 
@@ -280,7 +280,7 @@ export class AssetService {
 
   async findAssetById(tenantId: string, assetId: string) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const asset = await tx.asset.findFirst({
         where: { tenantId, id: assetId },
@@ -307,7 +307,7 @@ export class AssetService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const asset = await tx.asset.findFirst({
         where: { tenantId, id: assetId },
@@ -360,7 +360,7 @@ export class AssetService {
 
   async downloadAsset(tenantId: string, assetId: string) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const asset = await tx.asset.findFirst({
         where: { tenantId, id: assetId },
@@ -395,7 +395,7 @@ export class AssetService {
 
   async getAssetVersions(tenantId: string, assetId: string) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const asset = await tx.asset.findFirst({
         where: { tenantId, id: assetId },
@@ -414,7 +414,7 @@ export class AssetService {
 
   async downloadAssetVersion(tenantId: string, assetId: string, versionId: string) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const version = await tx.assetVersion.findFirst({
         where: {
@@ -455,7 +455,7 @@ export class AssetService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const asset = await tx.asset.findFirst({
         where: { tenantId, id: assetId },
@@ -522,7 +522,7 @@ export class AssetService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const asset = await tx.asset.findFirst({
         where: { tenantId, id: assetId },
@@ -568,7 +568,7 @@ export class AssetService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const asset = await tx.asset.findFirst({
         where: { tenantId, id: assetId },
@@ -616,7 +616,7 @@ export class AssetService {
     actorEmail?: string | null
   ): Promise<FolderResponseDto> {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Validate parent folder exists if provided
       if (dto.parentId) {
@@ -682,7 +682,7 @@ export class AssetService {
 
   async findFolders(tenantId: string, query: QueryFoldersDto) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const where: any = { tenantId };
 
@@ -764,7 +764,7 @@ export class AssetService {
 
   async findFolderById(tenantId: string, folderId: string): Promise<FolderWithContentsDto> {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const folder = await tx.assetFolder.findFirst({
         where: { tenantId, id: folderId },
@@ -802,7 +802,7 @@ export class AssetService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const folder = await tx.assetFolder.findFirst({
         where: { tenantId, id: folderId },
@@ -902,7 +902,7 @@ export class AssetService {
     actorEmail?: string | null
   ) {
     return await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const folder = await tx.assetFolder.findFirst({
         where: { tenantId, id: folderId },
@@ -978,3 +978,4 @@ export class AssetService {
     return false;
   }
 }
+

@@ -17,6 +17,7 @@ import { HealthController } from './health/health.controller';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { GlobalAdminModule } from './modules/global-admin/global-admin.module';
 import { GlobalAuthModule } from './modules/global-auth/global-auth.module';
+import { GlobalDocsModule } from './modules/global-docs/global-docs.module';
 import { GlobalOrganisationsModule } from './modules/global-organisations/global-organisations.module';
 import { GlobalUsersModule } from './modules/global-users/global-users.module';
 import { RateLimitModule } from './modules/rate-limit/rate-limit.module';
@@ -41,11 +42,12 @@ import { ProductionSessionsModule } from './modules/attendance-sessions/attendan
 import { ChecklistsModule } from './modules/checklists/checklists.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DiscordModule } from './modules/discord/discord.module';
+import { DocsModule } from './modules/docs/docs.module';
 import { EventsModule } from './modules/events/events.module';
 import { GameLogModule } from './modules/gamelog/gamelog.module';
-import { LiveGraphicsModule } from './modules/live-graphics/live-graphics.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { LiveGraphicsModule } from './modules/live-graphics/live-graphics.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { PasswordsModule } from './modules/passwords/passwords.module';
 import { RolesModule } from './modules/roles/roles.module';
@@ -76,6 +78,7 @@ import { UsersModule } from './modules/users/users.module';
     GlobalAuthModule,
     GlobalUsersModule,
     GlobalOrganisationsModule,
+    GlobalDocsModule,
     UniversalAuthModule,
     FeedbackModule,
 
@@ -112,6 +115,7 @@ import { UsersModule } from './modules/users/users.module';
     ProductionSessionsModule,
     PasswordsModule,
     LiveGraphicsModule,
+    DocsModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -14,7 +14,7 @@ export class EventsService {
   async createEvent(tenantId: string, createEventDto: CreateEventDto, userId: string) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       // Validate datetime order
       if (new Date(createEventDto.endAt) <= new Date(createEventDto.startAt)) {
@@ -44,7 +44,7 @@ export class EventsService {
   async findEvents(tenantId: string, queryDto: QueryEventsDto) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const where: any = { tenantId };
 
@@ -106,7 +106,7 @@ export class EventsService {
   async findEventById(tenantId: string, eventId: string) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const event = await tx.event.findFirst({
         where: { id: eventId, tenantId },
@@ -130,7 +130,7 @@ export class EventsService {
   async updateEvent(tenantId: string, eventId: string, updateEventDto: UpdateEventDto) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const existingEvent = await tx.event.findFirst({
         where: { id: eventId, tenantId },
@@ -160,7 +160,7 @@ export class EventsService {
   async deleteEvent(tenantId: string, eventId: string) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const event = await tx.event.findFirst({
         where: { id: eventId, tenantId },
@@ -181,7 +181,7 @@ export class EventsService {
   async assignLineup(tenantId: string, eventId: string, assignLineupDto: AssignLineupDto) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const event = await tx.event.findFirst({
         where: { id: eventId, tenantId },
@@ -208,7 +208,7 @@ export class EventsService {
   async getCalendarWeek(tenantId: string, startDate: string) {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       // Calculate week range (7 days from start date)
       const start = new Date(startDate);
@@ -245,3 +245,4 @@ export class EventsService {
     });
   }
 }
+

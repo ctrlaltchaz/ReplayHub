@@ -16,7 +16,7 @@ export class DashboardService {
     async getBadgeCounts(tenantId: string, orgUserId?: string): Promise<BadgeCounts> {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             const now = new Date();
 
@@ -51,7 +51,7 @@ export class DashboardService {
 
             let tasksCount = 0;
             if (orgUserId) {
-                const [taskRow] = await tx.$queryRaw<{ count: number }[]>(Prisma.sql`
+                const [taskRow]: { count: number }[] = await (tx as any).$queryRaw(Prisma.sql`
                     WITH checklist_items AS (
                         SELECT
                             c.id AS checklist_id,
@@ -95,3 +95,4 @@ export class DashboardService {
         });
     }
 }
+

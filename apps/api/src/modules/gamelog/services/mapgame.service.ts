@@ -29,7 +29,7 @@ export class MapGameService {
   ): Promise<MapGameResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       // Verify match exists and is editable
       const match = await tx.match.findFirst({
@@ -117,7 +117,7 @@ export class MapGameService {
   ): Promise<MapGameResponse[]> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       // Verify match exists and is editable
       const match = await tx.match.findFirst({
@@ -202,7 +202,7 @@ export class MapGameService {
   async findMapsByMatch(tenantId: string, matchId: string): Promise<MapGameResponse[]> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const maps = await tx.mapGame.findMany({
         where: { matchId, tenantId },
@@ -223,7 +223,7 @@ export class MapGameService {
   async findMapById(tenantId: string, mapId: string): Promise<MapGameResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const mapGame = await tx.mapGame.findFirst({
         where: { id: mapId, tenantId },
@@ -254,7 +254,7 @@ export class MapGameService {
   ): Promise<MapGameResponse> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const mapGame = await tx.mapGame.findFirst({
         where: { id: mapId, tenantId },
@@ -333,7 +333,7 @@ export class MapGameService {
   ): Promise<void> {
     await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       const mapGame = await tx.mapGame.findFirst({
         where: { id: mapId, tenantId },
@@ -445,3 +445,4 @@ export class MapGameService {
     return null;
   }
 }
+

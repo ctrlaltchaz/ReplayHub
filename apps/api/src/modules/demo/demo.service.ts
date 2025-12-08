@@ -32,10 +32,10 @@ export class DemoService {
             // RLS provides additional security layer but we ensure filtering here
             const notes = await this.prisma.$transaction(async (tx) => {
                 // Set the app.tenant_id config for RLS (safety net)
-                await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+                await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
                 // Query notes with explicit tenant filtering + RLS as backup
-                return await tx.$queryRaw<any[]>`
+                return await (tx as any).$queryRaw<any[]>`
           SELECT id, tenant_id, title, body, created_by, created_at 
           FROM notes 
           WHERE tenant_id = ${tenantId}
@@ -75,15 +75,15 @@ export class DemoService {
         if (tenantId) {
             // Test within transaction
             const result = await this.prisma.$transaction(async (tx) => {
-                await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+                await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
                 // Check context and test policy application
-                const contextResult = await tx.$queryRaw<any[]>`
+                const contextResult = await (tx as any).$queryRaw<any[]>`
           SELECT current_setting('app.tenant_id', true) as tenant_id
         `;
 
                 // Test actual query with RLS
-                const rlsTest = await tx.$queryRaw<any[]>`
+                const rlsTest = await (tx as any).$queryRaw<any[]>`
           SELECT COUNT(*)::text as total_notes,
                  COUNT(CASE WHEN tenant_id = current_setting('app.tenant_id') THEN 1 END)::text as matching_notes
           FROM notes
@@ -104,3 +104,4 @@ export class DemoService {
         return { context: result[0] };
     }
 }
+

@@ -9,11 +9,11 @@ export class BookingsService {
     async createBookings(tenantId: string, eventId: string, data: CreateBookingsDto) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             try {
                 // First verify the event exists
-                const event = await tx.$queryRaw`
+                const event = await (tx as any).$queryRaw`
         SELECT id, start_at, end_at FROM events 
         WHERE id = ${eventId} AND tenant_id = ${tenantId}
       `;
@@ -43,7 +43,7 @@ export class BookingsService {
 
                 // Create bookings for each resource
                 const bookingPromises = data.resourceIds.map(resourceId =>
-                    tx.$executeRaw`
+                    (tx as any).$executeRaw`
           INSERT INTO bookings (id, tenant_id, event_id, resource_id)
           VALUES (gen_random_uuid(), ${tenantId}, ${eventId}, ${resourceId})
           ON CONFLICT (tenant_id, event_id, resource_id) DO NOTHING
@@ -53,7 +53,7 @@ export class BookingsService {
                 await Promise.all(bookingPromises);
 
                 // Return the created bookings - fetch within same transaction
-                const bookings = await tx.$queryRaw`
+                const bookings = await (tx as any).$queryRaw`
       SELECT 
         b.id,
         b.event_id,
@@ -81,9 +81,9 @@ export class BookingsService {
     async getEventBookings(tenantId: string, eventId: string) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-            const bookings = await tx.$queryRaw`
+            const bookings = await (tx as any).$queryRaw`
       SELECT 
         b.id,
         b.event_id,
@@ -105,10 +105,10 @@ export class BookingsService {
     async removeBooking(tenantId: string, eventId: string, resourceId: string) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             try {
-                const result = await tx.$executeRaw`
+                const result = await (tx as any).$executeRaw`
         DELETE FROM bookings 
         WHERE tenant_id = ${tenantId} 
           AND event_id = ${eventId} 
@@ -125,10 +125,10 @@ export class BookingsService {
     async removeAllEventBookings(tenantId: string, eventId: string) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             try {
-                const result = await tx.$executeRaw`
+                const result = await (tx as any).$executeRaw`
         DELETE FROM bookings 
         WHERE tenant_id = ${tenantId} AND event_id = ${eventId}
       `;
@@ -149,7 +149,7 @@ export class BookingsService {
     ) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             let whereClause = `
       WHERE b.tenant_id = $1 
@@ -164,7 +164,7 @@ export class BookingsService {
                 queryParams.push(excludeEventId);
             }
 
-            const conflicts = await tx.$queryRawUnsafe(`
+            const conflicts = await (tx as any).$queryRawUnsafe(`
       SELECT 
         e.id as event_id,
         e.title as event_title,
@@ -180,3 +180,4 @@ export class BookingsService {
         });
     }
 }
+

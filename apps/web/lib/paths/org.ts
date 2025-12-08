@@ -33,6 +33,7 @@ export const orgPath = {
   incidents: (slug: OrgSlug) => `/org/${slug}/incidents`,
   attendance: (slug: OrgSlug) => `/org/${slug}/attendance`,
   reports: (slug: OrgSlug) => `/org/${slug}/reports`,
+  docs: (slug: OrgSlug) => `/org/${slug}/docs`,
   settings: (slug: OrgSlug) => `/org/${slug}/settings`,
   admin: (slug: OrgSlug) => `/org/${slug}/admin`,
   socialMedia: (slug: OrgSlug) => `/org/${slug}/social-media`,
@@ -199,6 +200,7 @@ export const ORG_NAV: NavItem[] = [
     ],
   },
   { key: "assets", label: "Assets", href: orgPath.assets, required: PERMISSIONS.ASSETS_UPLOAD },
+  { key: "docs", label: "Documentation", href: orgPath.docs, required: PERMISSIONS.DOCS_VIEW },
   {
     key: "settings",
     label: "Admin / Settings",
@@ -214,6 +216,7 @@ export const adminPath = {
   controlCenter: () => "/admin/control-center",
   organisations: () => "/admin/organisations",
   globalUsers: () => "/admin/global-users",
+  docs: () => "/admin/docs",
   audit: () => "/admin/audit",
 };
 
@@ -230,5 +233,6 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { key: "control-center", label: "Control Center", href: adminPath.controlCenter },
   { key: "organisations", label: "Organizations", href: adminPath.organisations },
   { key: "global-users", label: "Global Users", href: adminPath.globalUsers },
+  { key: "docs", label: "Documentation", href: adminPath.docs },
   { key: "audit", label: "Audit Logs", href: adminPath.audit },
 ];

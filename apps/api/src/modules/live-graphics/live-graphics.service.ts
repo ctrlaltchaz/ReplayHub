@@ -66,8 +66,8 @@ export class LiveGraphicsService {
     callback: (client: Prisma.TransactionClient) => Promise<T>
   ) {
     return this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
       return callback(tx);
     });
   }
@@ -462,3 +462,4 @@ export class LiveGraphicsService {
     });
   }
 }
+

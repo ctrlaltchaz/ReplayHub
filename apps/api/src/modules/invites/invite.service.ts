@@ -26,7 +26,7 @@ export class InviteService {
   ): Promise<{ invite: InviteListDto; token: string }> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Default to EMAIL method if not specified
       const method = createInviteDto.method || InviteMethod.EMAIL;
@@ -166,7 +166,7 @@ export class InviteService {
   async getPendingInvites(tenantId: string): Promise<InviteListDto[]> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const invites = await tx.orgInvite.findMany({
         where: {
@@ -286,7 +286,7 @@ export class InviteService {
 
     return await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Hash the token to find the invite
       const tokenHash = crypto.createHash('sha256').update(acceptInviteDto.token).digest('hex');
@@ -421,7 +421,7 @@ export class InviteService {
   async revokeInvite(tenantId: string, inviteId: string): Promise<{ success: boolean }> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const invite = await tx.orgInvite.findFirst({
         where: {
@@ -524,7 +524,7 @@ export class InviteService {
       }
 
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Create org user
       const orgUser = await tx.orgUser.create({
@@ -656,3 +656,4 @@ export class InviteService {
     }
   }
 }
+

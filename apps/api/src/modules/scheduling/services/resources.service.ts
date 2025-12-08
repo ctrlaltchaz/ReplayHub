@@ -9,10 +9,10 @@ export class ResourcesService {
     async createResource(tenantId: string, data: CreateResourceDto) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             try {
-                const result = await tx.$queryRaw`
+                const result = await (tx as any).$queryRaw`
         INSERT INTO resources (id, tenant_id, kind, name, ref_id, location)
         VALUES (gen_random_uuid(), ${tenantId}, ${data.kind}, ${data.name}, ${data.refId || null}, ${data.location || null})
         RETURNING id, tenant_id, kind, name, ref_id, location, created_at
@@ -31,7 +31,7 @@ export class ResourcesService {
     async findResources(tenantId: string, filters?: ResourceFiltersDto) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             let whereConditions = 'WHERE r.tenant_id = $1';
             const queryParams = [tenantId];
@@ -66,7 +66,7 @@ export class ResourcesService {
       ORDER BY r.name ASC
     `;
 
-            const resources = await tx.$queryRawUnsafe(query, ...queryParams);
+            const resources = await (tx as any).$queryRawUnsafe(query, ...queryParams);
 
             return {
                 data: resources,
@@ -78,9 +78,9 @@ export class ResourcesService {
     async findOneResource(tenantId: string, id: string) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
-            const result = await tx.$queryRaw`
+            const result = await (tx as any).$queryRaw`
       SELECT 
         r.id,
         r.tenant_id,
@@ -103,7 +103,7 @@ export class ResourcesService {
     async updateResource(tenantId: string, id: string, data: UpdateResourceDto) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             try {
                 // Build dynamic update query
@@ -140,7 +140,7 @@ export class ResourcesService {
         RETURNING id, tenant_id, kind, name, ref_id, location, created_at
       `;
 
-                const result = await tx.$queryRawUnsafe(query, ...queryParams);
+                const result = await (tx as any).$queryRawUnsafe(query, ...queryParams);
                 return Array.isArray(result) && result.length > 0 ? result[0] : null;
             } catch (error) {
                 if (error.code === '23505') { // unique constraint violation
@@ -154,10 +154,10 @@ export class ResourcesService {
     async deleteResource(tenantId: string, id: string) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             try {
-                const result = await tx.$executeRaw`
+                const result = await (tx as any).$executeRaw`
         DELETE FROM resources 
         WHERE id = ${id} AND tenant_id = ${tenantId}
       `;
@@ -175,7 +175,7 @@ export class ResourcesService {
     async checkResourceConflicts(tenantId: string, resourceId: string, startAt: Date, endAt: Date, excludeEventId?: string) {
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
-            await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+            await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
             let whereClause = `
       WHERE b.tenant_id = $1 
@@ -190,7 +190,7 @@ export class ResourcesService {
                 queryParams.push(excludeEventId);
             }
 
-            const conflictingBookings = await tx.$queryRawUnsafe(`
+            const conflictingBookings = await (tx as any).$queryRawUnsafe(`
       SELECT 
         b.resource_id,
         e.id as event_id,
@@ -207,3 +207,4 @@ export class ResourcesService {
         });
     }
 }
+

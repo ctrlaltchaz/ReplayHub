@@ -47,7 +47,7 @@ export class AttendanceLoggerService {
   ): Promise<AttendanceLoggerResponse> {
     const targetOrgUserId = dto.orgUserId ?? actorOrgUserId;
     const result = await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const session = await this.resolveSession(tx, tenantId, dto);
       const event = await this.resolveEvent(tx, tenantId, session, dto.eventId);
@@ -147,7 +147,7 @@ export class AttendanceLoggerService {
     dto: ClockOutDto
   ): Promise<AttendanceLoggerResponse> {
     const result = await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const attendance = await tx.attendance.findFirst({
         where: {
@@ -201,7 +201,7 @@ export class AttendanceLoggerService {
   ): Promise<AttendanceLoggerResponse> {
     let previousStatus: AttendanceReviewStatusDto | null = null;
     const result = await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const attendance = await tx.attendance.findFirst({
         where: { id: attendanceId, tenantId },
@@ -251,7 +251,7 @@ export class AttendanceLoggerService {
     attendanceId: string
   ): Promise<AttendanceLoggerResponse> {
     const removed = await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const attendance = await tx.attendance.findFirst({
         where: { id: attendanceId, tenantId },
@@ -295,7 +295,7 @@ export class AttendanceLoggerService {
     dto: AbsenceReportDto
   ): Promise<AttendanceLoggerResponse> {
     const result = await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const session = await this.resolveSession(tx, tenantId, dto);
       const event = await this.resolveEvent(tx, tenantId, session, dto.eventId);
@@ -366,7 +366,7 @@ export class AttendanceLoggerService {
   ): Promise<number> {
     const scheduledDate = this.getDateOnly(scheduledDateInput);
     const updatedEntries = await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const openEntries = await tx.attendance.findMany({
         where: {
@@ -436,7 +436,7 @@ export class AttendanceLoggerService {
 
   async listForStudent(tenantId: string, orgUserId: string): Promise<AttendanceLoggerResponse[]> {
     const result = await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
       const orgUser = await this.resolveOrgUserRecord(tx, tenantId, orgUserId);
       const records = await tx.attendance.findMany({
         where: { tenantId, orgUserId: orgUser.id },
@@ -454,7 +454,7 @@ export class AttendanceLoggerService {
     filters: AttendanceFilterQuery
   ): Promise<AttendanceLoggerResponse[]> {
     return this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
       const orgUser = filters.orgUserId
         ? await this.resolveOrgUserRecord(tx, tenantId, filters.orgUserId)
         : null;
@@ -486,7 +486,7 @@ export class AttendanceLoggerService {
   ): Promise<AttendanceLoggerResponse> {
     let reviewerOrgUserRecord: { id: string } | null = null;
     const result = await this.prisma.$transaction(async tx => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const attendance = await tx.attendance.findFirst({
         where: { id: attendanceId, tenantId },
@@ -748,3 +748,4 @@ export class AttendanceLoggerService {
     return orgUser;
   }
 }
+

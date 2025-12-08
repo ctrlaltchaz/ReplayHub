@@ -1,6 +1,6 @@
 {
   "name": "esports-operations-platform",
-  "version": "0.3.2 (beta) Last update: 05-12-2025",
+  "version": "0.3.3 (beta) Last update: 08-12-2025",
   "description": "Multi-tenant esports operations platform monorepo",
   "private": true,
   "workspaces": [
@@ -63,8 +63,10 @@
     ]
   },
   "dependencies": {
+    "@prisma/client": "^7.1.0",
     "@radix-ui/react-select": "^2.2.6",
     "json2csv": "^6.0.0-alpha.2",
-    "postcss-value-parser": "^4.2.0"
+    "postcss-value-parser": "^4.2.0",
+    "prisma": "^7.1.0"
   }
 }

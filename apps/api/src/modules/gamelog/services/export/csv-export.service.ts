@@ -24,7 +24,7 @@ export class CsvExportService {
   async exportMatchStats(tenantId: string, matchId: string): Promise<CsvExportResult> {
     const result = await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       await this.playerStatService.migrateLegacyStatsToRound(tx, tenantId, matchId);
 
@@ -108,7 +108,7 @@ export class CsvExportService {
   ): Promise<CsvExportResult> {
     const exportResult = await this.prisma.$transaction(async tx => {
       // Set tenant context for RLS
-      await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 
       // Build query filters
       const where: any = { tenantId };
@@ -506,3 +506,4 @@ export class CsvExportService {
     return [...baseFields, ...playerFields, ...gameFields, ...timestampFields];
   }
 }
+

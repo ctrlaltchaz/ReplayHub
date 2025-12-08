@@ -49,11 +49,11 @@ export class ChecklistService {
   constructor(
     private prisma: PrismaService,
     private readonly auditService: AuditService
-  ) {}
+  ) { }
 
   private async setTenantContext(tx: Prisma.TransactionClient, tenantId: string) {
-    await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
-    await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+    await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+    await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
   }
 
   private async autoCompleteExpiredChecklists(tx: Prisma.TransactionClient, tenantId: string) {
@@ -581,7 +581,7 @@ export class ChecklistService {
       };
 
       const limitPlusOne = limit + 1;
-      const rows = await tx.$queryRaw<ChecklistTaskRow[]>(Prisma.sql`
+      const rows: ChecklistTaskRow[] = await (tx as any).$queryRaw(Prisma.sql`
                 SELECT
                     CONCAT(task_rows.checklist_id, ':', task_rows.item_index) AS task_id,
                     task_rows.checklist_id,
@@ -1041,3 +1041,4 @@ export class ChecklistService {
     return changes;
   }
 }
+

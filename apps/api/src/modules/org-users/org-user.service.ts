@@ -25,7 +25,7 @@ export class OrgUserService {
   ): Promise<{ orgUser: OrgUserListDto; needsPasswordSetup?: boolean }> {
     const result = await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Check if user already exists
       const existingUser = await tx.orgUser.findUnique({
@@ -131,7 +131,7 @@ export class OrgUserService {
   async getUsers(tenantId: string): Promise<OrgUserListDto[]> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const users = await tx.orgUser.findMany({
         where: { tenantId },
@@ -205,7 +205,7 @@ export class OrgUserService {
   async getUserById(tenantId: string, userId: string): Promise<OrgUserListDto | null> {
     return await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const user = await tx.orgUser.findFirst({
         where: {
@@ -268,7 +268,7 @@ export class OrgUserService {
 
     const result = await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Check user exists first
       const user = await tx.orgUser.findFirst({
@@ -387,7 +387,7 @@ export class OrgUserService {
 
     const result = await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       // Check user exists
       const user = await tx.orgUser.findFirst({
@@ -637,7 +637,7 @@ export class OrgUserService {
 
     await this.prisma.$transaction(async tx => {
       // Set tenant context
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
+      await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
 
       const orgUser = await tx.orgUser.findFirst({
         where: {
@@ -774,3 +774,4 @@ export class OrgUserService {
     return null;
   }
 }
+
