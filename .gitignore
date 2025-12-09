@@ -69,7 +69,7 @@ temp/
 apps/api/prisma/migrations/**/migration.sql
 
 # Documentation & Scripts (not needed for deployment)
-docs/
+/docs/
 scripts/
 !scripts/post-build-web.js
 # Allow API maintenance scripts to remain tracked
