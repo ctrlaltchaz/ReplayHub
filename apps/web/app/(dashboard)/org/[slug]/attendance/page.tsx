@@ -228,18 +228,22 @@ export default function AttendancePage() {
   const hasClockedIn = Boolean(activeAttendanceEntry);
   const recentlyClockedOut = !hasClockedIn && Boolean(latestEntry?.clockOutAt);
 
+  const [manualSessionId, setManualSessionId] = useState<string | null>(null);
+  const [clockInDepartment, setClockInDepartment] = useState<AttendanceDepartment>("production");
+
   const linkedEvent =
     sessionForNow?.event ??
     (sessionForNow?.eventId
       ? dayEvents?.find((event) => event.id === sessionForNow.eventId)
       : undefined);
-  const targetSessionId = sessionForNow?.id;
+  const selectedSession = manualSessionId 
+    ? upcomingSessions?.find(s => s.id === manualSessionId) ?? sessionForNow
+    : sessionForNow;
+  const targetSessionId = selectedSession?.id;
   const targetEventId = linkedEvent?.id ?? dayEvents?.[0]?.id ?? entries?.[0]?.eventId;
   const studentSessionTitle =
-    sessionForNow?.name ?? linkedEvent?.title ?? dayEvents?.[0]?.title ?? "Production Session";
+    selectedSession?.name ?? linkedEvent?.title ?? dayEvents?.[0]?.title ?? "Production Session";
   const sessionStart = sessionForNow ? new Date(sessionForNow.windowStart) : null;
-
-  const [clockInDepartment, setClockInDepartment] = useState<AttendanceDepartment>("production");
   const [clockInNotes, setClockInNotes] = useState("");
   const [absenceDialogOpen, setAbsenceDialogOpen] = useState(false);
   const [absenceReason, setAbsenceReason] = useState("illness");
@@ -673,6 +677,53 @@ export default function AttendancePage() {
 
         {canManage && (
           <TabsContent value="sessions" className="space-y-6">
+            <Card className="border-primary">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Active Session for Clock-In
+                </CardTitle>
+                <CardDescription>
+                  Set which session students should clock into. This overrides auto-detection.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Current Active Session</Label>
+                  <Select
+                    value={manualSessionId ?? "auto"}
+                    onValueChange={(value) => setManualSessionId(value === "auto" ? null : value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">
+                        🤖 Auto-detect ({selectedSession?.name ?? "No active session"})
+                      </SelectItem>
+                      {upcomingSessions?.map((session) => (
+                        <SelectItem key={session.id} value={session.id}>
+                          {session.name} - {format(new Date(session.sessionDate), "MMM d")} ({format(new Date(session.windowStart), "p")} - {format(new Date(session.windowEnd), "p")})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {manualSessionId ? (
+                    <Alert>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        <strong>Manual override active:</strong> All students will clock into "{selectedSession?.name}" regardless of date/time.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Auto-detecting current or next scheduled session based on date and time.
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>

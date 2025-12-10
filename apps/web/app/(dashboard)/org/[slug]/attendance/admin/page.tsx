@@ -201,6 +201,7 @@ export default function AttendanceAdminPage() {
   const [manualClockNotes, setManualClockNotes] = useState("");
   const [undoClockInId, setUndoClockInId] = useState<string | null>(null);
   const [undoClockOutId, setUndoClockOutId] = useState<string | null>(null);
+  const [activeSessionOverride, setActiveSessionOverride] = useState<string | null>(null);
 
   const sessionQueryRange = showUpcomingOnly ? undefined : sessionRange;
 
@@ -210,6 +211,9 @@ export default function AttendanceAdminPage() {
     isLoading: sessionsLoading,
     refetch: refetchSessions,
   } = useProductionSessions(slug, sessionQueryRange);
+  const { data: upcomingSessions = [] } = useProductionSessions(slug, {
+    from: defaultSessionDate(),
+  });
   const { data: orgUsersResponse, isLoading: orgUsersLoading } = useApiQuery<{
     users: OrgUserListItem[];
   }>(`/org/${slug}/users?limit=200`, {
@@ -543,6 +547,53 @@ export default function AttendanceAdminPage() {
           )}
         </div>
       </div>
+
+      <Card className="border-primary">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            Active Session for Clock-In
+          </CardTitle>
+          <CardDescription>
+            Set which session students should clock into. This overrides auto-detection.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Current Active Session</Label>
+            <Select
+              value={activeSessionOverride ?? "auto"}
+              onValueChange={(value) => setActiveSessionOverride(value === "auto" ? null : value)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">
+                  🤖 Auto-detect (current or next scheduled session)
+                </SelectItem>
+                {upcomingSessions?.map((session) => (
+                  <SelectItem key={session.id} value={session.id}>
+                    {session.name} - {format(new Date(session.sessionDate), "MMM d")} ({format(new Date(session.windowStart), "p")} - {format(new Date(session.windowEnd), "p")})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {activeSessionOverride ? (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Manual override active:</strong> All students will clock into the selected session regardless of date/time.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Auto-detecting current or next scheduled session based on date and time.
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-4">
         <SummaryTile label="Total" value={summary.total} />
