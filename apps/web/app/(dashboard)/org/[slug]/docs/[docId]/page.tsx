@@ -3,7 +3,7 @@
 import { PermissionGuard } from '@/components/permissions/PermissionGuard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { getApiUrl, getServerUrl } from '@/lib/api/config';
@@ -26,7 +26,7 @@ export default function DocViewPage() {
     const { data: doc, isLoading } = useDoc(slug, docId);
 
     usePageTitle(doc?.title || 'Loading...');
-    
+
     // Debug: Log the doc data
     if (doc) {
         console.log('Doc data:', doc);
@@ -185,8 +185,8 @@ export default function DocViewPage() {
 
                 <div className="flex gap-2">
                     <PermissionGuard required="docs.completions.track">
-                        <Button 
-                            onClick={handleMarkComplete} 
+                        <Button
+                            onClick={handleMarkComplete}
                             disabled={markingComplete || (doc as any).is_completed}
                             variant={(doc as any).is_completed ? "secondary" : "default"}
                         >
@@ -250,8 +250,8 @@ export default function DocViewPage() {
                                 <p className="text-sm font-medium text-muted-foreground mb-3">Author</p>
                                 <div className="flex items-center gap-3">
                                     {(doc.author as any).avatar ? (
-                                        <img 
-                                            src={`${getServerUrl()}${(doc.author as any).avatar}`} 
+                                        <img
+                                            src={`${getServerUrl()}${(doc.author as any).avatar}`}
                                             alt={doc.author.name || doc.author.email || 'Author'}
                                             className="h-12 w-12 rounded-full object-cover"
                                         />
@@ -275,30 +275,30 @@ export default function DocViewPage() {
                             {(doc as any).created_at && (
                                 <div>
                                     <p className="text-xs font-medium text-muted-foreground mb-1">Created</p>
-                                    <p className="text-sm">{new Date((doc as any).created_at).toLocaleDateString('en-US', { 
-                                        year: 'numeric', 
-                                        month: 'long', 
-                                        day: 'numeric' 
+                                    <p className="text-sm">{new Date((doc as any).created_at).toLocaleDateString('en-US', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
                                     })}</p>
                                 </div>
                             )}
                             {(doc as any).updated_at && (
                                 <div>
                                     <p className="text-xs font-medium text-muted-foreground mb-1">Last Updated</p>
-                                    <p className="text-sm">{new Date((doc as any).updated_at).toLocaleDateString('en-US', { 
-                                        year: 'numeric', 
-                                        month: 'long', 
-                                        day: 'numeric' 
+                                    <p className="text-sm">{new Date((doc as any).updated_at).toLocaleDateString('en-US', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
                                     })}</p>
                                 </div>
                             )}
                             {(doc as any).published_at && (
                                 <div>
                                     <p className="text-xs font-medium text-muted-foreground mb-1">Published</p>
-                                    <p className="text-sm">{new Date((doc as any).published_at).toLocaleDateString('en-US', { 
-                                        year: 'numeric', 
-                                        month: 'long', 
-                                        day: 'numeric' 
+                                    <p className="text-sm">{new Date((doc as any).published_at).toLocaleDateString('en-US', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
                                     })}</p>
                                 </div>
                             )}

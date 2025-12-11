@@ -5,6 +5,7 @@ export const CreateTeamDto = z.object({
     name: z.string().min(1).max(100),
     game: z.string().min(1).max(50),
     season: z.string().max(20).optional(),
+    mapPool: z.array(z.string()).optional(),
     coachId: z.string().optional(),
     captainId: z.string().optional(),
 });
@@ -13,6 +14,7 @@ export const UpdateTeamDto = z.object({
     name: z.string().min(1).max(100).optional(),
     game: z.string().min(1).max(50).optional(),
     season: z.string().max(20).optional(),
+    mapPool: z.array(z.string()).optional(),
     coachId: z.string().optional(),
     captainId: z.string().optional(),
     status: z.enum(['active', 'archived']).optional(),

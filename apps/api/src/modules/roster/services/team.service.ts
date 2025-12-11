@@ -15,7 +15,16 @@ export class TeamService {
     private prisma: PrismaService,
     private discordService: DiscordService,
     private readonly auditService: AuditService
-  ) {}
+  ) { }
+
+  // Helper to transform mapPoolJson to mapPool for API responses
+  private formatTeamResponse(team: any) {
+    const { mapPoolJson, ...rest } = team;
+    return {
+      ...rest,
+      mapPool: Array.isArray(mapPoolJson) ? mapPoolJson : [],
+    };
+  }
 
   async create(
     tenantId: string,
@@ -49,6 +58,7 @@ export class TeamService {
         name: createTeamDto.name,
         game: createTeamDto.game,
         season: createTeamDto.season || null,
+        mapPoolJson: createTeamDto.mapPool || [],
         coachGlobalUserId,
         captainId: createTeamDto.captainId || null,
         tenantId,
@@ -84,7 +94,7 @@ export class TeamService {
       },
     });
 
-    return team;
+    return this.formatTeamResponse(team);
   }
 
   async findMany(tenantId: string, query: TeamQueryDto) {
@@ -107,7 +117,7 @@ export class TeamService {
       ];
     }
 
-    return this.prisma.team.findMany({
+    const teams = await this.prisma.team.findMany({
       where,
       include: {
         coachGlobalUser: {
@@ -122,6 +132,8 @@ export class TeamService {
       },
       orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
     });
+
+    return teams.map(team => this.formatTeamResponse(team));
   }
 
   async findOne(tenantId: string, id: string) {
@@ -166,7 +178,7 @@ export class TeamService {
       throw new NotFoundException('Team not found');
     }
 
-    return team;
+    return this.formatTeamResponse(team);
   }
 
   async update(
@@ -221,9 +233,15 @@ export class TeamService {
       }
     }
 
+    const updateData: any = { ...updateTeamDto };
+    if (updateTeamDto.mapPool !== undefined) {
+      updateData.mapPoolJson = updateTeamDto.mapPool;
+      delete updateData.mapPool;
+    }
+
     const updated = await this.prisma.team.update({
       where: { id },
-      data: updateTeamDto,
+      data: updateData,
       include: {
         coachGlobalUser: {
           select: { id: true, name: true, email: true },
@@ -243,6 +261,7 @@ export class TeamService {
       'game',
       'season',
       'status',
+      'mapPoolJson',
       'coachGlobalUserId',
       'captainId',
     ] as const;
@@ -284,7 +303,7 @@ export class TeamService {
       },
     });
 
-    return updated;
+    return this.formatTeamResponse(updated);
   }
 
   async archive(

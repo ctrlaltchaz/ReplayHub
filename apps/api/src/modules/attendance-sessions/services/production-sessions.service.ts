@@ -12,16 +12,16 @@ export class ProductionSessionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService
-  ) {}
+  ) { }
 
   async ensureDefaultSession(tenantId: string, createdBy?: string) {
     const creatorId = createdBy
       ? await this.prisma.orgUser
-          .findFirst({
-            where: { id: createdBy, tenantId },
-            select: { id: true },
-          })
-          .then(result => result?.id)
+        .findFirst({
+          where: { id: createdBy, tenantId },
+          select: { id: true },
+        })
+        .then(result => result?.id)
       : undefined;
 
     const defaultRule = 'RRULE:FREQ=WEEKLY;BYDAY=WE';
@@ -95,11 +95,11 @@ export class ProductionSessionsService {
   ) {
     const orgCreatorId = creatorId
       ? await this.prisma.orgUser
-          .findFirst({
-            where: { id: creatorId, tenantId },
-            select: { id: true },
-          })
-          .then(result => result?.id)
+        .findFirst({
+          where: { id: creatorId, tenantId },
+          select: { id: true },
+        })
+        .then(result => result?.id)
       : undefined;
     await this.ensureEventOwnership(tenantId, dto.eventId);
     const session = await this.repo().create({
@@ -323,5 +323,102 @@ export class ProductionSessionsService {
     }
 
     return null;
+  }
+
+  async getAutoProvisionStatus(tenantId: string) {
+    const defaultRule = 'RRULE:FREQ=WEEKLY;BYDAY=WE';
+    const recurringSession = await this.repo().findFirst({
+      where: {
+        tenantId,
+        isRecurring: true,
+        recurrenceRule: defaultRule,
+        status: 'scheduled',
+      },
+    });
+
+    const nextWednesday = this.getNextWeekday(3);
+    const nextWeekWednesday = new Date(nextWednesday);
+    nextWeekWednesday.setDate(nextWeekWednesday.getDate() + 7);
+
+    const futureSession = await this.repo().findFirst({
+      where: {
+        tenantId,
+        sessionDate: { gte: nextWednesday },
+        isRecurring: true,
+        recurrenceRule: defaultRule,
+        status: 'scheduled',
+      },
+      orderBy: { sessionDate: 'asc' },
+    });
+
+    return {
+      enabled: !!recurringSession,
+      hasRecurringSession: !!recurringSession,
+      nextProvisionDate: recurringSession ? nextWeekWednesday : null,
+      upcomingSessions: futureSession ? 1 : 0,
+    };
+  }
+
+  async toggleAutoProvision(
+    tenantId: string,
+    enabled: boolean,
+    actorOrgUserId?: string | null,
+    actorEmail?: string | null
+  ) {
+    const defaultRule = 'RRULE:FREQ=WEEKLY;BYDAY=WE';
+
+    if (enabled) {
+      // Enable auto-provisioning by creating a recurring session if it doesn't exist
+      await this.ensureDefaultSession(tenantId, actorOrgUserId ?? undefined);
+
+      await this.auditService.log({
+        tenantId,
+        action: 'attendance.autoprovision.enable',
+        entity: 'attendance_settings',
+        entityType: 'ORG_USER',
+        entityId: tenantId,
+        orgUserId: await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail),
+        description: 'Enabled auto-provisioning for Wednesday sessions',
+        metadata: { actorEmail },
+      });
+    } else {
+      // Disable by cancelling all recurring sessions
+      const recurringSessions = await this.repo().findMany({
+        where: {
+          tenantId,
+          isRecurring: true,
+          recurrenceRule: defaultRule,
+          status: 'scheduled',
+        },
+      });
+
+      await this.repo().updateMany({
+        where: {
+          tenantId,
+          isRecurring: true,
+          recurrenceRule: defaultRule,
+          status: 'scheduled',
+        },
+        data: {
+          status: 'cancelled',
+        },
+      });
+
+      await this.auditService.log({
+        tenantId,
+        action: 'attendance.autoprovision.disable',
+        entity: 'attendance_settings',
+        entityType: 'ORG_USER',
+        entityId: tenantId,
+        orgUserId: await this.resolveActorOrgUserId(tenantId, actorOrgUserId, actorEmail),
+        description: 'Disabled auto-provisioning for Wednesday sessions',
+        metadata: {
+          cancelledCount: recurringSessions.length,
+          actorEmail,
+        },
+      });
+    }
+
+    return this.getAutoProvisionStatus(tenantId);
   }
 }

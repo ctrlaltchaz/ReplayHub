@@ -14,16 +14,16 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TenantId } from '../../../common/tenant/decorators/tenant-id.decorator';
 import { TenantGuard } from '../../../common/tenant/guards/tenant.guard';
 import { UnifiedTenantAuthGuard } from '../../../common/tenant/guards/unified-tenant-auth.guard';
-import { PermissionGuard } from '../../rbac/guards/permission.guard';
+import { AttendanceFilterQuery } from '../../attendance-logger/dto/attendance-logger.dto';
+import { AttendanceLoggerService } from '../../attendance-logger/services/attendance-logger.service';
 import { Can } from '../../rbac/decorators/can.decorator';
+import { PermissionGuard } from '../../rbac/guards/permission.guard';
 import {
   CreateSessionDto,
   QuerySessionsDto,
   UpdateSessionDto,
 } from '../dto/production-session.dto';
 import { ProductionSessionsService } from '../services/production-sessions.service';
-import { AttendanceLoggerService } from '../../attendance-logger/services/attendance-logger.service';
-import { AttendanceFilterQuery } from '../../attendance-logger/dto/attendance-logger.dto';
 
 @ApiTags('Attendance Sessions')
 @ApiBearerAuth()
@@ -33,7 +33,7 @@ export class ProductionSessionsController {
   constructor(
     private readonly sessionsService: ProductionSessionsService,
     private readonly attendanceService: AttendanceLoggerService
-  ) {}
+  ) { }
 
   @Get()
   @ApiOperation({ summary: 'List production sessions for an organisation' })
@@ -135,5 +135,33 @@ export class ProductionSessionsController {
       ...query,
       sessionId,
     });
+  }
+
+  @Get('auto-provision/status')
+  @ApiOperation({ summary: 'Check auto-provisioning status' })
+  @Can('attendance.manage')
+  async getAutoProvisionStatus(
+    @TenantId() tenantId: string,
+    @Req() req: any
+  ) {
+    const actualTenantId = req.tenant?.id || tenantId;
+    return this.sessionsService.getAutoProvisionStatus(actualTenantId);
+  }
+
+  @Post('auto-provision/toggle')
+  @ApiOperation({ summary: 'Toggle auto-provisioning on/off' })
+  @Can('attendance.manage')
+  async toggleAutoProvision(
+    @TenantId() tenantId: string,
+    @Req() req: any,
+    @Body() body: { enabled: boolean }
+  ) {
+    const actualTenantId = req.tenant?.id || tenantId;
+    return this.sessionsService.toggleAutoProvision(
+      actualTenantId,
+      body.enabled,
+      req.orgUser?.id,
+      req.orgUser?.email ?? req.globalUser?.email ?? null
+    );
   }
 }

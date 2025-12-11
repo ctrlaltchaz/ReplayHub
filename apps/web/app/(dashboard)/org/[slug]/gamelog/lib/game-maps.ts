@@ -1,0 +1,81 @@
+// Game-specific map pools
+export const GAME_MAPS: Record<string, string[]> = {
+    "Valorant": [
+        "Abyss",
+        "Ascent",
+        "Bind",
+        "Breeze",
+        "Fracture",
+        "Haven",
+        "Icebox",
+        "Lotus",
+        "Pearl",
+        "Split",
+        "Sunset",
+    ],
+    "Counter-Strike 2": [
+        "Ancient",
+        "Anubis",
+        "Dust 2",
+        "Inferno",
+        "Mirage",
+        "Nuke",
+        "Overpass",
+        "Vertigo",
+    ],
+    "League of Legends": [
+        "Summoner's Rift",
+        "ARAM (Howling Abyss)",
+    ],
+    "Dota 2": [
+        "Dota Map",
+    ],
+    "Overwatch": [
+        "Blizzard World",
+        "Busan",
+        "Dorado",
+        "Eichenwalde",
+        "Hanamura",
+        "Hollywood",
+        "Ilios",
+        "Junkertown",
+        "King's Row",
+        "Lijiang Tower",
+        "Nepal",
+        "Numbani",
+        "Oasis",
+        "Rialto",
+        "Route 66",
+        "Temple of Anubis",
+        "Volskaya Industries",
+        "Watchpoint: Gibraltar",
+    ],
+    "Rocket League": [
+        "DFH Stadium",
+        "Mannfield",
+        "Champions Field",
+        "Urban Central",
+        "Beckwith Park",
+        "Utopia Coliseum",
+        "Wasteland",
+        "Neo Tokyo",
+        "Aquadome",
+        "Starbase ARC",
+        "Farmstead",
+        "Salty Shores",
+        "DFH Stadium (Stormy)",
+        "Forbidden Temple",
+    ],
+    "Apex Legends": [
+        "World's Edge",
+        "Kings Canyon",
+        "Olympus",
+        "Storm Point",
+        "Broken Moon",
+    ],
+};
+
+export function getGameMaps(game?: string): string[] {
+    if (!game) return [];
+    return GAME_MAPS[game] || [];
+}

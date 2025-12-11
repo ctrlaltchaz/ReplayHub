@@ -27,9 +27,10 @@ import {
   Trophy,
   X,
 } from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { LogMatchDialog } from "./components/LogMatchDialog";
 import { useMatchesList } from "./hooks/useMatchesList";
 
 const GAMES = [
@@ -53,6 +54,7 @@ export default function GamelogPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [hasSelectedTeamManually, setHasSelectedTeamManually] = useState(false);
+  const [logMatchDialogOpen, setLogMatchDialogOpen] = useState(false);
 
   const canManage = hasPermission("gamelog.manage");
   const canView = hasPermission("gamelog.view");
@@ -179,12 +181,19 @@ export default function GamelogPage() {
             </p>
           </div>
           {canManage && (
-            <Button onClick={() => router.push(`/org/${slug}/gamelog/create`)}>
+            <Button onClick={() => setLogMatchDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Log Match
             </Button>
           )}
         </div>
+
+        {/* Log Match Dialog */}
+        <LogMatchDialog
+          open={logMatchDialogOpen}
+          onOpenChange={setLogMatchDialogOpen}
+          organizationSlug={slug}
+        />
 
         {/* Team Cards */}
         {teams.length > 0 && (
@@ -443,22 +452,24 @@ export default function GamelogPage() {
           </div>
         ) : (
           <Card>
-            <CardContent className="py-12 text-center space-y-4">
-              <Trophy className="h-12 w-12 mx-auto text-muted-foreground" />
-              <div>
-                <h3 className="font-semibold">No matches found</h3>
-                <p className="text-sm text-muted-foreground">
+            <CardContent className="py-12">
+              <div className="text-center">
+                <Trophy className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">
+                  {searchQuery || Object.keys(filters).length > 0 ? "No matches found" : "No matches yet"}
+                </h3>
+                <p className="text-muted-foreground mb-4">
                   {searchQuery || Object.keys(filters).length > 0
                     ? "Try adjusting your filters"
                     : "Start logging matches to track your team's performance"}
                 </p>
+                {canManage && !searchQuery && Object.keys(filters).length === 0 && (
+                  <Button onClick={() => setLogMatchDialogOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Log Your First Match
+                  </Button>
+                )}
               </div>
-              {canManage && !searchQuery && Object.keys(filters).length === 0 && (
-                <Button onClick={() => router.push(`/org/${slug}/gamelog/create`)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Log Your First Match
-                </Button>
-              )}
             </CardContent>
           </Card>
         )}

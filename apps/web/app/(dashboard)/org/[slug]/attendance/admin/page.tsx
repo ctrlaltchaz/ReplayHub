@@ -1,8 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { format } from "date-fns";
 import {
   AlertTriangle,
   Calendar as CalendarIcon,
@@ -16,31 +14,14 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
-import { format } from "date-fns";
+import Link from "next/link";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -49,19 +30,38 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 
-import { usePageTitle } from "@/lib/hooks/usePageTitle";
-import { usePermissions } from "@/hooks/usePermissions";
-import { PERMISSIONS } from "@/lib/permissions/utils";
 import { useToast } from "@/components/ui/use-toast";
+import type { AttendanceFilters } from "@/hooks/attendance/useAttendanceEntries";
 import { useAttendanceEntries } from "@/hooks/attendance/useAttendanceEntries";
+import type { ProductionSession } from "@/hooks/attendance/useProductionSessions";
 import { useProductionSessions } from "@/hooks/attendance/useProductionSessions";
 import { useEventsList } from "@/hooks/events";
-import type { AttendanceDepartment, AttendanceEntry, AttendanceStatus } from "@/types/attendance";
-import type { AttendanceFilters } from "@/hooks/attendance/useAttendanceEntries";
-import type { ProductionSession } from "@/hooks/attendance/useProductionSessions";
+import { usePermissions } from "@/hooks/usePermissions";
 import { apiDelete, apiPatch, apiPost } from "@/lib/api/client";
 import { useApiQuery } from "@/lib/api/query";
+import { usePageTitle } from "@/lib/hooks/usePageTitle";
+import { PERMISSIONS } from "@/lib/permissions/utils";
+import type { AttendanceDepartment, AttendanceEntry, AttendanceStatus } from "@/types/attendance";
 
 const DEPARTMENTS: { label: string; value: AttendanceDepartment }[] = [
   { label: "Broadcasting", value: "broadcasting" },
@@ -202,6 +202,7 @@ export default function AttendanceAdminPage() {
   const [undoClockInId, setUndoClockInId] = useState<string | null>(null);
   const [undoClockOutId, setUndoClockOutId] = useState<string | null>(null);
   const [activeSessionOverride, setActiveSessionOverride] = useState<string | null>(null);
+  const [tempSelectedSession, setTempSelectedSession] = useState<string | null>(null);
 
   const sessionQueryRange = showUpcomingOnly ? undefined : sessionRange;
 
@@ -213,6 +214,15 @@ export default function AttendanceAdminPage() {
   } = useProductionSessions(slug, sessionQueryRange);
   const { data: upcomingSessions = [] } = useProductionSessions(slug, {
     from: defaultSessionDate(),
+  });
+  const { data: autoProvisionStatus, refetch: refetchAutoProvision } = useApiQuery<{
+    enabled: boolean;
+    hasRecurringSession: boolean;
+    nextProvisionDate: string | null;
+    upcomingSessions: number;
+  }>(`/org/${slug}/attendance/sessions/auto-provision/status`, {
+    apiOptions: { slug },
+    enabled: canManage,
   });
   const { data: orgUsersResponse, isLoading: orgUsersLoading } = useApiQuery<{
     users: OrgUserListItem[];
@@ -383,16 +393,22 @@ export default function AttendanceAdminPage() {
     }
     setClocking(true);
     try {
-      await apiPost(`/org/${slug}/attendance/logger/clock-in`, {
+      const response = await apiPost<{ event?: { id: string; title: string; startAt: string } }>(`/org/${slug}/attendance/logger/clock-in`, {
         orgUserId: manualClockOrgUserId,
         sessionId: manualClockSessionId,
         department: manualClockDepartment,
         roleNotes: manualClockNotes || undefined,
         overrideToken: "admin-panel",
       });
+
+      // Show which event was applied (if auto-detected)
+      const wasAutoDetected = response.event;
+
       toast({
         title: "Clocked in",
-        description: "Attendance entry created for this member.",
+        description: wasAutoDetected
+          ? `Attendance entry created for this member. Auto-detected and applied event: ${response.event?.title}`
+          : "Attendance entry created for this member.",
       });
       setClockDialogOpen(false);
       refetch();
@@ -492,6 +508,20 @@ export default function AttendanceAdminPage() {
     }
   };
 
+  const handleUncancelSession = async (session: ProductionSession) => {
+    try {
+      await apiPatch(`/org/${slug}/attendance/sessions/${session.id}`, { status: "scheduled" });
+      toast({ title: "Session restored" });
+      refetchSessions();
+    } catch (error) {
+      toast({
+        title: "Unable to restore session",
+        description: error instanceof Error ? error.message : "Try again later",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDeleteSession = (session: ProductionSession) => {
     setSessionToDelete(session);
     setDeleteDialogOpen(true);
@@ -522,6 +552,26 @@ export default function AttendanceAdminPage() {
 
   const clearSessionFilter = () => setFilters((prev) => ({ ...prev, sessionId: undefined }));
 
+  const handleToggleAutoProvision = async (enabled: boolean) => {
+    try {
+      await apiPost(`/org/${slug}/attendance/sessions/auto-provision/toggle`, { enabled });
+      toast({
+        title: enabled ? "Auto-provisioning enabled" : "Auto-provisioning disabled",
+        description: enabled
+          ? "Wednesday sessions will be created automatically"
+          : "Recurring Wednesday sessions have been cancelled"
+      });
+      refetchAutoProvision();
+      refetchSessions();
+    } catch (error) {
+      toast({
+        title: "Failed to toggle auto-provisioning",
+        description: error instanceof Error ? error.message : "Try again later",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto space-y-6 p-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -548,52 +598,128 @@ export default function AttendanceAdminPage() {
         </div>
       </div>
 
-      <Card className="border-primary">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Active Session for Clock-In
-          </CardTitle>
-          <CardDescription>
-            Set which session students should clock into. This overrides auto-detection.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Current Active Session</Label>
-            <Select
-              value={activeSessionOverride ?? "auto"}
-              onValueChange={(value) => setActiveSessionOverride(value === "auto" ? null : value)}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="border-primary">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Active Session for Clock-In
+            </CardTitle>
+            <CardDescription>
+              Set which session students should clock into. This overrides auto-detection.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Current Active Session</Label>
+              <div className="flex gap-2">
+                <Select
+                  value={tempSelectedSession ?? activeSessionOverride ?? "auto"}
+                  onValueChange={(value) => setTempSelectedSession(value === "auto" ? null : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">
+                      🤖 Auto-detect (current or next scheduled session)
+                    </SelectItem>
+                    {upcomingSessions?.map((session) => (
+                      <SelectItem key={session.id} value={session.id}>
+                        {session.name} - {format(new Date(session.sessionDate), "MMM d")} ({format(new Date(session.windowStart), "p")} - {format(new Date(session.windowEnd), "p")})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={() => {
+                    setActiveSessionOverride(tempSelectedSession);
+                    toast({ title: "Active session updated", description: tempSelectedSession ? "Students will clock into the selected session" : "Auto-detection enabled" });
+                  }}
+                  disabled={tempSelectedSession === activeSessionOverride}
+                >
+                  Apply
+                </Button>
+              </div>
+              {activeSessionOverride ? (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Manual override active:</strong> All students will clock into the selected session regardless of date/time.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Auto-detecting current or next scheduled session based on date and time.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              Quick Actions
+            </CardTitle>
+            <CardDescription>
+              Common attendance management tasks
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => {
+                const today = format(new Date(), "yyyy-MM-dd");
+                setFilters((prev) => ({ ...prev, scheduledDate: today, sessionId: undefined, status: undefined }));
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
             >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="auto">
-                  🤖 Auto-detect (current or next scheduled session)
-                </SelectItem>
-                {upcomingSessions?.map((session) => (
-                  <SelectItem key={session.id} value={session.id}>
-                    {session.name} - {format(new Date(session.sessionDate), "MMM d")} ({format(new Date(session.windowStart), "p")} - {format(new Date(session.windowEnd), "p")})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {activeSessionOverride ? (
-              <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>Manual override active:</strong> All students will clock into the selected session regardless of date/time.
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Auto-detecting current or next scheduled session based on date and time.
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              View Today's Attendance
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => {
+                setFilters((prev) => ({ ...prev, status: "pending" }));
+                window.scrollTo({ top: 600, behavior: "smooth" });
+              }}
+            >
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Review Pending Entries ({summary.pending})
+            </Button>
+
+            <div className="pt-3 border-t space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Auto-Provisioning</p>
+                  <p className="text-xs text-muted-foreground">
+                    {autoProvisionStatus?.enabled
+                      ? "Wednesday sessions auto-created weekly"
+                      : "Manual session creation only"}
+                  </p>
+                </div>
+                <Switch
+                  checked={autoProvisionStatus?.enabled ?? false}
+                  onCheckedChange={handleToggleAutoProvision}
+                />
+              </div>
+              {autoProvisionStatus?.enabled && autoProvisionStatus.nextProvisionDate && (
+                <Alert className="bg-muted/50">
+                  <CalendarIcon className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    Next auto-provision: {format(new Date(autoProvisionStatus.nextProvisionDate), "EEEE, MMM d")} at 12pm
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-4">
         <SummaryTile label="Total" value={summary.total} />
@@ -829,29 +955,8 @@ export default function AttendanceAdminPage() {
                     {canManage && (
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          {entry.clockInAt &&
-                            (entry.clockOutAt ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleUndoClockOutEntry(entry)}
-                                disabled={undoClockOutId === entry.id}
-                              >
-                                <LogIn className="mr-1 h-3 w-3" />
-                                {undoClockOutId === entry.id ? "Undoing…" : "Undo clock-out"}
-                              </Button>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleClockOutEntry(entry)}
-                                disabled={clockOutId === entry.id}
-                              >
-                                <LogOut className="mr-1 h-3 w-3" />
-                                {clockOutId === entry.id ? "Clocking…" : "Clock out"}
-                              </Button>
-                            ))}
-                          {entry.clockInAt && (
+                          {!entry.clockInAt && entry.clockOutAt ? (
+                            // Invalid state: clock-out without clock-in
                             <Button
                               size="sm"
                               variant="destructive"
@@ -859,9 +964,42 @@ export default function AttendanceAdminPage() {
                               disabled={undoClockInId === entry.id}
                             >
                               <XCircle className="mr-1 h-3 w-3" />
-                              {undoClockInId === entry.id ? "Removing…" : "Undo clock-in"}
+                              {undoClockInId === entry.id ? "Removing…" : "Fix Entry"}
                             </Button>
-                          )}
+                          ) : entry.clockInAt ? (
+                            <>
+                              {entry.clockOutAt ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleUndoClockOutEntry(entry)}
+                                  disabled={undoClockOutId === entry.id}
+                                >
+                                  <LogIn className="mr-1 h-3 w-3" />
+                                  {undoClockOutId === entry.id ? "Undoing…" : "Undo clock-out"}
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleClockOutEntry(entry)}
+                                  disabled={clockOutId === entry.id}
+                                >
+                                  <LogOut className="mr-1 h-3 w-3" />
+                                  {clockOutId === entry.id ? "Clocking…" : "Clock out"}
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleUndoClockInEntry(entry)}
+                                disabled={undoClockInId === entry.id}
+                              >
+                                <XCircle className="mr-1 h-3 w-3" />
+                                {undoClockInId === entry.id ? "Removing…" : "Undo clock-in"}
+                              </Button>
+                            </>
+                          ) : null}
                           <Button size="sm" variant="ghost" onClick={() => handleOpenReview(entry)}>
                             Review
                           </Button>
@@ -988,7 +1126,11 @@ export default function AttendanceAdminPage() {
                   >
                     Edit
                   </Button>
-                  {session.status !== "cancelled" && (
+                  {session.status === "cancelled" ? (
+                    <Button size="sm" variant="default" onClick={() => handleUncancelSession(session)}>
+                      Uncancel
+                    </Button>
+                  ) : (
                     <Button size="sm" variant="ghost" onClick={() => handleCancelSession(session)}>
                       Cancel
                     </Button>

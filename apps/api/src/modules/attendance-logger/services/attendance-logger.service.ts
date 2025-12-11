@@ -1,26 +1,26 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, AttendanceSource } from '@prisma/client';
+import { AttendanceSource, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { AuditService } from '../../../common/audit/audit.service';
 import { PrismaService } from '../../../database/prisma.service';
 import {
   AbsenceReportDto,
-  AttendanceFilterQuery,
   AttendanceAbsenceReasonDto,
   AttendanceDepartmentDto,
-  AttendanceSourceDto,
+  AttendanceFilterQuery,
   AttendanceLoggerResponse,
   AttendanceReviewStatusDto,
+  AttendanceSourceDto,
   ClockInDto,
   ClockOutDto,
   TutorReviewDto,
 } from '../dto/attendance-logger.dto';
-import { AttendancePolicyService } from './attendance-policy.service';
-import { AuditService } from '../../../common/audit/audit.service';
 import {
   AttendanceNotificationService,
   AutoClockOutNotificationEntry,
 } from './attendance-notification.service';
+import { AttendancePolicyService } from './attendance-policy.service';
 
 type AttendanceWithRelations = Prisma.AttendanceGetPayload<{
   include: {
@@ -38,7 +38,7 @@ export class AttendanceLoggerService {
     private readonly policy: AttendancePolicyService,
     private readonly auditService: AuditService,
     private readonly notificationService: AttendanceNotificationService
-  ) {}
+  ) { }
 
   async clockIn(
     tenantId: string,
@@ -52,13 +52,18 @@ export class AttendanceLoggerService {
       const session = await this.resolveSession(tx, tenantId, dto);
       const event = await this.resolveEvent(tx, tenantId, session, dto.eventId);
 
+      if (!session && !event) {
+        throw new NotFoundException('No session or event found for attendance');
+      }
+
       const orgUser = await this.resolveOrgUserRecord(tx, tenantId, targetOrgUserId);
       const creatorOrgUser = await this.resolveOrgUserRecord(tx, tenantId, actorOrgUserId);
 
       const existing = await tx.attendance.findFirst({
         where: {
           tenantId,
-          eventId: event.id,
+          ...(event ? { eventId: event.id } : {}),
+          ...(session ? { sessionId: session.id } : {}),
           orgUserId: orgUser.id,
         },
       });
@@ -67,23 +72,27 @@ export class AttendanceLoggerService {
         throw new ConflictException('Attendance already exists for this session');
       }
 
+      const scheduledDate = session
+        ? this.getDateOnly(session.sessionDate)
+        : event
+          ? this.getDateOnly(event.startAt)
+          : this.getDateOnly(new Date());
+
       const policyResult = dto.absenceReason
         ? {
-            now: null,
-            scheduledDate: session
-              ? this.getDateOnly(session.sessionDate)
-              : this.getDateOnly(event.startAt),
-            isLate: false,
-          }
+          now: null,
+          scheduledDate,
+          isLate: false,
+        }
         : this.policy.evaluateClockInWindow(
-            session ?? this.adaptEventToSession(event),
-            dto.overrideToken
-          );
+          session ?? (event ? this.adaptEventToSession(event) : null),
+          dto.overrideToken
+        );
 
       const attendance = await tx.attendance.create({
         data: {
           tenantId,
-          eventId: event.id,
+          eventId: event?.id ?? null,
           orgUserId: orgUser.id,
           department: dto.department,
           roleNotes: dto.roleNotes,
@@ -94,7 +103,7 @@ export class AttendanceLoggerService {
             : AttendanceReviewStatusDto.PENDING,
           clockInAt: policyResult.now ?? undefined,
           lateFlag: policyResult.isLate ?? false,
-          scheduledDate: policyResult.scheduledDate ?? this.getDateOnly(event.startAt),
+          scheduledDate: policyResult.scheduledDate ?? scheduledDate,
           sessionId: session?.id,
           source: this.asAttendanceSource(
             dto.overrideToken ? AttendanceSourceDto.TUTOR : AttendanceSourceDto.STUDENT
@@ -300,6 +309,10 @@ export class AttendanceLoggerService {
       const session = await this.resolveSession(tx, tenantId, dto);
       const event = await this.resolveEvent(tx, tenantId, session, dto.eventId);
 
+      if (!session && !event) {
+        throw new NotFoundException('No session or event found for absence');
+      }
+
       const targetOrgUserId = dto.orgUserId ?? actorOrgUserId;
 
       const orgUser = await this.resolveOrgUserRecord(tx, tenantId, targetOrgUserId);
@@ -307,8 +320,8 @@ export class AttendanceLoggerService {
       const existing = await tx.attendance.findFirst({
         where: {
           tenantId,
-          eventId: event.id,
-          sessionId: session?.id,
+          ...(event ? { eventId: event.id } : {}),
+          ...(session ? { sessionId: session.id } : {}),
           orgUserId: orgUser.id,
         },
       });
@@ -317,14 +330,19 @@ export class AttendanceLoggerService {
         throw new ConflictException('Attendance record already exists');
       }
 
-      const scheduledDate = this.getDateOnly(event.startAt);
+      const scheduledDate = session
+        ? this.getDateOnly(session.sessionDate)
+        : event
+          ? this.getDateOnly(event.startAt)
+          : this.getDateOnly(new Date());
 
       const creator = await this.resolveOrgUserRecord(tx, tenantId, actorOrgUserId);
 
       const absence = await tx.attendance.create({
         data: {
           tenantId,
-          eventId: event.id,
+          eventId: event?.id ?? null,
+          sessionId: session?.id,
           orgUserId: orgUser.id,
           absenceReason: dto.absenceReason,
           absenceNotes: dto.absenceNotes,
@@ -584,17 +602,17 @@ export class AttendanceLoggerService {
       scheduledDate: record.scheduledDate?.toISOString(),
       event: record.event
         ? {
-            id: record.event.id,
-            title: record.event.title,
-            startAt: record.event.startAt.toISOString(),
-          }
+          id: record.event.id,
+          title: record.event.title,
+          startAt: record.event.startAt.toISOString(),
+        }
         : undefined,
       orgUser: record.orgUser
         ? {
-            id: record.orgUser.id,
-            displayName: record.orgUser.displayName,
-            email: record.orgUser.email,
-          }
+          id: record.orgUser.id,
+          displayName: record.orgUser.displayName,
+          email: record.orgUser.email,
+        }
         : undefined,
     };
   }
@@ -670,30 +688,8 @@ export class AttendanceLoggerService {
       if (event) return event;
     }
 
-    if (session) {
-      const start = new Date(session.windowStart ?? session.sessionDate);
-      const end = new Date(session.windowEnd ?? session.sessionDate);
-      const createdEvent = await tx.event.create({
-        data: {
-          tenantId,
-          title: session.name ?? 'Production Session',
-          eventType: 'Other',
-          startAt: start,
-          endAt: end,
-          callTime: start,
-          status: 'scheduled',
-        },
-      });
-
-      await (tx as any).productionSession.update({
-        where: { id: session.id },
-        data: { eventId: createdEvent.id },
-      });
-
-      return createdEvent;
-    }
-
-    throw new NotFoundException('Event not found');
+    // Sessions don't require events - return null if no event is linked
+    return null;
   }
 
   private async resolveOrgUserRecord(

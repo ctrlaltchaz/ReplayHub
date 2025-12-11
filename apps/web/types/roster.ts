@@ -5,6 +5,7 @@ export interface Team {
     name: string;
     game: string;
     season?: string;
+    mapPool?: string[]; // Custom map pool for this team
     coachId?: string;
     captainId?: string;
     status: 'active' | 'archived';
@@ -111,6 +112,7 @@ export interface CreateTeamDto {
     name: string;
     game: string;
     season?: string;
+    mapPool?: string[];
     coachId?: string;
     captainId?: string;
 }
@@ -119,6 +121,7 @@ export interface UpdateTeamDto {
     name?: string;
     game?: string;
     season?: string;
+    mapPool?: string[];
     coachId?: string;
     captainId?: string;
     status?: 'active' | 'archived';

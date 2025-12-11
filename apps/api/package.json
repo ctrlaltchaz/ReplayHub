@@ -1,6 +1,6 @@
 {
-  "name": "@esports-ops/api",
-  "version": "0.3.3 (beta) Last update: 08-12-2025",
+  "name": "@replayhub/api",
+  "version": "0.3.4 (beta) Last update: 09-12-2025",
   "description": "Multi-tenant esports operations platform backend API",
   "author": "Charlie McKeon / McKeon Web Solutions",
   "private": true,

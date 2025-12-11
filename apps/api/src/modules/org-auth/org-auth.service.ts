@@ -333,7 +333,6 @@ export class OrgAuthService {
      * Gets user profile from UserOrganisationMembership + roles
      */
     async getProfileFromMembership(tenantId: string, membershipId: string): Promise<OrgUserProfileDto> {
-        console.log('🔍 [getProfileFromMembership] Called with:', { tenantId, membershipId });
         return await this.prisma.$transaction(async (tx) => {
             // Set tenant context for RLS
             await (tx as any).$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
@@ -357,16 +356,7 @@ export class OrgAuthService {
                 },
             });
 
-            console.log('🔍 [getProfileFromMembership] Membership result:', {
-                found: !!membership,
-                id: membership?.id,
-                email: membership?.email,
-                isActive: membership?.isActive,
-                rolesCount: membership?.roles?.length,
-            });
-
             if (!membership) {
-                console.log('❌ [getProfileFromMembership] No membership found');
                 throw new UnauthorizedException('Membership not found');
             }
 
@@ -388,13 +378,6 @@ export class OrgAuthService {
                 permissions,
                 createdAt: membership.createdAt,
             };
-
-            console.log('✅ [getProfileFromMembership] Returning profile:', {
-                id: profile.id,
-                email: profile.email,
-                roles,
-                permissionCount: permissions.length,
-            });
 
             return profile;
         });

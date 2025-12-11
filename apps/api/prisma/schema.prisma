@@ -284,6 +284,7 @@ model Team {
   name              String
   game              String
   season            String?
+  mapPoolJson       Json?         @default("[]") @map("map_pool_json")
   status            String        @default("active")
   createdAt         DateTime      @default(now()) @map("created_at")
   updatedAt         DateTime      @updatedAt @map("updated_at")

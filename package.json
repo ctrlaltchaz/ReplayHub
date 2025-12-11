@@ -1,6 +1,6 @@
 {
-  "name": "esports-operations-platform",
-  "version": "0.3.3 (beta) Last update: 08-12-2025",
+  "name": "replayhub",
+  "version": "0.3.4 (beta) Last update: 09-12-2025",
   "description": "Multi-tenant esports operations platform monorepo",
   "private": true,
   "workspaces": [

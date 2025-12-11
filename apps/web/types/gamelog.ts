@@ -29,6 +29,7 @@ export interface Match {
     id: string;
     name: string;
     game: string;
+    mapPool?: string[];
   };
   lineup?: {
     id: string;

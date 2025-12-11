@@ -15,6 +15,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -32,6 +39,7 @@ import { useState } from "react";
 import { useBulkCreateMapGames } from "../../hooks/useBulkCreateMapGames";
 import { useDeleteMapGame } from "../../hooks/useDeleteMapGame";
 import { useMatch } from "../../hooks/useMatch";
+import { getGameMaps } from "../../lib/game-maps";
 
 export default function ManageMapsPage() {
   const params = useParams();
@@ -50,6 +58,11 @@ export default function ManageMapsPage() {
   const [mapToDelete, setMapToDelete] = useState<string | null>(null);
 
   const canManage = hasPermission("gamelog.manage");
+
+  // Get map pool: use team's custom maps if available, otherwise use game defaults
+  const availableMaps = match?.team?.mapPool && match.team.mapPool.length > 0
+    ? match.team.mapPool
+    : (match?.team?.game ? getGameMaps(match.team.game) : []);
 
   const addNewMap = () => {
     const nextGameIdx = (match?.maps?.length || 0) + newMaps.length + 1;
@@ -342,11 +355,36 @@ export default function ManageMapsPage() {
 
                         <div className="space-y-2">
                           <Label>Map Name</Label>
-                          <Input
-                            value={map.mapName || ""}
-                            onChange={(e) => updateNewMap(index, "mapName", e.target.value)}
-                            placeholder="e.g., Dust II, Bind"
-                          />
+                          <Select
+                            value={map.mapName || "_custom_"}
+                            onValueChange={(val) => {
+                              if (val === "_custom_") {
+                                updateNewMap(index, "mapName", "");
+                              } else {
+                                updateNewMap(index, "mapName", val);
+                              }
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a map..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableMaps.map((mapName) => (
+                                <SelectItem key={mapName} value={mapName}>
+                                  {mapName}
+                                </SelectItem>
+                              ))}
+                              <SelectItem value="_custom_">+ Custom map name</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {(map.mapName === "" || (map.mapName && !availableMaps.includes(map.mapName))) && (
+                            <Input
+                              value={map.mapName || ""}
+                              onChange={(e) => updateNewMap(index, "mapName", e.target.value)}
+                              placeholder="Enter custom map name..."
+                              className="mt-2"
+                            />
+                          )}
                         </div>
                       </div>
 

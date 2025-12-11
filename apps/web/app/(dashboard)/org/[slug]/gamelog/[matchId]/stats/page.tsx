@@ -46,6 +46,7 @@ import { useBulkCreatePlayerStats } from "../../hooks/useBulkCreatePlayerStats";
 import { useDeletePlayerStat } from "../../hooks/useDeletePlayerStat";
 import { useMatch } from "../../hooks/useMatch";
 import { useUpdatePlayerStat } from "../../hooks/useUpdatePlayerStat";
+import { getGameHeroes, getGameRoles } from "../../lib/game-roles-heroes";
 
 interface NewStatForm {
   tempId: string;
@@ -226,9 +227,9 @@ export default function ManageStatsPage() {
       prev.map((stat) =>
         stat.groupId === groupId
           ? {
-              ...stat,
-              playerId,
-            }
+            ...stat,
+            playerId,
+          }
           : stat
       )
     );
@@ -278,13 +279,7 @@ export default function ManageStatsPage() {
         role: stat.statsJson.role,
         rating: stat.rating,
         isMvp: stat.isMvp,
-        statsJson: {
-          kills: stat.statsJson.kills,
-          deaths: stat.statsJson.deaths,
-          assists: stat.statsJson.assists,
-          damage: stat.statsJson.damage,
-          healing: stat.statsJson.healing,
-        },
+        statsJson: stat.statsJson,
       }));
       console.log("📤 Submitting stats:", JSON.stringify(statsToSend, null, 2));
       const result = await bulkCreateStats.mutateAsync({ stats: statsToSend });
@@ -551,11 +546,11 @@ export default function ManageStatsPage() {
                       </TableCell>
                       <TableCell className="text-center">
                         {(stat.statsJson?.kills || stat.kills) &&
-                        (stat.statsJson?.deaths || stat.deaths)
+                          (stat.statsJson?.deaths || stat.deaths)
                           ? (
-                              (stat.statsJson?.kills || stat.kills) /
-                              (stat.statsJson?.deaths || stat.deaths)
-                            ).toFixed(2)
+                            (stat.statsJson?.kills || stat.kills) /
+                            (stat.statsJson?.deaths || stat.deaths)
+                          ).toFixed(2)
                           : "-"}
                       </TableCell>
                       <TableCell className="text-center">
@@ -938,13 +933,99 @@ export default function ManageStatsPage() {
 
                             <div className="space-y-2">
                               <Label>Role</Label>
-                              <Input
-                                value={stat.statsJson.role || ""}
-                                onChange={(e) =>
-                                  updateNewStat(stat.tempId, "statsJson.role", e.target.value)
-                                }
-                                placeholder="e.g., Duelist, Entry Fragger"
-                              />
+                              <Select
+                                value={stat.statsJson.role || "_custom_"}
+                                onValueChange={(val) => {
+                                  if (val === "_custom_") {
+                                    updateNewStat(stat.tempId, "statsJson.role", "");
+                                  } else {
+                                    updateNewStat(stat.tempId, "statsJson.role", val);
+                                  }
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select role..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {getGameRoles(match?.team?.game).map((role) => (
+                                    <SelectItem key={role} value={role}>
+                                      {role}
+                                    </SelectItem>
+                                  ))}
+                                  <SelectItem value="_custom_">+ Custom role</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {(stat.statsJson.role === "" || (stat.statsJson.role && !getGameRoles(match?.team?.game).includes(stat.statsJson.role))) && (
+                                <Input
+                                  value={stat.statsJson.role || ""}
+                                  onChange={(e) =>
+                                    updateNewStat(stat.tempId, "statsJson.role", e.target.value)
+                                  }
+                                  placeholder="Enter custom role..."
+                                  className="mt-2"
+                                />
+                              )}
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>
+                                {match?.team?.game === "Valorant" ? "Agent" :
+                                  match?.team?.game === "League of Legends" ? "Champion" :
+                                    match?.team?.game === "Dota 2" ? "Hero" :
+                                      match?.team?.game === "Overwatch" ? "Hero" :
+                                        match?.team?.game === "Apex Legends" ? "Legend" :
+                                          "Character"}
+                              </Label>
+                              <Select
+                                value={stat.statsJson.agent || stat.statsJson.hero || stat.statsJson.champion || "_custom_"}
+                                onValueChange={(val) => {
+                                  const fieldName = match?.team?.game === "Valorant" ? "agent" :
+                                    match?.team?.game === "League of Legends" ? "champion" :
+                                      "hero";
+                                  if (val === "_custom_") {
+                                    updateNewStat(stat.tempId, `statsJson.${fieldName}`, "");
+                                  } else {
+                                    updateNewStat(stat.tempId, `statsJson.${fieldName}`, val);
+                                  }
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select character..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {getGameHeroes(match?.team?.game).length > 0 ? (
+                                    <>
+                                      {getGameHeroes(match?.team?.game).map((hero) => (
+                                        <SelectItem key={hero} value={hero}>
+                                          {hero}
+                                        </SelectItem>
+                                      ))}
+                                      <SelectItem value="_custom_">+ Custom character</SelectItem>
+                                    </>
+                                  ) : (
+                                    <SelectItem value="_custom_" disabled>
+                                      Not applicable for this game
+                                    </SelectItem>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                              {(() => {
+                                const fieldName = match?.team?.game === "Valorant" ? "agent" :
+                                  match?.team?.game === "League of Legends" ? "champion" :
+                                    "hero";
+                                const fieldValue = stat.statsJson[fieldName] || "";
+                                const showCustomInput = fieldValue === "" || (fieldValue && !getGameHeroes(match?.team?.game).includes(fieldValue));
+                                return showCustomInput && getGameHeroes(match?.team?.game).length > 0 && (
+                                  <Input
+                                    value={fieldValue}
+                                    onChange={(e) =>
+                                      updateNewStat(stat.tempId, `statsJson.${fieldName}`, e.target.value)
+                                    }
+                                    placeholder="Enter custom character..."
+                                    className="mt-2"
+                                  />
+                                );
+                              })()}
                             </div>
 
                             <div className="grid gap-4 md:grid-cols-5">
@@ -1120,9 +1201,9 @@ export default function ManageStatsPage() {
                   <TableRow>
                     <TableHead>Round</TableHead>
                     <TableHead className="text-center">Score</TableHead>
-                    <TableHead className="text-center">Kills</TableHead>
+                    <TableHead className="text-center">{match?.team?.game === "Overwatch" ? "Elims" : "Kills"}</TableHead>
                     <TableHead className="text-center">Deaths</TableHead>
-                    <TableHead className="text-center">Assists</TableHead>
+                    <TableHead className="text-center">{match?.team?.game === "Rocket League" ? "Saves" : "Assists"}</TableHead>
                     <TableHead className="text-center">Rating</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -1138,10 +1219,12 @@ export default function ManageStatsPage() {
                           ? `${stat.mapGame.ourScore ?? "-"} - ${stat.mapGame.theirScore ?? "-"}`
                           : "N/A"}
                       </TableCell>
-                      <TableCell className="text-center">{stat.statsJson?.kills ?? "-"}</TableCell>
+                      <TableCell className="text-center">
+                        {stat.statsJson?.eliminations ?? stat.statsJson?.kills ?? stat.statsJson?.goals ?? "-"}
+                      </TableCell>
                       <TableCell className="text-center">{stat.statsJson?.deaths ?? "-"}</TableCell>
                       <TableCell className="text-center">
-                        {stat.statsJson?.assists ?? "-"}
+                        {stat.statsJson?.assists ?? stat.statsJson?.saves ?? "-"}
                       </TableCell>
                       <TableCell className="text-center">
                         {stat.rating?.toFixed(2) ?? "-"}

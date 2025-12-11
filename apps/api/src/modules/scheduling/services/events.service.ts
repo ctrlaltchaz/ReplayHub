@@ -19,7 +19,7 @@ export class EventsService {
     private calendarUtils: CalendarUtilsService,
     private discordService: DiscordService,
     private readonly auditService: AuditService
-  ) {}
+  ) { }
 
   private async replaceEventStaffAssignments(
     tx: any,
@@ -684,6 +684,35 @@ export class EventsService {
 
       try {
         const before = await this.findOneEvent(tenantId, id);
+
+        // Check if event has attendance records
+        const attendanceCount = await tx.attendance.count({
+          where: { tenantId, eventId: id }
+        });
+
+        if (attendanceCount > 0) {
+          // Check if this event has any other data (crew, bookings, etc.)
+          // If it only has attendance and nothing else, it was likely auto-created by accident
+          const [crewCount, bookingCount] = await Promise.all([
+            tx.eventStaffAssignment.count({ where: { tenantId, eventId: id } }),
+            tx.booking.count({ where: { tenantId, eventId: id } })
+          ]);
+
+          const hasOtherData = crewCount > 0 || bookingCount > 0;
+
+          if (hasOtherData) {
+            throw new ConflictException(
+              `Cannot delete event "${before?.title}" - it has ${attendanceCount} attendance record(s) and other associated data (crew/bookings). Please remove attendance records first.`
+            );
+          }
+
+          // Event only has attendance, no crew or bookings - allow deletion and cascade
+          // This handles accidentally auto-created events from the old attendance system
+          await tx.attendance.deleteMany({
+            where: { tenantId, eventId: id }
+          });
+        }
+
         await (tx as any).$executeRawUnsafe(
           `
         DELETE FROM events 

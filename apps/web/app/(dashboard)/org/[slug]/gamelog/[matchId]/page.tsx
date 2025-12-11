@@ -12,6 +12,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -22,13 +29,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { format, parseISO } from "date-fns";
@@ -86,6 +86,7 @@ export default function MatchDetailPage() {
 
   const playerRounds = useMemo(() => {
     const rounds = match?.playerStatsByRound || [];
+    console.log('📊 Match detail - playerStatsByRound:', rounds);
     const grouped: Record<string, { playerId: string; name: string; entries: any[] }> = {};
 
     rounds.forEach((stat: any) => {
@@ -100,10 +101,11 @@ export default function MatchDetailPage() {
       grouped[key].entries.push(stat);
     });
 
-    return Object.values(grouped).map((group) => {
-      const kills = group.entries.reduce((sum, s) => sum + (s.statsJson?.kills || 0), 0);
+    const aggregated = Object.values(grouped).map((group) => {
+      // Support game-specific stat fields (eliminations for Overwatch, kills for others, goals for Rocket League)
+      const kills = group.entries.reduce((sum, s) => sum + (s.statsJson?.eliminations || s.statsJson?.kills || s.statsJson?.goals || 0), 0);
       const deaths = group.entries.reduce((sum, s) => sum + (s.statsJson?.deaths || 0), 0);
-      const assists = group.entries.reduce((sum, s) => sum + (s.statsJson?.assists || 0), 0);
+      const assists = group.entries.reduce((sum, s) => sum + (s.statsJson?.assists || s.statsJson?.saves || 0), 0);
       const avgRating = group.entries.length
         ? group.entries.reduce((sum, s) => sum + (s.rating || 0), 0) / group.entries.length
         : undefined;
@@ -116,6 +118,9 @@ export default function MatchDetailPage() {
         avgRating,
       };
     });
+
+    console.log('📈 Aggregated player stats:', aggregated);
+    return aggregated;
   }, [match?.playerStatsByRound]);
 
   const selectedPlayerRounds = useMemo(() => {
@@ -291,62 +296,6 @@ export default function MatchDetailPage() {
             </Button>
           </CardContent>
         </Card>
-
-        {/* Round Breakdown */}
-        {match?.playerStatsByRound && match.playerStatsByRound.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Map className="h-4 w-4" />
-                Round Breakdown
-              </CardTitle>
-              <CardDescription>
-                See per-player round stats. Click a player to view their rounds and edit.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Player</TableHead>
-                    <TableHead className="text-center">Rounds</TableHead>
-                    <TableHead className="text-center">Kills</TableHead>
-                    <TableHead className="text-center">Deaths</TableHead>
-                    <TableHead className="text-center">Assists</TableHead>
-                    <TableHead className="text-center">Avg Rating</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {playerRounds.map((player) => (
-                    <TableRow key={player.playerId}>
-                      <TableCell className="font-medium">{player.name}</TableCell>
-                      <TableCell className="text-center">{player.entries.length}</TableCell>
-                      <TableCell className="text-center">{player.totalKills}</TableCell>
-                      <TableCell className="text-center">{player.totalDeaths}</TableCell>
-                      <TableCell className="text-center">{player.totalAssists}</TableCell>
-                      <TableCell className="text-center">
-                        {player.avgRating ? player.avgRating.toFixed(2) : "-"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            setRoundModalPlayer({ playerId: player.playerId, name: player.name })
-                          }
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          View Rounds
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )}
       </div>
     );
   }
@@ -663,9 +612,13 @@ export default function MatchDetailPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Player</TableHead>
-                    <TableHead className="text-center">Kills</TableHead>
+                    <TableHead className="text-center">
+                      {match?.team?.game === "Overwatch" ? "Elims" : match?.team?.game === "Rocket League" ? "Goals" : "Kills"}
+                    </TableHead>
                     <TableHead className="text-center">Deaths</TableHead>
-                    <TableHead className="text-center">Assists</TableHead>
+                    <TableHead className="text-center">
+                      {match?.team?.game === "Rocket League" ? "Saves" : "Assists"}
+                    </TableHead>
                     <TableHead className="text-center">K/D</TableHead>
                     <TableHead className="text-center">Damage</TableHead>
                     <TableHead className="text-center">Healing</TableHead>
@@ -680,21 +633,21 @@ export default function MatchDetailPage() {
                         {stat.player?.gamerTag || stat.playerName || "Unknown Player"}
                       </TableCell>
                       <TableCell className="text-center">
-                        {stat.statsJson?.kills ?? stat.kills ?? "-"}
+                        {stat.statsJson?.eliminations ?? stat.statsJson?.kills ?? stat.statsJson?.goals ?? stat.kills ?? "-"}
                       </TableCell>
                       <TableCell className="text-center">
                         {stat.statsJson?.deaths ?? stat.deaths ?? "-"}
                       </TableCell>
                       <TableCell className="text-center">
-                        {stat.statsJson?.assists ?? stat.assists ?? "-"}
+                        {stat.statsJson?.assists ?? stat.statsJson?.saves ?? stat.assists ?? "-"}
                       </TableCell>
                       <TableCell className="text-center">
-                        {(stat.statsJson?.kills || stat.kills) &&
-                        (stat.statsJson?.deaths || stat.deaths)
+                        {((stat.statsJson?.eliminations || stat.statsJson?.kills || stat.statsJson?.goals || stat.kills) &&
+                          (stat.statsJson?.deaths || stat.deaths))
                           ? (
-                              (stat.statsJson?.kills || stat.kills) /
-                              (stat.statsJson?.deaths || stat.deaths)
-                            ).toFixed(2)
+                            (stat.statsJson?.eliminations || stat.statsJson?.kills || stat.statsJson?.goals || stat.kills) /
+                            (stat.statsJson?.deaths || stat.deaths)
+                          ).toFixed(2)
                           : "-"}
                       </TableCell>
                       <TableCell className="text-center">
@@ -731,48 +684,110 @@ export default function MatchDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Round Breakdown */}
+        {match?.playerStatsByRound && match.playerStatsByRound.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Map className="h-4 w-4" />
+                Round Breakdown
+              </CardTitle>
+              <CardDescription>
+                See per-player round stats. Click a player to view their rounds and edit.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[220px]">Player</TableHead>
+                      <TableHead className="text-center w-[100px]">Rounds</TableHead>
+                      <TableHead className="text-center w-[100px]">
+                        {match?.team?.game === "Overwatch" ? "Elims" : match?.team?.game === "Rocket League" ? "Goals" : "Kills"}
+                      </TableHead>
+                      <TableHead className="text-center w-[100px]">Deaths</TableHead>
+                      <TableHead className="text-center w-[100px]">
+                        {match?.team?.game === "Rocket League" ? "Saves" : "Assists"}
+                      </TableHead>
+                      <TableHead className="text-center w-[120px]">Avg Rating</TableHead>
+                      <TableHead className="text-right w-[160px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {playerRounds.map((player) => (
+                      <TableRow key={player.playerId}>
+                        <TableCell className="font-medium">{player.name}</TableCell>
+                        <TableCell className="text-center">{player.entries.length}</TableCell>
+                        <TableCell className="text-center">{player.totalKills || 0}</TableCell>
+                        <TableCell className="text-center">{player.totalDeaths || 0}</TableCell>
+                        <TableCell className="text-center">{player.totalAssists || 0}</TableCell>
+                        <TableCell className="text-center">
+                          {player.avgRating ? player.avgRating.toFixed(2) : "-"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setRoundModalPlayer({ playerId: player.playerId, name: player.name })
+                            }
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            View Rounds
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Player Round Dialog */}
       <Dialog open={!!roundModalPlayer} onOpenChange={(open) => !open && setRoundModalPlayer(null)}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-7xl">
           <DialogHeader>
             <DialogTitle>Rounds for {roundModalPlayer?.name}</DialogTitle>
             <DialogDescription>
               Review per-round stats. Use "Edit in Stats" to jump to the round and edit.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 mt-4">
             {selectedPlayerRounds.length === 0 ? (
               <p className="text-sm text-muted-foreground">No round stats available.</p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Round</TableHead>
-                    <TableHead className="text-center">Score</TableHead>
-                    <TableHead className="text-center">Kills</TableHead>
-                    <TableHead className="text-center">Deaths</TableHead>
-                    <TableHead className="text-center">Assists</TableHead>
-                    <TableHead className="text-center">Rating</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-[250px]">Round</TableHead>
+                    <TableHead className="text-center w-[100px]">
+                      {match?.team?.game === "Overwatch" ? "Elims" : match?.team?.game === "Rocket League" ? "Goals" : "Kills"}
+                    </TableHead>
+                    <TableHead className="text-center w-[100px]">Deaths</TableHead>
+                    <TableHead className="text-center w-[100px]">
+                      {match?.team?.game === "Rocket League" ? "Saves" : "Assists"}
+                    </TableHead>
+                    <TableHead className="text-center w-[100px]">Rating</TableHead>
+                    <TableHead className="text-right w-[200px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {selectedPlayerRounds.map((stat: any) => (
                     <TableRow key={stat.id}>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell className="font-medium">
                         {stat.mapGame?.title || `Round ${stat.mapGame?.gameIdx || 1}`}
                       </TableCell>
-                      <TableCell className="text-center whitespace-nowrap">
-                        {stat.mapGame
-                          ? `${stat.mapGame.ourScore ?? "-"} - ${stat.mapGame.theirScore ?? "-"}`
-                          : "N/A"}
+                      <TableCell className="text-center">
+                        {stat.statsJson?.eliminations ?? stat.statsJson?.kills ?? stat.statsJson?.goals ?? "-"}
                       </TableCell>
-                      <TableCell className="text-center">{stat.statsJson?.kills ?? "-"}</TableCell>
                       <TableCell className="text-center">{stat.statsJson?.deaths ?? "-"}</TableCell>
                       <TableCell className="text-center">
-                        {stat.statsJson?.assists ?? "-"}
+                        {stat.statsJson?.assists ?? stat.statsJson?.saves ?? "-"}
                       </TableCell>
                       <TableCell className="text-center">
                         {stat.rating?.toFixed(2) ?? "-"}
@@ -789,7 +804,7 @@ export default function MatchDetailPage() {
                           }}
                         >
                           <Edit className="h-4 w-4 mr-1" />
-                          Edit in Stats
+                          Edit
                         </Button>
                       </TableCell>
                     </TableRow>
