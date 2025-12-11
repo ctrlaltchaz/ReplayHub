@@ -28,7 +28,7 @@ RUN npm ci --workspaces --include-workspace-root --include=dev
 FROM deps AS builder
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
-RUN npm run build --workspace=@esports-ops/ui
+RUN npm run build --workspace=@replayhub/ui
 RUN npm run build --workspace=@replayhub/web
 
 # Final runtime image
