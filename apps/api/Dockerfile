@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Production image for @esports-ops/api (NestJS + Prisma)
+# Production image for @replayhub/api (NestJS + Prisma)
 
 ARG PRISMA_SCHEMA=prisma/schema.prisma
 ARG PRISMA_DB_URL=postgresql://postgres:postgres@localhost:5432/postgres

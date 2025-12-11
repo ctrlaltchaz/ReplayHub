@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Production image for @esports-ops/web (Next.js 14)
+# Production image for @replayhub/web (Next.js 14)
 
 ARG PRISMA_DB_URL=postgresql://postgres:postgres@localhost:5432/postgres
 
@@ -29,7 +29,7 @@ FROM deps AS builder
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
 RUN npm run build --workspace=@esports-ops/ui
-RUN npm run build --workspace=@esports-ops/web
+RUN npm run build --workspace=@replayhub/web
 
 # Final runtime image
 FROM node:22-slim AS runner

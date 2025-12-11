@@ -23,7 +23,7 @@ COPY --from=deps /workspace/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
 RUN npm run build --workspace=@esports-ops/ui
-RUN npm run build --workspace=@esports-ops/web
+RUN npm run build --workspace=@replayhub/web
 
 # Production image
 FROM node:18-alpine AS runner

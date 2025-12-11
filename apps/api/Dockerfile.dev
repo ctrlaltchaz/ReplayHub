@@ -21,8 +21,8 @@ CMD ["npm", "run", "start:dev"]
 FROM base AS builder
 COPY --from=deps /workspace/node_modules ./node_modules
 COPY . .
-RUN npm run build --workspace=@esports-ops/ui
-RUN npm run build --workspace=@esports-ops/api
+RUN npm run build --workspace=@replayhub/ui
+RUN npm run build --workspace=@replayhub/api
 
 # Production image
 FROM node:18-alpine AS runner

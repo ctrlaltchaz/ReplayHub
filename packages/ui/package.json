@@ -1,5 +1,5 @@
 {
-  "name": "@esports-ops/ui",
+  "name": "@replayhub/ui",
   "version": "1.0.0",
   "description": "Shared UI components for esports operations platform",
   "private": true,
