@@ -850,7 +850,7 @@ model Incident {
 model Attendance {
   id             String                   @id @default(cuid())
   tenantId       String                   @map("tenant_id")
-  eventId        String                   @map("event_id")
+  eventId        String?                  @map("event_id")
   orgUserId      String                   @map("org_user_id")
   role           String?
   status         String                   @default("pending")
@@ -873,12 +873,12 @@ model Attendance {
   scheduledDate  DateTime?                @map("scheduled_date")
   sessionId      String?                  @map("session_id")
   createdByUser  OrgUser                  @relation("AttendanceCreator", fields: [createdBy], references: [id])
-  event          Event                    @relation(fields: [eventId], references: [id])
+  event          Event?                   @relation(fields: [eventId], references: [id])
   orgUser        OrgUser                  @relation("AttendanceUser", fields: [orgUserId], references: [id])
   reviewedByUser OrgUser?                 @relation("AttendanceReviewer", fields: [reviewedBy], references: [id])
   session        ProductionSession?       @relation(fields: [sessionId], references: [id])
 
-  @@unique([tenantId, eventId, orgUserId])
+  @@unique([tenantId, sessionId, orgUserId], name: "attendance_session_user_unique")
   @@index([tenantId, eventId])
   @@index([tenantId, sessionId])
   @@index([tenantId, scheduledDate])
