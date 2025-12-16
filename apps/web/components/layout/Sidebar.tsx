@@ -53,6 +53,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   inventory: require("lucide-react").Package,
   assets: require("lucide-react").Package2,
   incidents: require("lucide-react").AlertTriangle,
+  improvements: require("lucide-react").Lightbulb,
   reports: require("lucide-react").BarChart3,
   docs: require("lucide-react").BookOpen,
   settings: require("lucide-react").Settings,

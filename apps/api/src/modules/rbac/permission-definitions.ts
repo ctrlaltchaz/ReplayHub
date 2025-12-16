@@ -106,6 +106,13 @@ export const DEFAULT_PERMISSION_DEFINITIONS: PermissionDefinition[] = [
   { key: 'incidents.create', group: 'incidents', description: 'Create incidents' },
   { key: 'incidents.manage', group: 'incidents', description: 'Manage incidents' },
 
+  { key: 'improvements', group: 'improvements', description: 'Access improvements module' },
+  { key: 'improvements.view', group: 'improvements', description: 'View improvement entries' },
+  { key: 'improvements.create', group: 'improvements', description: 'Create improvement entries' },
+  { key: 'improvements.edit', group: 'improvements', description: 'Edit improvement entries' },
+  { key: 'improvements.manage', group: 'improvements', description: 'Manage all improvement operations' },
+  { key: 'improvements.delete', group: 'improvements', description: 'Delete improvement entries' },
+
   { key: 'users', group: 'users', description: 'Access user management module' },
   { key: 'users.view', group: 'users', description: 'View users' },
   { key: 'users.read', group: 'users', description: 'Read user details' },

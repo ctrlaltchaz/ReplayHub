@@ -121,6 +121,10 @@ model OrgUser {
   globalUser          GlobalUser?            @relation("OrgUserToGlobalUser", fields: [globalUserId], references: [id])
   organisation        Organisation           @relation("OrgUserToOrganisation", fields: [tenantId], references: [id], onDelete: Cascade)
   createdSessions     ProductionSession[]    @relation("SessionCreator")
+  reportedImprovements ImprovementEntry[]    @relation("ImprovementReporter")
+  assignedImprovements ImprovementEntry[]    @relation("ImprovementAssignee")
+  implementedImprovements ImprovementEntry[] @relation("ImprovementImplementer")
+  improvementComments ImprovementComment[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -684,6 +688,7 @@ model Match {
   lineup                Lineup?      @relation(fields: [lineupId], references: [id])
   team                  Team         @relation(fields: [teamId], references: [id])
   playerStats           PlayerStat[]
+  improvements          ImprovementEntry[]
 
   @@index([tenantId, teamId, startedAt])
   @@map("matches")
@@ -771,6 +776,7 @@ model Event {
   incidents                  Incident[]
   productionSessions         ProductionSession[]
   runsheets                  Runsheet[]
+  improvements               ImprovementEntry[]
 
   @@index([tenantId, startAt, endAt])
   @@index([tenantId, eventType])
@@ -1283,4 +1289,86 @@ enum AttendanceSource {
   auto
   tutor
   admin
+}
+
+model ImprovementEntry {
+  id                String    @id @default(cuid())
+  tenantId          String    @map("tenant_id")
+  
+  // Core fields
+  title             String
+  description       String?
+  category          String    // stream_production, broadcast_technical, event_operations, communication, content_quality, viewer_experience, equipment, process, social_media
+  priority          String    @default("medium") // low, medium, high
+  status            String    @default("proposed") // proposed, accepted, in_progress, implemented, dismissed
+  
+  // Context linking
+  eventId           String?   @map("event_id")
+  matchId           String?   @map("match_id")
+  
+  // VOD/Media references
+  vodUrl            String?   @map("vod_url")
+  vodTimestamp      String?   @map("vod_timestamp")
+  screenshotUrl     String?   @map("screenshot_url")
+  
+  // Improvement tracking
+  whatWentWrong     String?   @map("what_went_wrong")
+  rootCause         String?   @map("root_cause")
+  proposedSolution  String?   @map("proposed_solution")
+  actualSolution    String?   @map("actual_solution")
+  preventionSteps   String?   @map("prevention_steps")
+  
+  // Social media specific
+  platformType      String?   @map("platform_type") // twitter, instagram, tiktok, youtube, facebook, linkedin
+  postUrl           String?   @map("post_url")
+  engagementMetrics String?   @map("engagement_metrics") // JSON: {views, likes, shares, comments}
+  
+  // Assignment & ownership
+  reportedBy        String    @map("reported_by")
+  assignedTo        String?   @map("assigned_to")
+  implementedBy     String?   @map("implemented_by")
+  
+  // Metadata
+  tags              String?
+  impactLevel       String?   @map("impact_level") // viewer_facing, internal, minimal
+  
+  // Dates
+  occurredAt        DateTime? @map("occurred_at")
+  implementedAt     DateTime? @map("implemented_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  event             Event?    @relation(fields: [eventId], references: [id])
+  match             Match?    @relation(fields: [matchId], references: [id])
+  reporter          OrgUser   @relation("ImprovementReporter", fields: [reportedBy], references: [id])
+  assignee          OrgUser?  @relation("ImprovementAssignee", fields: [assignedTo], references: [id])
+  implementer       OrgUser?  @relation("ImprovementImplementer", fields: [implementedBy], references: [id])
+  
+  comments          ImprovementComment[]
+  
+  @@index([tenantId, category])
+  @@index([tenantId, status])
+  @@index([tenantId, eventId])
+  @@index([tenantId, matchId])
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, createdAt])
+  @@map("improvement_entries")
+}
+
+model ImprovementComment {
+  id              String            @id @default(cuid())
+  tenantId        String            @map("tenant_id")
+  entryId         String            @map("entry_id")
+  authorId        String            @map("author_id")
+  content         String
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  
+  entry           ImprovementEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  author          OrgUser           @relation(fields: [authorId], references: [id])
+  
+  @@index([tenantId, entryId])
+  @@index([tenantId, createdAt])
+  @@map("improvement_comments")
 }

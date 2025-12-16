@@ -31,6 +31,7 @@ export const orgPath = {
   inventory: (slug: OrgSlug) => `/org/${slug}/inventory`,
   assets: (slug: OrgSlug) => `/org/${slug}/assets`,
   incidents: (slug: OrgSlug) => `/org/${slug}/incidents`,
+  improvements: (slug: OrgSlug) => `/org/${slug}/improvements`,
   attendance: (slug: OrgSlug) => `/org/${slug}/attendance`,
   reports: (slug: OrgSlug) => `/org/${slug}/reports`,
   docs: (slug: OrgSlug) => `/org/${slug}/docs`,
@@ -171,6 +172,7 @@ export const ORG_NAV: NavItem[] = [
       PERMISSIONS.PASSWORDS_VIEW,
       PERMISSIONS.INVENTORY_VIEW,
       PERMISSIONS.INCIDENTS_VIEW,
+      PERMISSIONS.IMPROVEMENTS_VIEW,
     ],
     children: [
       {
@@ -196,6 +198,12 @@ export const ORG_NAV: NavItem[] = [
         label: "Incidents",
         href: orgPath.incidents,
         required: PERMISSIONS.INCIDENTS_VIEW,
+      },
+      {
+        key: "improvements",
+        label: "Improvements",
+        href: orgPath.improvements,
+        required: PERMISSIONS.IMPROVEMENTS_VIEW,
       },
     ],
   },

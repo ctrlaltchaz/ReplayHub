@@ -14,10 +14,10 @@ export function WizardProgress({ currentStep, totalSteps }: WizardProgressProps)
     return (
         <div className="space-y-3">
             <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">
+                <span className="font-semibold">
                     Question {currentStep} of {totalSteps}
                 </span>
-                <span className="text-muted-foreground">
+                <span className="text-muted-foreground font-semibold">
                     {Math.round(progress)}% Complete
                 </span>
             </div>
@@ -32,7 +32,7 @@ export function WizardProgress({ currentStep, totalSteps }: WizardProgressProps)
                     ) : (
                         <div className={`h-2 w-2 rounded-full ${currentStep <= 4 ? 'bg-primary' : 'bg-muted'}`} />
                     )}
-                    <span className={currentStep <= 4 ? 'text-foreground font-medium' : ''}>
+                    <span className={currentStep <= 4 ? 'text-foreground font-semibold' : ''}>
                         Match Basics
                     </span>
                 </div>
@@ -45,7 +45,7 @@ export function WizardProgress({ currentStep, totalSteps }: WizardProgressProps)
                     ) : (
                         <div className="h-2 w-2 rounded-full bg-muted" />
                     )}
-                    <span className={currentStep > 4 && currentStep <= totalSteps - 1 ? 'text-foreground font-medium' : ''}>
+                    <span className={currentStep > 4 && currentStep <= totalSteps - 1 ? 'text-foreground font-semibold' : ''}>
                         Details
                     </span>
                 </div>
@@ -56,7 +56,7 @@ export function WizardProgress({ currentStep, totalSteps }: WizardProgressProps)
                     ) : (
                         <div className="h-2 w-2 rounded-full bg-muted" />
                     )}
-                    <span className={currentStep === totalSteps ? 'text-foreground font-medium' : ''}>
+                    <span className={currentStep === totalSteps ? 'text-foreground font-semibold' : ''}>
                         Review
                     </span>
                 </div>

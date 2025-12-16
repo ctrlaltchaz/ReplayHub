@@ -45,6 +45,7 @@ import { DiscordModule } from './modules/discord/discord.module';
 import { DocsModule } from './modules/docs/docs.module';
 import { EventsModule } from './modules/events/events.module';
 import { GameLogModule } from './modules/gamelog/gamelog.module';
+import { ImprovementsModule } from './modules/improvements/improvements.module';
 import { IncidentsModule } from './modules/incidents/incidents.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { LiveGraphicsModule } from './modules/live-graphics/live-graphics.module';
@@ -88,6 +89,7 @@ import { UsersModule } from './modules/users/users.module';
     // Org-scoped modules
     OrgAuthModule,
     IncidentsModule, // Before RbacModule to test route precedence
+    ImprovementsModule,
     RbacModule,
     InviteModule,
     OrgUserModule,
