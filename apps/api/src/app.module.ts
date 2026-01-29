@@ -42,6 +42,7 @@ import { ProductionSessionsModule } from './modules/attendance-sessions/attendan
 import { ChecklistsModule } from './modules/checklists/checklists.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DiscordModule } from './modules/discord/discord.module';
+import { DisplayBoardsModule } from './modules/display-boards/display-boards.module';
 import { DocsModule } from './modules/docs/docs.module';
 import { EventsModule } from './modules/events/events.module';
 import { GameLogModule } from './modules/gamelog/gamelog.module';
@@ -114,6 +115,7 @@ import { UsersModule } from './modules/users/users.module';
     DashboardModule,
     AttendanceLoggerModule,
     DiscordModule,
+    DisplayBoardsModule,
     ProductionSessionsModule,
     PasswordsModule,
     LiveGraphicsModule,

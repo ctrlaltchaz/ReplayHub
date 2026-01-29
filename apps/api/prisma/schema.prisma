@@ -61,6 +61,7 @@ model Organisation {
   quickLinksJson     Json?                        @default("[]") @map("quick_links_json")
   auditLogs          AuditLog[]                   @relation("TenantAuditLogs")
   liveGraphics       LiveGraphic[]
+  displayBoards      DisplayBoard[]
   invites            OrgInvite[]
   orgUsers           OrgUser[]                    @relation("OrgUserToOrganisation")
   admins             OrganisationAdmin[]
@@ -117,6 +118,9 @@ model OrgUser {
   ownedIncidents      Incident[]             @relation("IncidentOwner")
   createdLiveGraphics LiveGraphic[]          @relation("LiveGraphicCreatedBy")
   updatedLiveGraphics LiveGraphic[]          @relation("LiveGraphicUpdatedBy")
+  createdDisplayBoards DisplayBoard[]        @relation("DisplayBoardCreatedBy")
+  updatedDisplayBoards DisplayBoard[]        @relation("DisplayBoardUpdatedBy")
+  uploadedDisplayBoardImages DisplayBoardImage[] @relation("DisplayBoardImageUploadedBy")
   roles               OrgUserRole[]
   globalUser          GlobalUser?            @relation("OrgUserToGlobalUser", fields: [globalUserId], references: [id])
   organisation        Organisation           @relation("OrgUserToOrganisation", fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1371,4 +1375,49 @@ model ImprovementComment {
   @@index([tenantId, entryId])
   @@index([tenantId, createdAt])
   @@map("improvement_comments")
+}
+
+model DisplayBoard {
+  id          String              @id @default(cuid())
+  tenantId    String              @map("tenant_id")
+  name        String
+  description String?
+  publicCode  String              @unique @map("public_code")
+  interval    Int                 @default(5000) // milliseconds
+  transition  String              @default("fade")
+  status      String              @default("active")
+  createdBy   String?             @map("created_by")
+  updatedBy   String?             @map("updated_by")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  
+  images         DisplayBoardImage[]
+  createdByUser  OrgUser?            @relation("DisplayBoardCreatedBy", fields: [createdBy], references: [id])
+  updatedByUser  OrgUser?            @relation("DisplayBoardUpdatedBy", fields: [updatedBy], references: [id])
+  organisation   Organisation        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId])
+  @@index([publicCode])
+  @@map("display_boards")
+}
+
+model DisplayBoardImage {
+  id              String       @id @default(cuid())
+  tenantId        String       @map("tenant_id")
+  displayBoardId  String       @map("display_board_id")
+  fileName        String       @map("file_name")
+  filePath        String       @map("file_path")
+  mimeType        String       @map("mime_type")
+  fileSize        Int          @map("file_size")
+  order           Int          @default(0)
+  status          String       @default("active")
+  uploadedBy      String?      @map("uploaded_by")
+  uploadedAt      DateTime     @default(now()) @map("uploaded_at")
+  
+  displayBoard    DisplayBoard @relation(fields: [displayBoardId], references: [id], onDelete: Cascade)
+  uploadedByUser  OrgUser?     @relation("DisplayBoardImageUploadedBy", fields: [uploadedBy], references: [id])
+  
+  @@index([tenantId])
+  @@index([displayBoardId, order])
+  @@map("display_board_images")
 }

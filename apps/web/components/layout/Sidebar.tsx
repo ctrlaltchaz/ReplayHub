@@ -59,6 +59,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   settings: require("lucide-react").Settings,
   utilities: require("lucide-react").Wrench,
   "live-graphics": require("lucide-react").MonitorPlay,
+  "display-boards": require("lucide-react").Monitor,
   admin: require("lucide-react").Settings,
   attendance: require("lucide-react").Clock,
   "social-media": require("lucide-react").Share2,
@@ -175,6 +176,7 @@ export function Sidebar({
     }
     if (
       pathname?.includes("/live-graphics") ||
+      pathname?.includes("/display-boards") ||
       pathname?.includes("/passwords") ||
       pathname?.includes("/inventory") ||
       pathname?.includes("/incidents")

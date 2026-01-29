@@ -55,10 +55,18 @@ async function proxyRequest(request: NextRequest, pathSegments: string[], method
   }
 
   // Get request body for POST/PUT/PATCH
-  let body: string | undefined;
+  let body: BodyInit | undefined;
   if (["POST", "PUT", "PATCH"].includes(method)) {
     try {
-      body = await request.text();
+      // Check if this is a multipart/form-data request (file upload)
+      const contentType = request.headers.get("content-type");
+      if (contentType && contentType.includes("multipart/form-data")) {
+        // For multipart requests, pass the body as-is (FormData)
+        body = await request.blob();
+      } else {
+        // For other requests, read as text
+        body = await request.text();
+      }
     } catch (e) {
       // No body or already consumed
     }
@@ -81,8 +89,15 @@ async function proxyRequest(request: NextRequest, pathSegments: string[], method
       });
     }
 
-    // Get response body
-    const responseBody = await response.text();
+    // Check if this is a binary response (image, file, etc)
+    const contentType = response.headers.get("content-type") || "";
+    const isBinary = contentType.startsWith("image/") ||
+      contentType.startsWith("application/octet-stream") ||
+      contentType.startsWith("video/") ||
+      contentType.startsWith("audio/");
+
+    // Get response body based on type
+    const responseBody = isBinary ? await response.arrayBuffer() : await response.text();
 
     // Create response with same status
     const nextResponse = new NextResponse(responseBody, {

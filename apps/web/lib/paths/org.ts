@@ -24,6 +24,7 @@ export const orgPath = {
   playerStats: (slug: OrgSlug) => `/org/${slug}/player-stats`,
   gamelog: (slug: OrgSlug) => `/org/${slug}/gamelog`,
   liveGraphics: (slug: OrgSlug) => `/org/${slug}/live-graphics`,
+  displayBoards: (slug: OrgSlug) => `/org/${slug}/display-boards`,
   runsheets: (slug: OrgSlug) => `/org/${slug}/runsheets`,
   checklists: (slug: OrgSlug) => `/org/${slug}/checklists`,
   passwords: (slug: OrgSlug) => `/org/${slug}/passwords`,
@@ -180,6 +181,12 @@ export const ORG_NAV: NavItem[] = [
         label: "Live Graphics",
         href: orgPath.liveGraphics,
         required: PERMISSIONS.LIVE_GRAPHICS_VIEW,
+      },
+      {
+        key: "display-boards",
+        label: "Display Boards",
+        href: orgPath.displayBoards,
+        required: PERMISSIONS.DISPLAY_BOARDS.VIEW,
       },
       {
         key: "passwords",

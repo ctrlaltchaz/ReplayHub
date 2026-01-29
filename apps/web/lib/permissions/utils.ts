@@ -201,6 +201,12 @@ export const PERMISSIONS = {
   DOCS_MANAGE: "docs.manage" as const,
   DOCS_COMPLETIONS_TRACK: "docs.completions.track" as const,
 
+  // Display Boards
+  DISPLAY_BOARDS: {
+    VIEW: "display-boards.view" as const,
+    MANAGE: "display-boards.manage" as const,
+  },
+
   // Users and invites
   USERS_VIEW: "users.view" as const,
   USERS_READ: "users.read" as const,

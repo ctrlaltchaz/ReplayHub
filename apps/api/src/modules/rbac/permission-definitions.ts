@@ -171,4 +171,12 @@ export const DEFAULT_PERMISSION_DEFINITIONS: PermissionDefinition[] = [
   { key: 'docs.delete', group: 'docs', description: 'Delete organization documentation' },
   { key: 'docs.manage', group: 'docs', description: 'Manage documentation categories' },
   { key: 'docs.completions.track', group: 'docs', description: 'Mark tutorials as completed' },
+
+  { key: 'display-boards', group: 'display-boards', description: 'Access display boards module' },
+  { key: 'display-boards.view', group: 'display-boards', description: 'View display boards' },
+  {
+    key: 'display-boards.manage',
+    group: 'display-boards',
+    description: 'Create, edit, and manage display boards and images',
+  },
 ];
