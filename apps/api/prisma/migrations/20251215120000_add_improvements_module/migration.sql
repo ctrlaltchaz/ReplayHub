@@ -102,11 +102,11 @@ ALTER TABLE "improvement_entries" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "improvement_comments" ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policy for improvement_entries
-CREATE POLICY "improvement_entries_tenant_isolation" ON "improvement_entries" USING (
-    tenant_id = current_setting ('app.tenant_id', TRUE)
-);
+CREATE POLICY "improvement_entries_tenant_isolation" ON "improvement_entries"
+    FOR ALL
+    USING ("tenant_id" = current_setting('app.tenant_id', true)::text);
 
 -- RLS Policy for improvement_comments
-CREATE POLICY "improvement_comments_tenant_isolation" ON "improvement_comments" USING (
-    tenant_id = current_setting ('app.tenant_id', TRUE)
-);
+CREATE POLICY "improvement_comments_tenant_isolation" ON "improvement_comments"
+    FOR ALL
+    USING ("tenant_id" = current_setting('app.tenant_id', true)::text);
