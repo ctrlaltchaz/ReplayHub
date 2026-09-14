@@ -93,16 +93,9 @@ export default function AdminGetStartedPage() {
                             </div>
                         )}
 
-                        <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
                             <Button type="submit" disabled={isSubmitting || !name || !slug}>
                                 {isSubmitting ? 'Creating…' : 'Create Organisation'}
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => router.push('/admin/overview')}
-                            >
-                                Skip for now
                             </Button>
                         </div>
                     </form>

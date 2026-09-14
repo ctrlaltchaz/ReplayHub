@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_INTERCEPTOR } from '@nestjs/core';
+import * as path from 'path';
 
 // Common modules
 import { AuditModule } from './common/audit/audit.module';
@@ -63,7 +64,13 @@ import { UsersModule } from './modules/users/users.module';
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env.local', '.env'],
+      envFilePath: [
+        '.env.local',
+        '.env',
+        path.resolve(process.cwd(), '.env'),
+        path.resolve(__dirname, '../../../.env'),
+        path.resolve(__dirname, '../../../../.env'),
+      ],
     }),
 
     RateLimitModule,

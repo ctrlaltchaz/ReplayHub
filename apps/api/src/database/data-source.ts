@@ -10,7 +10,7 @@ export const dataSourceOptions: DataSourceOptions = {
   username: process.env.DATABASE_USER || 'postgres',
   password: process.env.DATABASE_PASSWORD || 'postgres',
   database: process.env.DATABASE_NAME || 'esports_ops',
-  entities: ['src/**/*.entity.ts'],
+  entities: [],
   migrations: ['src/database/migrations/*.ts'],
   synchronize: false, // Never use in production
   logging: process.env.NODE_ENV === 'development',

@@ -50,7 +50,7 @@ export function hasAllPermissions(userPermissions: PermissionKey[], required: st
  * @returns boolean - True if user is a global admin
  */
 export function isGlobalAdmin(globalUser: any): boolean {
-  return !!globalUser; // For now, any global user is considered admin
+  return globalUser?.isGlobalAdmin === true;
 }
 
 /**
