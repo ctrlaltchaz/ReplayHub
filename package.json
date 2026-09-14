@@ -1,6 +1,6 @@
 {
   "name": "replayhub",
-  "version": "0.3.6 Last update: 29-01-2026",
+  "version": "0.3.7 Last update: 14-09-2026",
   "description": "Multi-tenant esports operations platform monorepo",
   "private": true,
   "workspaces": [
