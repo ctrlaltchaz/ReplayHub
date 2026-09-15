@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 
 interface AdminGuardProps {
@@ -11,10 +11,13 @@ interface AdminGuardProps {
 
 export function AdminGuard({ children, requiresGlobalAdmin = false }: AdminGuardProps) {
     const { globalUser, isLoadingGlobal } = useAuth();
+    const pathname = usePathname();
     const router = useRouter();
+    const isOnboardingPage = pathname === "/admin/get-started";
+    const requiresAdminAccess = requiresGlobalAdmin && !isOnboardingPage;
 
     React.useEffect(() => {
-        if (!isLoadingGlobal && (!globalUser || (requiresGlobalAdmin && globalUser.isGlobalAdmin !== true))) {
+        if (!isLoadingGlobal && (!globalUser || (requiresAdminAccess && globalUser.isGlobalAdmin !== true))) {
             // Don't redirect if we're already being redirected to login
             // This prevents redirect loops
             const currentPath = window.location.pathname;
@@ -23,7 +26,7 @@ export function AdminGuard({ children, requiresGlobalAdmin = false }: AdminGuard
                 return;
             }
 
-            if (requiresGlobalAdmin && globalUser) {
+            if (requiresAdminAccess && globalUser) {
                 router.replace('/');
                 return;
             }
@@ -34,7 +37,7 @@ export function AdminGuard({ children, requiresGlobalAdmin = false }: AdminGuard
             console.log('[AdminGuard] No global user, redirecting to:', loginUrl);
             router.push(loginUrl);
         }
-    }, [globalUser, isLoadingGlobal, router]);
+    }, [globalUser, isLoadingGlobal, requiresAdminAccess, router]);
 
     // Show loading state while checking authentication
     if (isLoadingGlobal) {
@@ -72,7 +75,7 @@ export function AdminGuard({ children, requiresGlobalAdmin = false }: AdminGuard
         );
     }
 
-    if (requiresGlobalAdmin && globalUser.isGlobalAdmin !== true) {
+    if (requiresAdminAccess && globalUser.isGlobalAdmin !== true) {
         return null;
     }
 

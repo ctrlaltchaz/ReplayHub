@@ -106,7 +106,7 @@ function extractMemberships(response?: UniversalLoginResponse | null): UnifiedOr
 function UniversalLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { refresh, globalUser, isLoadingGlobal } = useAuth();
+  const { refresh, globalUser, sessionUser, isLoadingGlobal } = useAuth();
 
   // Form state
   const [email, setEmail] = useState("");
@@ -134,11 +134,13 @@ function UniversalLoginContent() {
         router.push(redirectTo);
       } else if (globalUser.isGlobalAdmin) {
         router.push("/admin/control-center");
+      } else if (sessionUser?.hasGlobalAccount && sessionUser.globalOrganisations.length === 0) {
+        router.push("/admin/get-started");
       } else {
         router.push("/org/select");
       }
     }
-  }, [isLoadingGlobal, globalUser, router, searchParams]);
+  }, [isLoadingGlobal, globalUser, sessionUser, router, searchParams]);
 
   const membershipOptions = React.useMemo(() => extractMemberships(loginResponse), [loginResponse]);
   const loginResponseHasGlobal =
