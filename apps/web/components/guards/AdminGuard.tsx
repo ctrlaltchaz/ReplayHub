@@ -14,12 +14,17 @@ export function AdminGuard({ children, requiresGlobalAdmin = false }: AdminGuard
     const router = useRouter();
 
     React.useEffect(() => {
-        if (!isLoadingGlobal && !globalUser) {
+        if (!isLoadingGlobal && (!globalUser || (requiresGlobalAdmin && globalUser.isGlobalAdmin !== true))) {
             // Don't redirect if we're already being redirected to login
             // This prevents redirect loops
             const currentPath = window.location.pathname;
             if (currentPath.startsWith('/login')) {
                 console.log('[AdminGuard] Already on login page, skipping redirect');
+                return;
+            }
+
+            if (requiresGlobalAdmin && globalUser) {
+                router.replace('/');
                 return;
             }
 
@@ -67,11 +72,8 @@ export function AdminGuard({ children, requiresGlobalAdmin = false }: AdminGuard
         );
     }
 
-    // If global admin is required, check for it
-    if (requiresGlobalAdmin) {
-        // In a real app, you might check specific permissions or roles here
-        // For now, we assume that having a globalUser means they have admin access
-        // You could extend this to check specific admin permissions
+    if (requiresGlobalAdmin && globalUser.isGlobalAdmin !== true) {
+        return null;
     }
 
     return <>{children}</>;

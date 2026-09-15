@@ -121,16 +121,18 @@ export function Topbar({ org, onMobileMenuToggle }: TopbarProps) {
                     <span className="font-medium">My Profile</span>
                   </button>
                 )}
-                <button
-                  onClick={() => {
-                    setDropdownOpen(false);
-                    router.push(adminPath.controlCenter());
-                  }}
-                  className="w-full py-3 px-2 hover:bg-accent rounded cursor-pointer text-left"
-                >
-                  <Shield className="inline-block mr-3 h-5 w-5" />
-                  <span className="font-medium">Global Control Center</span>
-                </button>
+                {globalUser.isGlobalAdmin === true && (
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      router.push(adminPath.controlCenter());
+                    }}
+                    className="w-full py-3 px-2 hover:bg-accent rounded cursor-pointer text-left"
+                  >
+                    <Shield className="inline-block mr-3 h-5 w-5" />
+                    <span className="font-medium">Global Control Center</span>
+                  </button>
+                )}
                 <div className="h-px bg-border my-1" />
               </>
             )}
